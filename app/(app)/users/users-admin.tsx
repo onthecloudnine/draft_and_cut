@@ -2,11 +2,12 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useI18n } from "@/lib/i18n/client";
-import { accountRoles, type AccountRole } from "@/types/domain";
-import type { UserAdminListItem } from "@/lib/data/users";
+import { accountRoles, userRoles, type AccountRole, type UserRole } from "@/types/domain";
+import type { ProjectJoinRequestAdminItem, UserAdminListItem } from "@/lib/data/users";
 
 type UsersAdminProps = {
   currentUserId: string;
+  initialJoinRequests: ProjectJoinRequestAdminItem[];
   initialUsers: UserAdminListItem[];
 };
 
@@ -27,9 +28,10 @@ const emptyForm: FormState = {
   isActive: true
 };
 
-export function UsersAdmin({ currentUserId, initialUsers }: UsersAdminProps) {
+export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers }: UsersAdminProps) {
   const { optionLabel, t } = useI18n();
   const [users, setUsers] = useState(initialUsers);
+  const [joinRequests, setJoinRequests] = useState(initialJoinRequests);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -122,6 +124,41 @@ export function UsersAdmin({ currentUserId, initialUsers }: UsersAdminProps) {
       setForm(emptyForm);
     }
     setStatus(t("users.deleted"));
+  }
+
+  function updateJoinRequestRole(requestId: string, role: UserRole) {
+    setJoinRequests((current) =>
+      current.map((request) => (request.id === requestId ? { ...request, requestedRole: role } : request))
+    );
+  }
+
+  async function reviewJoinRequest(request: ProjectJoinRequestAdminItem, action: "approve" | "reject") {
+    setError("");
+    setStatus("");
+
+    const response = await fetch(`/api/project-join-requests/${request.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, role: request.requestedRole })
+    });
+
+    if (!response.ok) {
+      const payload = await response.json();
+      setError(payload.error ?? t("users.reviewJoinRequestError"));
+      return;
+    }
+
+    setJoinRequests((current) => current.filter((item) => item.id !== request.id));
+
+    if (action === "approve") {
+      setUsers((current) =>
+        current.map((user) =>
+          user.id === request.userId ? { ...user, projectCount: user.projectCount + 1 } : user
+        )
+      );
+    }
+
+    setStatus(action === "approve" ? t("users.joinRequestApproved") : t("users.joinRequestRejected"));
   }
 
   return (
@@ -292,6 +329,66 @@ export function UsersAdmin({ currentUserId, initialUsers }: UsersAdminProps) {
           {users.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-400">{t("users.empty")}</div>
           ) : null}
+        </div>
+      </section>
+
+      <section className="pb-5">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg shadow-black/30">
+          <div className="border-b border-neutral-800 px-5 py-4">
+            <h2 className="font-semibold text-slate-50">{t("users.joinRequests")}</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              {t("users.pendingJoinRequests", { count: joinRequests.length })}
+            </p>
+          </div>
+          <div className="grid gap-3 p-5">
+            {joinRequests.map((request) => (
+              <article className="rounded-md border border-neutral-800 bg-black/40 p-4" key={request.id}>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
+                  <div>
+                    <h3 className="font-semibold text-slate-50">{request.userName}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{request.userEmail}</p>
+                    <p className="mt-2 text-sm text-slate-300">{request.projectTitle}</p>
+                    {request.message ? (
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{request.message}</p>
+                    ) : null}
+                  </div>
+                  <label className="grid gap-2 text-sm font-medium text-slate-300">
+                    {t("users.projectRole")}
+                    <select
+                      className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+                      onChange={(event) => updateJoinRequestRole(request.id, event.target.value as UserRole)}
+                      value={request.requestedRole}
+                    >
+                      {userRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {optionLabel("userRoles", role)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      className="h-10 rounded-md bg-red-900 px-3 text-sm font-medium text-white hover:bg-red-800"
+                      onClick={() => void reviewJoinRequest(request, "approve")}
+                      type="button"
+                    >
+                      {t("users.approve")}
+                    </button>
+                    <button
+                      className="h-10 rounded-md border border-neutral-700 px-3 text-sm font-medium text-slate-300 hover:bg-neutral-800"
+                      onClick={() => void reviewJoinRequest(request, "reject")}
+                      type="button"
+                    >
+                      {t("users.reject")}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+            {joinRequests.length === 0 ? (
+              <p className="text-sm text-slate-400">{t("users.noJoinRequests")}</p>
+            ) : null}
+          </div>
         </div>
       </section>
     </div>

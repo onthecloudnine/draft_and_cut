@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type FormEvent, type UIEvent } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import {
   assetTagCategories,
@@ -150,6 +150,104 @@ function readNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const summaryStopWords = new Set([
+  "a",
+  "al",
+  "ante",
+  "bajo",
+  "con",
+  "contra",
+  "de",
+  "del",
+  "desde",
+  "durante",
+  "el",
+  "ella",
+  "ellos",
+  "en",
+  "entre",
+  "es",
+  "esa",
+  "ese",
+  "esta",
+  "este",
+  "la",
+  "las",
+  "le",
+  "lo",
+  "los",
+  "mas",
+  "mientras",
+  "para",
+  "pero",
+  "por",
+  "que",
+  "se",
+  "sin",
+  "sobre",
+  "su",
+  "sus",
+  "un",
+  "una",
+  "unas",
+  "unos",
+  "y"
+]);
+
+function summarizeLiteraryScript(text: string) {
+  const normalizedText = text
+    .replace(/\b[A-ZÁÉÍÓÚÑ]{2,}\s+-/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalizedText) {
+    return "";
+  }
+
+  const sentences = normalizedText
+    .split(/[.!?]\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 32);
+
+  if (sentences.length <= 2) {
+    return normalizedText;
+  }
+
+  const termFrequency = new Map<string, number>();
+
+  for (const word of normalizedText.toLowerCase().match(/\p{L}{4,}/gu) ?? []) {
+    const normalizedWord = word.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    if (!summaryStopWords.has(normalizedWord)) {
+      termFrequency.set(normalizedWord, (termFrequency.get(normalizedWord) ?? 0) + 1);
+    }
+  }
+
+  const rankedSentences = sentences
+    .map((sentence, index) => {
+      const words = sentence.toLowerCase().match(/\p{L}{4,}/gu) ?? [];
+      const keywordScore =
+        words.reduce((total, word) => {
+          const normalizedWord = word.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return total + (termFrequency.get(normalizedWord) ?? 0);
+        }, 0) / Math.max(1, words.length);
+      const positionScore = Math.max(0, 1 - index / Math.max(1, sentences.length));
+      const lengthScore = sentence.length > 70 && sentence.length < 210 ? 0.6 : 0;
+      const dialoguePenalty = sentence.includes(" -") || /^[A-ZÁÉÍÓÚÑ]{2,}\b/.test(sentence) ? 0.75 : 0;
+      const score = keywordScore + positionScore + lengthScore - dialoguePenalty;
+
+      return { index, score, sentence };
+    })
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 3)
+    .sort((left, right) => left.index - right.index);
+
+  return rankedSentences
+    .map((item) => item.sentence)
+    .join(". ")
+    .slice(0, 260);
+}
+
 function getNextShotNumber(shots: ShotData[]) {
   const numericShotNumbers = shots
     .map((shot) => Number.parseInt(shot.shotNumber, 10))
@@ -220,11 +318,16 @@ export function SceneDetailWorkspace({
   const [resourceStatus, setResourceStatus] = useState("");
   const [tagStatus, setTagStatus] = useState("");
   const [error, setError] = useState("");
+  const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(false);
   const [isSavingScript, setIsSavingScript] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isSavingResource, setIsSavingResource] = useState(false);
   const [isSavingTag, setIsSavingTag] = useState<AssetTagCategory | "">("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const normalVideoSlotRef = useRef<HTMLDivElement>(null);
+  const compactVideoSlotRef = useRef<HTMLDivElement>(null);
+  const movableVideoFrameRef = useRef<HTMLDivElement>(null);
 
   const activeShot = shots.find((shot) => shot.id === activeShotId) ?? shots[0] ?? null;
   const availableResourceMembers = projectMembers.filter(
@@ -241,6 +344,102 @@ export function SceneDetailWorkspace({
       null,
     [availableVideos, selectedVideoId]
   );
+  const literarySummary = useMemo(
+    () => summarizeLiteraryScript(scene.literaryScript || scene.description),
+    [scene.description, scene.literaryScript]
+  );
+
+  useLayoutEffect(() => {
+    setIsCompactHeaderVisible(false);
+
+    if (workspaceRef.current) {
+      workspaceRef.current.scrollTop = 0;
+    }
+  }, [scene.id]);
+
+  useLayoutEffect(() => {
+    const videoFrame = movableVideoFrameRef.current;
+    const normalSlot = normalVideoSlotRef.current;
+    const compactSlot = compactVideoSlotRef.current;
+
+    if (!videoFrame || !normalSlot) {
+      return;
+    }
+
+    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+    const targetSlot = isDesktop && isCompactHeaderVisible && compactSlot ? compactSlot : normalSlot;
+
+    if (videoFrame.parentElement !== targetSlot) {
+      targetSlot.appendChild(videoFrame);
+    }
+  }, [isCompactHeaderVisible]);
+
+  function renderMovableVideoFrame() {
+    return (
+      <div
+        className={[
+          "grid aspect-video place-items-center bg-black",
+          isCompactHeaderVisible
+            ? "w-[320pt] max-w-full shrink-0 overflow-hidden rounded-md border border-neutral-800"
+            : ""
+        ].join(" ")}
+        ref={movableVideoFrameRef}
+      >
+        {activeVideo?.url ? (
+          <video className="h-full w-full object-contain" controls key={activeVideo.id} src={activeVideo.url} />
+        ) : (
+          <div className="px-6 text-center">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-neutral-700 bg-neutral-900">
+              <div className="ml-1 h-0 w-0 border-y-[10px] border-l-[16px] border-y-transparent border-l-slate-400" />
+            </div>
+            <p className="mt-4 text-sm font-medium text-slate-100">{t("scene.noPreviewTitle")}</p>
+            <p className="mt-2 text-sm text-slate-400">{t("scene.noPreviewBody")}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderVideoPanel() {
+    return (
+      <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-lg shadow-black/30">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3 text-white">
+          <div>
+            <p className="text-xs uppercase text-slate-400">{t("scene.loadedVideo")}</p>
+            <p className="mt-1 text-sm font-medium">
+              {activeVideo
+                ? `${optionLabel("productionStages", activeVideo.stage)} v${activeVideo.versionNumber} · ${activeVideo.resolution}`
+                : t("scene.noVideoSelection")}
+            </p>
+          </div>
+          {availableVideos.length > 1 ? (
+            <select
+              className="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-sm text-white"
+              onChange={(event) => setSelectedVideoId(event.target.value)}
+              value={activeVideo?.id ?? ""}
+            >
+              {availableVideos.map((video) => (
+                <option key={video.id} value={video.id}>
+                  {optionLabel("productionStages", video.stage)} v{video.versionNumber}{" "}
+                  {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+        <div ref={normalVideoSlotRef}>
+          {renderMovableVideoFrame()}
+        </div>
+      </div>
+    );
+  }
+
+  function handleWorkspaceScroll(event: UIEvent<HTMLDivElement>) {
+    const shouldShowCompactHeader = window.matchMedia("(min-width: 1024px)").matches && event.currentTarget.scrollTop > 120;
+    setIsCompactHeaderVisible((current) =>
+      current === shouldShowCompactHeader ? current : shouldShowCompactHeader
+    );
+  }
 
   function updateShot(shotId: string, patch: Partial<ShotData>) {
     setShots((current) => current.map((shot) => (shot.id === shotId ? { ...shot, ...patch } : shot)));
@@ -571,7 +770,45 @@ export function SceneDetailWorkspace({
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto" onScroll={handleWorkspaceScroll} ref={workspaceRef}>
+      <div
+        className={[
+          "fixed left-0 right-0 top-16 z-30 hidden border-b border-neutral-800 bg-black/95 px-5 py-3 shadow-lg shadow-black/30 transition sm:px-7 lg:block",
+          isCompactHeaderVisible ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-full opacity-0"
+        ].join(" ")}
+      >
+          <div className="grid gap-4 lg:grid-cols-[320pt_minmax(0,1fr)] lg:items-center">
+            <div ref={compactVideoSlotRef} />
+            <div className="flex min-w-0 items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  {t("scene.scene")} {scene.sceneNumber}
+                </p>
+                <h2 className="mt-1 line-clamp-1 text-xl font-semibold text-slate-50">{scene.title}</h2>
+                {literarySummary ? (
+                  <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-5 text-slate-400">
+                    {literarySummary}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <a
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-neutral-700 px-4 text-sm font-medium text-slate-200 hover:bg-neutral-900"
+                  href={`/api/scenes/${scene.id}/assets/download`}
+                >
+                  {t("scene.downloadAssetsZip")}
+                </a>
+                <Link
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-red-900 px-4 text-sm font-medium text-white hover:bg-red-800"
+                  href={`/upload?projectId=${scene.projectId}&sceneId=${scene.id}`}
+                >
+                  {t("scene.uploadVideo")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
       <section className="border-b border-neutral-800 bg-black px-5 py-4 sm:px-7">
         <Link className="text-sm font-medium text-red-300 hover:text-red-200" href={`/projects/${scene.projectId}`}>
           {t("scene.backToProject")}
@@ -603,45 +840,7 @@ export function SceneDetailWorkspace({
 
       <section className="grid gap-5 px-5 py-5 sm:px-7 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="grid gap-5">
-          <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-lg shadow-black/30">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3 text-white">
-              <div>
-                <p className="text-xs uppercase text-slate-400">{t("scene.loadedVideo")}</p>
-                <p className="mt-1 text-sm font-medium">
-                  {activeVideo
-                    ? `${optionLabel("productionStages", activeVideo.stage)} v${activeVideo.versionNumber} · ${activeVideo.resolution}`
-                    : t("scene.noVideoSelection")}
-                </p>
-              </div>
-              {availableVideos.length > 1 ? (
-                <select
-                  className="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-sm text-white"
-                  onChange={(event) => setSelectedVideoId(event.target.value)}
-                  value={activeVideo?.id ?? ""}
-                >
-                  {availableVideos.map((video) => (
-                    <option key={video.id} value={video.id}>
-                      {optionLabel("productionStages", video.stage)} v{video.versionNumber}{" "}
-                      {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </div>
-            <div className="grid aspect-video place-items-center bg-black">
-              {activeVideo?.url ? (
-                <video className="h-full w-full object-contain" controls key={activeVideo.id} src={activeVideo.url} />
-              ) : (
-                <div className="px-6 text-center">
-                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-neutral-700 bg-neutral-900">
-                    <div className="ml-1 h-0 w-0 border-y-[10px] border-l-[16px] border-y-transparent border-l-slate-400" />
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-slate-100">{t("scene.noPreviewTitle")}</p>
-                  <p className="mt-2 text-sm text-slate-400">{t("scene.noPreviewBody")}</p>
-                </div>
-              )}
-            </div>
-          </div>
+          {renderVideoPanel()}
 
           <section className="grid gap-4 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30">
             <div>

@@ -15,6 +15,17 @@
     "submit": "Sign in",
     "submitting": "Signing in..."
   },
+  "join": {
+    "title": "Join project",
+    "subtitle": "Create your account and request access to {projectTitle}. An admin must approve the request.",
+    "requestedRole": "Requested role",
+    "message": "Message for the admin",
+    "error": "Could not send the request.",
+    "success": "Request sent. Once an admin approves it, you can enter the project.",
+    "submitting": "Sending...",
+    "submit": "Request access",
+    "login": "I already have an account, go to login"
+  },
   "scene": {
     "backToProject": "Back to project",
     "scene": "Scene",
@@ -148,11 +159,21 @@
     "inactive": "Inactive",
     "edit": "Edit",
     "delete": "Delete",
-    "empty": "No users created."
+    "empty": "No users created.",
+    "joinRequests": "Access requests",
+    "pendingJoinRequests": "{count} pending requests",
+    "projectRole": "Project role",
+    "approve": "Approve",
+    "reject": "Reject",
+    "noJoinRequests": "No pending requests.",
+    "reviewJoinRequestError": "Could not review the request.",
+    "joinRequestApproved": "Request approved.",
+    "joinRequestRejected": "Request rejected."
   },
   "project": {
     "projectsTitle": "Projects",
     "projectsSubtitle": "Productions available for review, versioning, and tracking.",
+    "accessPage": "Access page",
     "officialFps": "Official FPS",
     "emptyAssigned": "You do not have assigned projects.",
     "askAdmin": "Ask an admin to add you to a production.",

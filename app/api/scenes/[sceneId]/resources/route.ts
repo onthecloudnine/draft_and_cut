@@ -35,13 +35,13 @@ export async function POST(
       return jsonError("Only admin users can assign human resources", 403);
     }
 
-    const [membership, targetUser] = await Promise.all([
-      ProjectMembership.findOne({ projectId: scene.projectId, userId: body.userId }).lean(),
-      User.findById(body.userId).select("name email isActive").lean()
+    const [targetUser, membership] = await Promise.all([
+      User.findById(body.userId).select("name email accountRole isActive").lean(),
+      ProjectMembership.findOne({ projectId: scene.projectId, userId: body.userId }).select("role").lean()
     ]);
 
-    if (!membership || !targetUser || targetUser.isActive === false) {
-      return jsonError("User is not an active member of this project", 400);
+    if (!targetUser || targetUser.isActive === false) {
+      return jsonError("User is not active", 400);
     }
 
     const assignment = await SceneResourceAssignment.findOneAndUpdate(
@@ -63,7 +63,7 @@ export async function POST(
         userId: String(assignment.userId),
         name: targetUser.name,
         email: targetUser.email,
-        role: membership.role,
+        role: membership?.role ?? targetUser.accountRole ?? "user",
         assignedAt: assignment.createdAt?.toISOString()
       }
     });

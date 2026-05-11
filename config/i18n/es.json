@@ -15,6 +15,17 @@
     "submit": "Ingresar",
     "submitting": "Ingresando..."
   },
+  "join": {
+    "title": "Unirse al proyecto",
+    "subtitle": "Crea tu cuenta y solicita acceso a {projectTitle}. Un admin debe aprobar la solicitud.",
+    "requestedRole": "Rol solicitado",
+    "message": "Mensaje para el administrador",
+    "error": "No se pudo enviar la solicitud.",
+    "success": "Solicitud enviada. Cuando un admin la apruebe podras entrar al proyecto.",
+    "submitting": "Enviando...",
+    "submit": "Solicitar acceso",
+    "login": "Ya tengo cuenta, ir a login"
+  },
   "scene": {
     "backToProject": "Volver al proyecto",
     "scene": "Escena",
@@ -148,11 +159,21 @@
     "inactive": "Inactiva",
     "edit": "Editar",
     "delete": "Eliminar",
-    "empty": "No hay usuarios creados."
+    "empty": "No hay usuarios creados.",
+    "joinRequests": "Solicitudes de acceso",
+    "pendingJoinRequests": "{count} solicitudes pendientes",
+    "projectRole": "Rol en proyecto",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "noJoinRequests": "No hay solicitudes pendientes.",
+    "reviewJoinRequestError": "No se pudo revisar la solicitud.",
+    "joinRequestApproved": "Solicitud aprobada.",
+    "joinRequestRejected": "Solicitud rechazada."
   },
   "project": {
     "projectsTitle": "Proyectos",
     "projectsSubtitle": "Producciones disponibles para revision, versionado y seguimiento.",
+    "accessPage": "Pagina de acceso",
     "officialFps": "FPS oficial",
     "emptyAssigned": "No tienes proyectos asignados.",
     "askAdmin": "Pide a un administrador que te agregue a una produccion.",

@@ -25,14 +25,24 @@ export async function getSceneDetailData(sceneId: string) {
     return null;
   }
 
-  const [project, shots, videos, attachments, memberships, resourceAssignments, sceneAssetTags] = await Promise.all([
+  const [
+    project,
+    shots,
+    videos,
+    attachments,
+    memberships,
+    resourceAssignments,
+    sceneAssetTags,
+    activeUsers
+  ] = await Promise.all([
     Project.findById(scene.projectId).select("fpsDefault").lean(),
     Shot.find({ sceneId }).sort({ shotNumber: 1 }).lean(),
     VideoVersion.find({ sceneId }).sort({ isFavorite: -1, createdAt: -1 }).lean(),
     SceneAttachment.find({ sceneId, status: "ready" }).sort({ attachmentDate: -1, createdAt: -1 }).lean(),
     ProjectMembership.find({ projectId: scene.projectId }).lean(),
     SceneResourceAssignment.find({ sceneId }).sort({ createdAt: 1 }).lean(),
-    SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean()
+    SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean(),
+    User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean()
   ]);
   const assetTags = await AssetTag.find({ _id: { $in: sceneAssetTags.map((assignment) => assignment.tagId) } })
     .select("name category")
@@ -47,7 +57,7 @@ export async function getSceneDetailData(sceneId: string) {
     ])
   );
   const users = await User.find({ _id: { $in: userIds } }).select("name email isActive").lean();
-  const userById = new Map(users.map((user) => [String(user._id), user]));
+  const userById = new Map([...users, ...activeUsers].map((user) => [String(user._id), user]));
   const membershipRoleByUserId = new Map(memberships.map((membership) => [String(membership.userId), membership.role]));
 
   return {
@@ -116,22 +126,13 @@ export async function getSceneDetailData(sceneId: string) {
         };
       })
     ),
-    projectMembers: memberships
-      .map((membership) => {
-        const member = userById.get(String(membership.userId));
-
-        if (!member || member.isActive === false) {
-          return null;
-        }
-
-        return {
-          id: String(member._id),
-          name: member.name,
-          email: member.email,
-          role: membership.role
-        };
-      })
-      .filter((member): member is NonNullable<typeof member> => Boolean(member))
+    projectMembers: activeUsers
+      .map((member) => ({
+        id: String(member._id),
+        name: member.name,
+        email: member.email,
+        role: membershipRoleByUserId.get(String(member._id)) ?? member.accountRole ?? "user"
+      }))
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" })),
     humanResources: resourceAssignments
       .map((assignment) => {
