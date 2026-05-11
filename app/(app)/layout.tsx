@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { canManageUsers } from "@/lib/auth/admin";
+import { getDictionary, getLocale } from "@/lib/i18n/server";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -9,9 +10,19 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   if (!session?.user) {
     redirect("/login");
   }
+  const [dictionary, locale, userCanManageUsers] = await Promise.all([
+    getDictionary(),
+    getLocale(),
+    canManageUsers(session.user.id)
+  ]);
 
   return (
-    <AppShell canManageUsers={await canManageUsers(session.user.id)} userName={session.user.name}>
+    <AppShell
+      canManageUsers={userCanManageUsers}
+      dictionary={dictionary}
+      locale={locale}
+      userName={session.user.name}
+    >
       {children}
     </AppShell>
   );

@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -7,8 +6,9 @@ import { requireUser } from "@/lib/auth/session";
 import { assertProjectPermission } from "@/lib/auth/permissions";
 import { connectDb } from "@/lib/db/mongoose";
 import { jsonError } from "@/lib/api/http";
-import { getS3Client, getUploadBucket } from "@/lib/s3/client";
+import { getS3Client } from "@/lib/s3/client";
 import { buildSceneAttachmentS3Key } from "@/lib/s3/keys";
+import { buildPutObjectUpload } from "@/lib/s3/upload";
 import { Project } from "@/models/Project";
 import { Scene } from "@/models/Scene";
 import { SceneAttachment } from "@/models/SceneAttachment";
@@ -75,19 +75,13 @@ export async function POST(
       status: "uploading"
     });
 
-    const uploadUrl = await getSignedUrl(
-      getS3Client(),
-      new PutObjectCommand({
-        Bucket: getUploadBucket(),
-        Key: s3Key,
-        ContentType: body.mimeType
-      }),
-      { expiresIn: 60 * 10 }
-    );
+    const { command, uploadHeaders } = buildPutObjectUpload({ key: s3Key, contentType: body.mimeType });
+    const uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 60 * 10 });
 
     return NextResponse.json({
       uploadId,
       attachmentId: String(attachment._id),
+      uploadHeaders,
       uploadUrl
     });
   } catch (error) {

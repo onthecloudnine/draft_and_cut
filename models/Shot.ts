@@ -16,6 +16,7 @@ const shotSchema = new Schema(
     sound: { type: String, default: "" },
     requiredElements: [{ type: String }],
     productionNotes: { type: String, default: "" },
+    durationFrames: { type: Number },
     startFrame: { type: Number },
     endFrame: { type: Number }
   },

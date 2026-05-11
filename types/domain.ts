@@ -1,63 +1,38 @@
-export const userRoles = [
-  "admin",
-  "director",
-  "producer",
-  "animator",
-  "external_reviewer",
-  "read_only"
-] as const;
+import options from "@/config/options.json";
 
-export const accountRoles = ["user", "admin"] as const;
+function nonEmptyOptionList(value: string[], key: string) {
+  if (value.length === 0) {
+    throw new Error(`Option list ${key} must not be empty`);
+  }
 
-export const videoScopes = ["scene", "shot"] as const;
+  return value as [string, ...string[]];
+}
 
-export const productionStages = [
-  "animatic",
-  "layout",
-  "blocking",
-  "animation",
-  "lighting",
-  "render",
-  "final"
-] as const;
+export const userRoles = nonEmptyOptionList(options.userRoles, "userRoles");
+export const accountRoles = nonEmptyOptionList(options.accountRoles, "accountRoles");
+export const videoScopes = nonEmptyOptionList(options.videoScopes, "videoScopes");
+export const productionStages = nonEmptyOptionList(options.productionStages, "productionStages");
+export const videoStatuses = nonEmptyOptionList(options.videoStatuses, "videoStatuses");
+export const scriptStatuses = nonEmptyOptionList(options.scriptStatuses, "scriptStatuses");
+export const sceneStatuses = nonEmptyOptionList(options.sceneStatuses, "sceneStatuses");
+export const sceneSoundOptions = nonEmptyOptionList(options.sceneSoundOptions, "sceneSoundOptions");
+export const assetTagCategories = nonEmptyOptionList(options.assetTagCategories, "assetTagCategories");
+export const shotStatuses = nonEmptyOptionList(options.shotStatuses, "shotStatuses");
+export const commentStatuses = nonEmptyOptionList(options.commentStatuses, "commentStatuses");
+export const commentPriorities = nonEmptyOptionList(options.commentPriorities, "commentPriorities");
 
-export const videoStatuses = [
-  "draft",
-  "uploading",
-  "ready_for_review",
-  "approved",
-  "rejected",
-  "archived",
-  "failed"
-] as const;
-
-export const scriptStatuses = ["draft", "active", "superseded", "locked", "archived"] as const;
-
-export const sceneStatuses = ["draft", "in_progress", "in_review", "approved", "archived"] as const;
-
-export const shotStatuses = ["animatic", "playblast", "render"] as const;
-
-export const commentStatuses = [
-  "open",
-  "in_progress",
-  "needs_review",
-  "resolved",
-  "rejected",
-  "archived"
-] as const;
-
-export const commentPriorities = ["low", "medium", "high", "critical"] as const;
-
-export type UserRole = (typeof userRoles)[number];
-export type AccountRole = (typeof accountRoles)[number];
-export type VideoScope = (typeof videoScopes)[number];
-export type ProductionStage = (typeof productionStages)[number];
-export type VideoStatus = (typeof videoStatuses)[number];
-export type ScriptStatus = (typeof scriptStatuses)[number];
-export type SceneStatus = (typeof sceneStatuses)[number];
-export type ShotStatus = (typeof shotStatuses)[number];
-export type CommentStatus = (typeof commentStatuses)[number];
-export type CommentPriority = (typeof commentPriorities)[number];
+export type UserRole = string;
+export type AccountRole = string;
+export type VideoScope = string;
+export type ProductionStage = string;
+export type VideoStatus = string;
+export type ScriptStatus = string;
+export type SceneStatus = string;
+export type SceneSoundOption = string;
+export type AssetTagCategory = string;
+export type ShotStatus = string;
+export type CommentStatus = string;
+export type CommentPriority = string;
 
 export type Permission =
   | "project:read"

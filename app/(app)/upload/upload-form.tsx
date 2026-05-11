@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
+import { useI18n } from "@/lib/i18n/client";
 import { productionStages, type ProductionStage } from "@/types/domain";
 
 type UploadOptions = {
@@ -23,6 +24,7 @@ type UploadFormProps = {
 
 export function UploadForm({ options, initialProjectId, initialSceneId }: UploadFormProps) {
   const router = useRouter();
+  const { optionLabel, t } = useI18n();
   const [projectId, setProjectId] = useState(initialProjectId ?? options.projects[0]?.id ?? "");
   const [sceneId, setSceneId] = useState(initialSceneId ?? "");
   const [stage, setStage] = useState<ProductionStage>("animation");
@@ -47,7 +49,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
     if (!nextFile.name.toLowerCase().endsWith(".mp4") || nextFile.type !== "video/mp4") {
       setFile(null);
       setError(
-        "Este sistema acepta videos comprimidos para revision web en formato MP4 H.264. Por favor exporta nuevamente el archivo con el estandar definido para el proyecto."
+        t("upload.invalidMp4")
       );
       return;
     }
@@ -57,7 +59,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
 
     if (fileSizeMb > maxMb) {
       setFile(null);
-      setError(`El archivo supera el maximo configurado de ${maxMb} MB.`);
+      setError(t("upload.maxSize", { maxMb }));
       return;
     }
 
@@ -68,7 +70,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
 
     await new Promise<void>((resolve, reject) => {
       video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("No se pudo leer la metadata del video."));
+      video.onerror = () => reject(new Error(t("upload.metadataError")));
     }).finally(() => URL.revokeObjectURL(objectUrl));
 
     setFile(nextFile);
@@ -85,19 +87,19 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
     setStatus("");
 
     if (!file || !metadata || !selectedProject) {
-      setError("Selecciona un archivo MP4 valido antes de subir.");
+      setError(t("upload.selectValidFile"));
       return;
     }
 
     if (!projectId || !sceneId || !stage) {
-      setError("Proyecto, escena y etapa son obligatorios.");
+      setError(t("upload.requiredFields"));
       return;
     }
 
     setIsUploading(true);
 
     try {
-      setStatus("Preparando URL segura...");
+      setStatus(t("upload.preparing"));
       const initResponse = await fetch("/api/uploads/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,23 +120,24 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
 
       if (!initResponse.ok) {
         const payload = await initResponse.json();
-        throw new Error(payload.error ?? "No se pudo iniciar la subida.");
+        throw new Error(payload.error ?? t("upload.initError"));
       }
 
       const initPayload = await initResponse.json();
 
-      setStatus("Subiendo archivo a S3...");
+      setStatus(t("upload.uploadingS3"));
       const uploadResponse = await fetch(initPayload.uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": file.type, ...(initPayload.uploadHeaders ?? {}) },
         body: file
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("S3 rechazo la subida del archivo.");
+        const s3Error = await uploadResponse.text().catch(() => "");
+        throw new Error(`${t("upload.s3Rejected")} (${uploadResponse.status})${s3Error ? `: ${s3Error}` : ""}`);
       }
 
-      setStatus("Confirmando version...");
+      setStatus(t("upload.confirming"));
       const completeResponse = await fetch(`/api/uploads/${initPayload.uploadId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,10 +149,10 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
 
       if (!completeResponse.ok) {
         const payload = await completeResponse.json();
-        throw new Error(payload.error ?? "No se pudo confirmar la subida.");
+        throw new Error(payload.error ?? t("upload.confirmError"));
       }
 
-      setStatus(`Version v${initPayload.versionNumber} lista para revision.`);
+      setStatus(t("upload.versionReady", { versionNumber: initPayload.versionNumber }));
       setFile(null);
       setMetadata(null);
       setNotes("");
@@ -157,7 +160,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
         fileInputRef.current.value = "";
       }
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Error inesperado al subir.");
+      setError(uploadError instanceof Error ? uploadError.message : t("upload.unexpectedError"));
     } finally {
       setIsUploading(false);
     }
@@ -176,7 +179,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
     <form className="grid gap-6 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30" onSubmit={handleSubmit}>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium text-slate-300">
-          Proyecto
+          {t("upload.project")}
           <select
             className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
             onChange={(event) => {
@@ -193,7 +196,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
           </select>
         </label>
         <label className="grid gap-2 text-sm font-medium text-slate-300">
-          Escena
+          {t("upload.scene")}
           <select
             className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
             onChange={(event) => {
@@ -201,16 +204,16 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
             }}
             value={sceneId}
           >
-            <option value="">Seleccionar escena</option>
+            <option value="">{t("upload.selectScene")}</option>
             {scenes.map((scene) => (
               <option key={scene.id} value={scene.id}>
-                Escena {scene.sceneNumber} - {scene.title}
+                {t("scene.scene")} {scene.sceneNumber} - {scene.title}
               </option>
             ))}
           </select>
         </label>
         <label className="grid gap-2 text-sm font-medium text-slate-300">
-          Etapa
+          {t("upload.stage")}
           <select
             className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
             onChange={(event) => setStage(event.target.value as ProductionStage)}
@@ -218,7 +221,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
           >
             {productionStages.map((item) => (
               <option key={item} value={item}>
-                {item}
+                {optionLabel("productionStages", item)}
               </option>
             ))}
           </select>
@@ -239,9 +242,9 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
         type="button"
       >
         <span className="block font-medium text-slate-100">
-          {file ? file.name : "Arrastra aqui tu video comprimido"}
+          {file ? file.name : t("upload.dropVideo")}
         </span>
-        <span className="mt-2 block text-sm text-slate-400">Formato obligatorio: .mp4 / H.264 / CFR</span>
+        <span className="mt-2 block text-sm text-slate-400">{t("upload.format")}</span>
       </button>
       <input
         accept="video/mp4"
@@ -259,7 +262,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
       {metadata ? (
         <div className="grid gap-3 rounded-md bg-black p-4 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-slate-500">Duracion</p>
+            <p className="text-slate-500">{t("upload.duration")}</p>
             <p className="font-medium text-slate-100">{metadata.duration}s</p>
           </div>
           <div>
@@ -267,22 +270,22 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
             <p className="font-medium text-slate-100">{selectedProject?.fpsDefault ?? "-"}</p>
           </div>
           <div>
-            <p className="text-slate-500">Resolucion</p>
+            <p className="text-slate-500">{t("upload.resolution")}</p>
             <p className="font-medium text-slate-100">{metadata.resolution}</p>
           </div>
           <div>
-            <p className="text-slate-500">Peso</p>
+            <p className="text-slate-500">{t("upload.size")}</p>
             <p className="font-medium text-slate-100">{metadata.fileSizeMb} MB</p>
           </div>
         </div>
       ) : null}
 
       <label className="grid gap-2 text-sm font-medium text-slate-300">
-        Notas de entrega
+        {t("upload.deliveryNotes")}
         <textarea
           className="min-h-28 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100"
           onChange={(event) => setNotes(event.target.value)}
-          placeholder="Se corrige timing y acting..."
+          placeholder={t("upload.deliveryPlaceholder")}
           value={notes}
         />
       </label>
@@ -297,14 +300,14 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
           onClick={handleCancel}
           type="button"
         >
-          Cancelar
+          {t("upload.cancel")}
         </button>
         <button
           className="h-11 rounded-md bg-red-900 px-5 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isUploading}
           type="submit"
         >
-          {isUploading ? "Subiendo..." : "Subir version"}
+          {isUploading ? t("upload.submitting") : t("upload.submit")}
         </button>
       </div>
     </form>

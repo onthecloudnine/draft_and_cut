@@ -7,7 +7,7 @@ import { jsonError } from "@/lib/api/http";
 import { Scene } from "@/models/Scene";
 import { ScriptVersion } from "@/models/ScriptVersion";
 import { Shot } from "@/models/Shot";
-import { shotStatuses } from "@/types/domain";
+import { sceneSoundOptions, shotStatuses, type SceneSoundOption } from "@/types/domain";
 
 const shotInputSchema = z.object({
   id: z.string().min(1).optional(),
@@ -19,7 +19,8 @@ const shotInputSchema = z.object({
   camera: z.string().optional().default(""),
   sound: z.string().optional().default(""),
   requiredElements: z.array(z.string()).optional().default([]),
-  productionNotes: z.string().optional().default("")
+  productionNotes: z.string().optional().default(""),
+  durationFrames: z.number().int().nonnegative().nullable().optional().default(null)
 });
 
 const scriptUpdateSchema = z.object({
@@ -27,7 +28,8 @@ const scriptUpdateSchema = z.object({
     title: z.string().min(1),
     description: z.string().optional().default(""),
     location: z.string().optional().default(""),
-    timeOfDay: z.string().optional().default("")
+    timeOfDay: z.string().optional().default(""),
+    soundOptions: z.array(z.enum(sceneSoundOptions)).optional().default(["none"])
   }),
   shots: z.array(shotInputSchema)
 });
@@ -45,6 +47,7 @@ function serializeShot(shot: {
   sound: string;
   requiredElements: string[];
   productionNotes: string;
+  durationFrames?: number | null;
   startFrame?: number | null;
   endFrame?: number | null;
 }) {
@@ -59,6 +62,7 @@ function serializeShot(shot: {
     sound: shot.sound,
     requiredElements: shot.requiredElements,
     productionNotes: shot.productionNotes,
+    durationFrames: shot.durationFrames ?? null,
     startFrame: shot.startFrame ?? null,
     endFrame: shot.endFrame ?? null
   };
@@ -98,8 +102,16 @@ function buildShotUpdate(shot: ScriptShotInput) {
     camera: shot.camera,
     sound: shot.sound,
     requiredElements: shot.requiredElements.map((item) => item.trim()).filter(Boolean),
-    productionNotes: shot.productionNotes
+    productionNotes: shot.productionNotes,
+    durationFrames: shot.durationFrames
   };
+}
+
+function normalizeSceneSoundOptions(options: SceneSoundOption[]) {
+  const uniqueOptions = Array.from(new Set(options));
+  const selectedOptions = uniqueOptions.filter((option) => option !== "none");
+
+  return selectedOptions.length > 0 ? selectedOptions : ["none"];
 }
 
 export async function PATCH(
@@ -142,6 +154,7 @@ export async function PATCH(
       description: body.scene.description,
       location: body.scene.location,
       timeOfDay: body.scene.timeOfDay,
+      soundOptions: normalizeSceneSoundOptions(body.scene.soundOptions),
       currentScriptVersionId: scriptVersionId
     });
 

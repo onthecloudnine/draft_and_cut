@@ -1,5 +1,5 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
-import { sceneStatuses } from "@/types/domain";
+import { sceneSoundOptions, sceneStatuses } from "@/types/domain";
 
 const sceneSchema = new Schema(
   {
@@ -11,6 +11,7 @@ const sceneSchema = new Schema(
     literaryScript: { type: String, default: "" },
     location: { type: String, default: "" },
     timeOfDay: { type: String, default: "" },
+    soundOptions: { type: [String], enum: sceneSoundOptions, default: ["none"] },
     sortOrder: { type: Number, default: 0, index: true },
     status: { type: String, enum: sceneStatuses, default: "draft" },
     currentVideoVersionId: { type: Schema.Types.ObjectId, ref: "VideoVersion" },

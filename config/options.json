@@ -1,0 +1,14 @@
+{
+  "userRoles": ["admin", "director", "producer", "animator", "external_reviewer", "read_only"],
+  "accountRoles": ["user", "admin"],
+  "videoScopes": ["scene", "shot"],
+  "productionStages": ["animatic", "layout", "blocking", "animation", "lighting", "render", "final"],
+  "videoStatuses": ["draft", "uploading", "ready_for_review", "approved", "rejected", "archived", "failed"],
+  "scriptStatuses": ["draft", "active", "superseded", "locked", "archived"],
+  "sceneStatuses": ["draft", "in_progress", "in_review", "approved", "archived"],
+  "sceneSoundOptions": ["none", "incidental", "dialogue", "music", "folley"],
+  "assetTagCategories": ["character", "prop", "environment"],
+  "shotStatuses": ["animatic", "playblast", "render"],
+  "commentStatuses": ["open", "in_progress", "needs_review", "resolved", "rejected", "archived"],
+  "commentPriorities": ["low", "medium", "high", "critical"]
+}

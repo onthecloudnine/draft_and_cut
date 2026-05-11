@@ -42,6 +42,16 @@ function isSceneHeading(line: string) {
   };
 }
 
+function getBaseSceneNumber(sceneNumber: string) {
+  const match = sceneNumber.trim().match(/^0*(\d+)/);
+
+  if (!match) {
+    return sceneNumber.trim();
+  }
+
+  return String(Number(match[1]));
+}
+
 export function parseLiteraryScript(scriptText: string): LiterarySceneBlock[] {
   const lines = normalizeText(scriptText).split("\n");
   const headings: Array<{ lineIndex: number; sceneNumber: string; heading: string }> = [];
@@ -68,23 +78,27 @@ export function parseLiteraryScript(scriptText: string): LiterarySceneBlock[] {
 
 export async function importLiteraryScript(input: ImportLiteraryScriptInput): Promise<ImportLiteraryScriptResult> {
   const blocks = parseLiteraryScript(input.scriptText);
+  const blockBySceneNumber = new Map(blocks.map((block) => [block.sceneNumber, block]));
+  const scenes = await Scene.find({ projectId: input.projectId }).select("_id sceneNumber").lean();
   const missingSceneNumbers: string[] = [];
   let updatedSceneCount = 0;
 
-  for (const block of blocks) {
-    const result = await Scene.updateOne(
-      { projectId: input.projectId, sceneNumber: block.sceneNumber },
+  for (const scene of scenes) {
+    const block = blockBySceneNumber.get(scene.sceneNumber) ?? blockBySceneNumber.get(getBaseSceneNumber(scene.sceneNumber));
+
+    if (!block) {
+      missingSceneNumbers.push(scene.sceneNumber);
+      continue;
+    }
+
+    await Scene.updateOne(
+      { _id: scene._id },
       {
         literaryHeading: block.heading,
         literaryScript: block.text
       }
     );
-
-    if (result.matchedCount === 0) {
-      missingSceneNumbers.push(block.sceneNumber);
-    } else {
-      updatedSceneCount += result.matchedCount;
-    }
+    updatedSceneCount += 1;
   }
 
   return {

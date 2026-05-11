@@ -26,6 +26,7 @@ export default async function SceneDetailPage({
   return (
     <SceneDetailWorkspace
       attachments={data.attachments}
+      assetTags={data.assetTags}
       canEditScript={role === "admin"}
       canManageResources={role === "admin"}
       humanResources={data.humanResources}

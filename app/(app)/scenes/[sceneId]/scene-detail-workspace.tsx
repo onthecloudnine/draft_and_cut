@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { shotStatuses, type ShotStatus } from "@/types/domain";
+import { useI18n } from "@/lib/i18n/client";
+import {
+  assetTagCategories,
+  sceneSoundOptions,
+  shotStatuses,
+  type AssetTagCategory,
+  type SceneSoundOption,
+  type ShotStatus
+} from "@/types/domain";
 
 type SceneData = {
   id: string;
@@ -14,7 +22,9 @@ type SceneData = {
   literaryScript: string;
   location: string;
   timeOfDay: string;
+  soundOptions: SceneSoundOption[];
   status: string;
+  fpsDefault: number;
 };
 
 type ShotData = {
@@ -28,6 +38,7 @@ type ShotData = {
   sound: string;
   requiredElements: string[];
   productionNotes: string;
+  durationFrames: number | null;
   startFrame: number | null;
   endFrame: number | null;
 };
@@ -76,6 +87,19 @@ type HumanResourceData = {
   assignedAt?: string;
 };
 
+type AssetTagData = {
+  id: string;
+  tagId: string;
+  category: AssetTagCategory;
+  name: string;
+};
+
+type AssetTagSuggestion = {
+  id: string;
+  category: AssetTagCategory;
+  name: string;
+};
+
 type SceneDetailWorkspaceProps = {
   scene: SceneData;
   shots: ShotData[];
@@ -83,6 +107,7 @@ type SceneDetailWorkspaceProps = {
   attachments: AttachmentData[];
   projectMembers: ProjectMemberData[];
   humanResources: HumanResourceData[];
+  assetTags: AssetTagData[];
   canEditScript: boolean;
   canManageResources: boolean;
   initialShotId?: string;
@@ -101,6 +126,28 @@ function splitElements(value: string) {
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function framesToTimeParts(totalFrames: number | null, fps: number) {
+  const safeFps = Math.max(1, Math.round(fps));
+  const frames = Math.max(0, totalFrames ?? 0);
+  const minutes = Math.floor(frames / (safeFps * 60));
+  const seconds = Math.floor((frames - minutes * safeFps * 60) / safeFps);
+  const remainingFrames = frames % safeFps;
+
+  return { minutes, seconds, frames: remainingFrames };
+}
+
+function timePartsToFrames(parts: { minutes: number; seconds: number; frames: number }, fps: number) {
+  const safeFps = Math.max(1, Math.round(fps));
+
+  return Math.max(0, parts.minutes) * 60 * safeFps + Math.max(0, parts.seconds) * safeFps + Math.max(0, parts.frames);
+}
+
+function readNumber(value: string) {
+  const parsed = Number.parseInt(value, 10);
+
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function getNextShotNumber(shots: ShotData[]) {
@@ -127,6 +174,7 @@ function createEmptyShot(shots: ShotData[]): ShotData {
     sound: "",
     requiredElements: [],
     productionNotes: "",
+    durationFrames: null,
     startFrame: null,
     endFrame: null
   };
@@ -139,16 +187,29 @@ export function SceneDetailWorkspace({
   attachments: initialAttachments,
   projectMembers,
   humanResources: initialHumanResources,
+  assetTags: initialAssetTags,
   canEditScript,
   canManageResources,
   initialShotId
 }: SceneDetailWorkspaceProps) {
+  const { optionLabel, t } = useI18n();
   const [scene, setScene] = useState(initialScene);
   const [shots, setShots] = useState(initialShots);
   const [activeShotId, setActiveShotId] = useState(initialShotId ?? initialShots[0]?.id ?? "");
   const [selectedVideoId, setSelectedVideoId] = useState("");
   const [attachments, setAttachments] = useState(initialAttachments);
   const [humanResources, setHumanResources] = useState(initialHumanResources);
+  const [assetTags, setAssetTags] = useState(initialAssetTags);
+  const [tagInputs, setTagInputs] = useState<Record<string, string>>({
+    character: "",
+    prop: "",
+    environment: ""
+  });
+  const [tagSuggestions, setTagSuggestions] = useState<Record<string, AssetTagSuggestion[]>>({
+    character: [],
+    prop: [],
+    environment: []
+  });
   const [selectedResourceUserId, setSelectedResourceUserId] = useState("");
   const [attachmentTitle, setAttachmentTitle] = useState("");
   const [attachmentDate, setAttachmentDate] = useState(todayInputValue());
@@ -157,10 +218,12 @@ export function SceneDetailWorkspace({
   const [scriptStatus, setScriptStatus] = useState("");
   const [attachmentStatus, setAttachmentStatus] = useState("");
   const [resourceStatus, setResourceStatus] = useState("");
+  const [tagStatus, setTagStatus] = useState("");
   const [error, setError] = useState("");
   const [isSavingScript, setIsSavingScript] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isSavingResource, setIsSavingResource] = useState(false);
+  const [isSavingTag, setIsSavingTag] = useState<AssetTagCategory | "">("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeShot = shots.find((shot) => shot.id === activeShotId) ?? shots[0] ?? null;
@@ -183,6 +246,18 @@ export function SceneDetailWorkspace({
     setShots((current) => current.map((shot) => (shot.id === shotId ? { ...shot, ...patch } : shot)));
   }
 
+  function updateShotDuration(shot: ShotData, part: "minutes" | "seconds" | "frames", value: string) {
+    const fps = Math.max(1, Math.round(scene.fpsDefault));
+    const currentParts = framesToTimeParts(shot.durationFrames, fps);
+    const parsedValue = readNumber(value);
+    const nextParts = {
+      ...currentParts,
+      [part]: part === "frames" ? Math.min(parsedValue, fps - 1) : part === "seconds" ? Math.min(parsedValue, 59) : parsedValue
+    };
+
+    updateShot(shot.id, { durationFrames: timePartsToFrames(nextParts, fps) });
+  }
+
   function addShot() {
     const shot = createEmptyShot(shots);
     setShots((current) => [...current, shot]);
@@ -191,7 +266,7 @@ export function SceneDetailWorkspace({
   }
 
   function removeShot(shotId: string) {
-    if (!window.confirm("Estas seguro de quitar el plano?")) {
+    if (!window.confirm(t("scene.removeShotConfirm"))) {
       return;
     }
 
@@ -202,6 +277,101 @@ export function SceneDetailWorkspace({
       setActiveShotId(nextShots[0]?.id ?? "");
       setSelectedVideoId("");
     }
+  }
+
+  function toggleSceneSoundOption(option: SceneSoundOption, checked: boolean) {
+    setScene((current) => {
+      let nextOptions: SceneSoundOption[];
+
+      if (option === "none") {
+        nextOptions = checked ? ["none"] : [];
+      } else {
+        const currentOptions = current.soundOptions.filter((item) => item !== "none");
+        nextOptions = checked ? [...currentOptions, option] : currentOptions.filter((item) => item !== option);
+      }
+
+      return {
+        ...current,
+        soundOptions: nextOptions.length > 0 ? Array.from(new Set(nextOptions)) : ["none"]
+      };
+    });
+  }
+
+  async function loadTagSuggestions(category: AssetTagCategory, value: string) {
+    const response = await fetch(
+      `/api/projects/${scene.projectId}/asset-tags?category=${category}&q=${encodeURIComponent(value)}`
+    );
+
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = (await response.json()) as { tags: AssetTagSuggestion[] };
+    setTagSuggestions((current) => ({ ...current, [category]: payload.tags }));
+  }
+
+  function updateTagInput(category: AssetTagCategory, value: string) {
+    setTagInputs((current) => ({ ...current, [category]: value }));
+    void loadTagSuggestions(category, value);
+  }
+
+  async function addAssetTag(event: FormEvent<HTMLFormElement>, category: AssetTagCategory) {
+    event.preventDefault();
+
+    if (!canEditScript || !tagInputs[category].trim()) {
+      return;
+    }
+
+    setError("");
+    setTagStatus("");
+    setIsSavingTag(category);
+
+    try {
+      const response = await fetch(`/api/scenes/${scene.id}/asset-tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, name: tagInputs[category] })
+      });
+
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.error ?? t("scene.add"));
+      }
+
+      const payload = (await response.json()) as { tag: AssetTagData };
+      setAssetTags((current) =>
+        current.some((tag) => tag.id === payload.tag.id) ? current : [...current, payload.tag]
+      );
+      setTagInputs((current) => ({ ...current, [category]: "" }));
+      setTagSuggestions((current) => ({ ...current, [category]: [] }));
+      setTagStatus(t("scene.tagAssigned"));
+    } catch (tagError) {
+      setError(tagError instanceof Error ? tagError.message : t("scene.tagAssigned"));
+    } finally {
+      setIsSavingTag("");
+    }
+  }
+
+  async function removeAssetTag(assignmentId: string) {
+    if (!canEditScript) {
+      return;
+    }
+
+    setError("");
+    setTagStatus("");
+
+    const response = await fetch(`/api/scenes/${scene.id}/asset-tags/${assignmentId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      const payload = await response.json();
+      setError(payload.error ?? t("scene.tagRemoved"));
+      return;
+    }
+
+    setAssetTags((current) => current.filter((tag) => tag.id !== assignmentId));
+    setTagStatus(t("scene.tagRemoved"));
   }
 
   async function addHumanResource(event: FormEvent<HTMLFormElement>) {
@@ -224,7 +394,7 @@ export function SceneDetailWorkspace({
 
       if (!response.ok) {
         const payload = await response.json();
-        throw new Error(payload.error ?? "No se pudo asignar el responsable.");
+        throw new Error(payload.error ?? t("scene.assignResponsible"));
       }
 
       const payload = (await response.json()) as { resource: HumanResourceData };
@@ -232,9 +402,9 @@ export function SceneDetailWorkspace({
         current.some((resource) => resource.id === payload.resource.id) ? current : [...current, payload.resource]
       );
       setSelectedResourceUserId("");
-      setResourceStatus("Responsable asignado.");
+      setResourceStatus(t("scene.responsibleAssigned"));
     } catch (resourceError) {
-      setError(resourceError instanceof Error ? resourceError.message : "Error inesperado al asignar.");
+      setError(resourceError instanceof Error ? resourceError.message : t("scene.assignResponsible"));
     } finally {
       setIsSavingResource(false);
     }
@@ -254,12 +424,12 @@ export function SceneDetailWorkspace({
 
     if (!response.ok) {
       const payload = await response.json();
-      setError(payload.error ?? "No se pudo quitar el responsable.");
+      setError(payload.error ?? t("scene.responsibleRemoved"));
       return;
     }
 
     setHumanResources((current) => current.filter((resource) => resource.id !== resourceId));
-    setResourceStatus("Responsable removido.");
+    setResourceStatus(t("scene.responsibleRemoved"));
   }
 
   async function saveScript(event: FormEvent<HTMLFormElement>) {
@@ -282,7 +452,8 @@ export function SceneDetailWorkspace({
             title: scene.title,
             description: scene.description,
             location: scene.location,
-            timeOfDay: scene.timeOfDay
+            timeOfDay: scene.timeOfDay,
+            soundOptions: scene.soundOptions
           },
           shots: shots.map((shot) => ({
             ...shot,
@@ -293,7 +464,7 @@ export function SceneDetailWorkspace({
 
       if (!response.ok) {
         const payload = await response.json();
-        throw new Error(payload.error ?? "No se pudo guardar el guion tecnico.");
+        throw new Error(payload.error ?? t("scene.saveScript"));
       }
 
       const payload = (await response.json()) as { shots?: ShotData[] };
@@ -305,9 +476,9 @@ export function SceneDetailWorkspace({
         );
       }
 
-      setScriptStatus("Guion tecnico actualizado.");
+      setScriptStatus(t("scene.scriptSaved"));
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Error inesperado al guardar.");
+      setError(saveError instanceof Error ? saveError.message : t("scene.saveScript"));
     } finally {
       setIsSavingScript(false);
     }
@@ -319,12 +490,12 @@ export function SceneDetailWorkspace({
     setAttachmentStatus("");
 
     if (!attachmentFile) {
-      setError("Selecciona un archivo para adjuntar.");
+      setError(t("scene.selectFile"));
       return;
     }
 
     if (!attachmentTitle.trim()) {
-      setError("Agrega un titulo para el adjunto.");
+      setError(t("scene.title"));
       return;
     }
 
@@ -347,18 +518,24 @@ export function SceneDetailWorkspace({
 
       if (!initResponse.ok) {
         const payload = await initResponse.json();
-        throw new Error(payload.error ?? "No se pudo preparar el adjunto.");
+        throw new Error(payload.error ?? t("scene.addAttachment"));
       }
 
       const initPayload = await initResponse.json();
       const uploadResponse = await fetch(initPayload.uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": attachmentFile.type || "application/octet-stream" },
+        headers: {
+          "Content-Type": attachmentFile.type || "application/octet-stream",
+          ...(initPayload.uploadHeaders ?? {})
+        },
         body: attachmentFile
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("S3 rechazo la subida del adjunto.");
+        const s3Error = await uploadResponse.text().catch(() => "");
+        throw new Error(
+          `S3 rechazo la subida del adjunto. (${uploadResponse.status})${s3Error ? `: ${s3Error}` : ""}`
+        );
       }
 
       const completeResponse = await fetch(`/api/scenes/${scene.id}/attachments/${initPayload.uploadId}/complete`, {
@@ -372,7 +549,7 @@ export function SceneDetailWorkspace({
 
       if (!completeResponse.ok) {
         const payload = await completeResponse.json();
-        throw new Error(payload.error ?? "No se pudo confirmar el adjunto.");
+        throw new Error(payload.error ?? t("scene.addAttachment"));
       }
 
       const completePayload = (await completeResponse.json()) as { attachment: AttachmentData };
@@ -381,13 +558,13 @@ export function SceneDetailWorkspace({
       setAttachmentDescription("");
       setAttachmentDate(todayInputValue());
       setAttachmentFile(null);
-      setAttachmentStatus("Adjunto agregado a la escena.");
+      setAttachmentStatus(t("scene.attachmentAdded"));
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Error inesperado al subir.");
+      setError(uploadError instanceof Error ? uploadError.message : t("scene.uploading"));
     } finally {
       setIsUploadingAttachment(false);
     }
@@ -397,20 +574,30 @@ export function SceneDetailWorkspace({
     <div className="h-full overflow-y-auto">
       <section className="border-b border-neutral-800 bg-black px-5 py-4 sm:px-7">
         <Link className="text-sm font-medium text-red-300 hover:text-red-200" href={`/projects/${scene.projectId}`}>
-          Volver al proyecto
+          {t("scene.backToProject")}
         </Link>
         <div className="mt-3 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-semibold uppercase text-slate-500">Escena {scene.sceneNumber}</p>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              {t("scene.scene")} {scene.sceneNumber}
+            </p>
             <h1 className="mt-1 text-2xl font-semibold text-slate-50">{scene.title}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{scene.description}</p>
           </div>
-          <Link
-            className="inline-flex h-10 items-center justify-center rounded-md bg-red-900 px-4 text-sm font-medium text-white hover:bg-red-800"
-            href={`/upload?projectId=${scene.projectId}&sceneId=${scene.id}`}
-          >
-            Subir video
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <a
+              className="inline-flex h-10 items-center justify-center rounded-md border border-neutral-700 px-4 text-sm font-medium text-slate-200 hover:bg-neutral-900"
+              href={`/api/scenes/${scene.id}/assets/download`}
+            >
+              {t("scene.downloadAssetsZip")}
+            </a>
+            <Link
+              className="inline-flex h-10 items-center justify-center rounded-md bg-red-900 px-4 text-sm font-medium text-white hover:bg-red-800"
+              href={`/upload?projectId=${scene.projectId}&sceneId=${scene.id}`}
+            >
+              {t("scene.uploadVideo")}
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -419,11 +606,11 @@ export function SceneDetailWorkspace({
           <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-lg shadow-black/30">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3 text-white">
               <div>
-                <p className="text-xs uppercase text-slate-400">Video cargado</p>
+                <p className="text-xs uppercase text-slate-400">{t("scene.loadedVideo")}</p>
                 <p className="mt-1 text-sm font-medium">
                   {activeVideo
-                    ? `${activeVideo.stage} v${activeVideo.versionNumber} · ${activeVideo.resolution}`
-                    : "Sin video para esta seleccion"}
+                    ? `${optionLabel("productionStages", activeVideo.stage)} v${activeVideo.versionNumber} · ${activeVideo.resolution}`
+                    : t("scene.noVideoSelection")}
                 </p>
               </div>
               {availableVideos.length > 1 ? (
@@ -434,7 +621,8 @@ export function SceneDetailWorkspace({
                 >
                   {availableVideos.map((video) => (
                     <option key={video.id} value={video.id}>
-                      {video.stage} v{video.versionNumber} {video.shotId ? "(shot)" : "(escena)"}
+                      {optionLabel("productionStages", video.stage)} v{video.versionNumber}{" "}
+                      {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
                     </option>
                   ))}
                 </select>
@@ -448,10 +636,8 @@ export function SceneDetailWorkspace({
                   <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-neutral-700 bg-neutral-900">
                     <div className="ml-1 h-0 w-0 border-y-[10px] border-l-[16px] border-y-transparent border-l-slate-400" />
                   </div>
-                  <p className="mt-4 text-sm font-medium text-slate-100">Sin previsualizacion disponible</p>
-                  <p className="mt-2 text-sm text-slate-400">
-                    Sube o selecciona una version lista para revision en esta escena.
-                  </p>
+                  <p className="mt-4 text-sm font-medium text-slate-100">{t("scene.noPreviewTitle")}</p>
+                  <p className="mt-2 text-sm text-slate-400">{t("scene.noPreviewBody")}</p>
                 </div>
               )}
             </div>
@@ -459,9 +645,9 @@ export function SceneDetailWorkspace({
 
           <section className="grid gap-4 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30">
             <div>
-              <h2 className="text-lg font-semibold text-slate-50">Guion literario</h2>
+              <h2 className="text-lg font-semibold text-slate-50">{t("scene.literaryScript")}</h2>
               <p className="mt-1 text-sm text-slate-400">
-                {scene.literaryHeading || `Escena ${scene.sceneNumber}`}
+                {scene.literaryHeading || `${t("scene.scene")} ${scene.sceneNumber}`}
               </p>
             </div>
             {scene.literaryScript ? (
@@ -470,7 +656,7 @@ export function SceneDetailWorkspace({
               </div>
             ) : (
               <p className="rounded-md border border-neutral-800 bg-black/40 p-4 text-sm text-slate-400">
-                Esta escena todavia no tiene guion literario cargado.
+                {t("scene.missingLiteraryScript")}
               </p>
             )}
           </section>
@@ -478,9 +664,9 @@ export function SceneDetailWorkspace({
           <form className="grid gap-5 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30" onSubmit={saveScript}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-50">Guion tecnico</h2>
+                <h2 className="text-lg font-semibold text-slate-50">{t("scene.technicalScript")}</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  {canEditScript ? "Edicion habilitada para admin." : "Vista de solo lectura."}
+                  {canEditScript ? t("scene.adminEditEnabled") : t("scene.readOnly")}
                 </p>
               </div>
               {canEditScript ? (
@@ -489,14 +675,14 @@ export function SceneDetailWorkspace({
                   disabled={isSavingScript}
                   type="submit"
                 >
-                  {isSavingScript ? "Guardando..." : "Guardar guion"}
+                  {isSavingScript ? t("scene.saving") : t("scene.saveScript")}
                 </button>
               ) : null}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium text-slate-300">
-                Titulo
+                {t("scene.title")}
                 <input
                   className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                   disabled={!canEditScript}
@@ -505,7 +691,7 @@ export function SceneDetailWorkspace({
                 />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-300">
-                Locacion
+                {t("scene.location")}
                 <input
                   className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                   disabled={!canEditScript}
@@ -514,7 +700,7 @@ export function SceneDetailWorkspace({
                 />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-300">
-                Momento
+                {t("scene.timeOfDay")}
                 <input
                   className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                   disabled={!canEditScript}
@@ -522,8 +708,28 @@ export function SceneDetailWorkspace({
                   value={scene.timeOfDay}
                 />
               </label>
+              <fieldset className="grid gap-3 rounded-md border border-neutral-800 bg-black/40 p-4 md:col-span-2">
+                <legend className="px-1 text-sm font-medium text-slate-300">{t("scene.sound")}</legend>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {sceneSoundOptions.map((option) => (
+                    <label
+                      className="flex min-h-10 items-center gap-3 rounded-md border border-neutral-800 bg-black px-3 text-sm font-medium text-slate-300"
+                      key={option}
+                    >
+                      <input
+                        checked={scene.soundOptions.includes(option)}
+                        className="h-4 w-4 accent-red-900"
+                        disabled={!canEditScript}
+                        onChange={(event) => toggleSceneSoundOption(option, event.target.checked)}
+                        type="checkbox"
+                      />
+                      {optionLabel("sceneSoundOptions", option)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label className="grid gap-2 text-sm font-medium text-slate-300 md:col-span-2">
-                Intencion dramatica
+                {t("scene.dramaticIntent")}
                 <textarea
                   className="min-h-24 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                   disabled={!canEditScript}
@@ -535,18 +741,21 @@ export function SceneDetailWorkspace({
 
             <div className="grid gap-4">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold uppercase text-slate-400">Shots</h3>
+                <h3 className="text-sm font-semibold uppercase text-slate-400">{t("scene.shots")}</h3>
                 {canEditScript ? (
                   <button
                     className="h-9 rounded-md border border-neutral-700 px-3 text-sm font-medium text-slate-200 hover:bg-neutral-800"
                     onClick={addShot}
                     type="button"
                   >
-                    Agregar shot
+                    {t("scene.addShot")}
                   </button>
                 ) : null}
               </div>
-              {shots.map((shot) => (
+              {shots.map((shot) => {
+                const duration = framesToTimeParts(shot.durationFrames, scene.fpsDefault);
+
+                return (
                 <article
                   className={`rounded-lg border p-4 ${shot.id === activeShot?.id ? "border-red-900/70 bg-neutral-950" : "border-neutral-800 bg-black/40"}`}
                   key={shot.id}
@@ -561,7 +770,7 @@ export function SceneDetailWorkspace({
                       type="button"
                     >
                       <p className="text-xs font-semibold uppercase text-slate-500">Shot {shot.shotNumber}</p>
-                      <h3 className="mt-1 font-semibold text-slate-50">{shot.shotType || "Sin tipo de shot"}</h3>
+                      <h3 className="mt-1 font-semibold text-slate-50">{shot.shotType || "-"}</h3>
                     </button>
                     {canEditScript ? (
                       <button
@@ -569,13 +778,13 @@ export function SceneDetailWorkspace({
                         onClick={() => removeShot(shot.id)}
                         type="button"
                       >
-                        Quitar
+                        {t("scene.remove")}
                       </button>
                     ) : null}
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Numero
+                      {t("scene.number")}
                       <input
                         className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -584,7 +793,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Tipo
+                      {t("scene.type")}
                       <input
                         className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -593,7 +802,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Estado
+                      {t("scene.status")}
                       <select
                         className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -602,13 +811,56 @@ export function SceneDetailWorkspace({
                       >
                         {shotStatuses.map((item) => (
                           <option key={item} value={item}>
-                            {item}
+                            {optionLabel("shotStatuses", item)}
                           </option>
                         ))}
                       </select>
                     </label>
+                    <fieldset className="grid gap-3 rounded-md border border-neutral-800 bg-black/40 p-4 md:col-span-2">
+                      <legend className="px-1 text-sm font-medium text-slate-300">
+                        {t("scene.time")}{" "}
+                        <span className="text-xs font-normal text-slate-500">({scene.fpsDefault} fps)</span>
+                      </legend>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <label className="grid gap-2 text-xs font-medium uppercase text-slate-500">
+                          {t("scene.minutes")}
+                          <input
+                            className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-sm text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
+                            disabled={!canEditScript}
+                            min={0}
+                            onChange={(event) => updateShotDuration(shot, "minutes", event.target.value)}
+                            type="number"
+                            value={duration.minutes}
+                          />
+                        </label>
+                        <label className="grid gap-2 text-xs font-medium uppercase text-slate-500">
+                          {t("scene.seconds")}
+                          <input
+                            className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-sm text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
+                            disabled={!canEditScript}
+                            max={59}
+                            min={0}
+                            onChange={(event) => updateShotDuration(shot, "seconds", event.target.value)}
+                            type="number"
+                            value={duration.seconds}
+                          />
+                        </label>
+                        <label className="grid gap-2 text-xs font-medium uppercase text-slate-500">
+                          {t("scene.frames")}
+                          <input
+                            className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-sm text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
+                            disabled={!canEditScript}
+                            max={Math.max(0, Math.round(scene.fpsDefault) - 1)}
+                            min={0}
+                            onChange={(event) => updateShotDuration(shot, "frames", event.target.value)}
+                            type="number"
+                            value={duration.frames}
+                          />
+                        </label>
+                      </div>
+                    </fieldset>
                     <label className="grid gap-2 text-sm font-medium text-slate-300 md:col-span-2">
-                      Descripcion
+                      {t("scene.description")}
                       <textarea
                         className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -617,7 +869,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Accion
+                      {t("scene.action")}
                       <textarea
                         className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -626,7 +878,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Camara
+                      {t("scene.camera")}
                       <textarea
                         className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -635,7 +887,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Sonido / transicion
+                      {t("scene.soundTransition")}
                       <textarea
                         className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -644,7 +896,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300">
-                      Elementos necesarios
+                      {t("scene.requiredElements")}
                       <textarea
                         className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -653,7 +905,7 @@ export function SceneDetailWorkspace({
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-300 md:col-span-2">
-                      Notas de produccion
+                      {t("scene.productionNotes")}
                       <textarea
                         className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100 disabled:bg-neutral-900 disabled:text-slate-400"
                         disabled={!canEditScript}
@@ -663,10 +915,11 @@ export function SceneDetailWorkspace({
                     </label>
                   </div>
                 </article>
-              ))}
+                );
+              })}
               {shots.length === 0 ? (
                 <p className="rounded-md border border-neutral-800 bg-black/40 p-4 text-sm text-slate-400">
-                  Sin shots en esta escena.
+                  {t("scene.emptyShots")}
                 </p>
               ) : null}
             </div>
@@ -679,11 +932,11 @@ export function SceneDetailWorkspace({
           <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-semibold text-slate-50">Responsables</h2>
+                <h2 className="font-semibold text-slate-50">{t("scene.responsibles")}</h2>
                 <p className="mt-1 text-sm text-slate-400">
                   {canManageResources
-                    ? "Asigna uno o varios responsables del proyecto a esta escena."
-                    : "Responsables asignados a esta escena."}
+                    ? t("scene.assignResponsiblesHint")
+                    : t("scene.assignedResponsiblesHint")}
                 </p>
               </div>
             </div>
@@ -691,14 +944,14 @@ export function SceneDetailWorkspace({
             {canManageResources ? (
               <form className="mt-4 grid gap-3" onSubmit={addHumanResource}>
                 <label className="grid gap-2 text-sm font-medium text-slate-300">
-                  Responsable
+                  {t("scene.responsible")}
                   <select
                     className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100 disabled:opacity-60"
                     disabled={availableResourceMembers.length === 0 || isSavingResource}
                     onChange={(event) => setSelectedResourceUserId(event.target.value)}
                     value={selectedResourceUserId}
                   >
-                    <option value="">Seleccionar responsable</option>
+                    <option value="">{t("scene.selectResponsible")}</option>
                     {availableResourceMembers.map((member) => (
                       <option key={member.id} value={member.id}>
                         {member.name} · {member.role}
@@ -711,7 +964,7 @@ export function SceneDetailWorkspace({
                   disabled={!selectedResourceUserId || isSavingResource}
                   type="submit"
                 >
-                  {isSavingResource ? "Asignando..." : "Asignar responsable"}
+                  {isSavingResource ? t("scene.assigning") : t("scene.assignResponsible")}
                 </button>
               </form>
             ) : null}
@@ -734,7 +987,7 @@ export function SceneDetailWorkspace({
                         onClick={() => void removeHumanResource(resource.id)}
                         type="button"
                       >
-                        Quitar
+                        {t("scene.remove")}
                       </button>
                     ) : null}
                   </div>
@@ -742,7 +995,7 @@ export function SceneDetailWorkspace({
               ))}
               {humanResources.length === 0 ? (
                 <p className="rounded-md border border-neutral-800 bg-black/40 p-3 text-sm text-slate-400">
-                  Sin responsables asignados.
+                  {t("scene.noResponsibles")}
                 </p>
               ) : null}
             </div>
@@ -754,8 +1007,85 @@ export function SceneDetailWorkspace({
             ) : null}
           </section>
 
+          <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30">
+            <div>
+              <h2 className="font-semibold text-slate-50">{t("scene.sceneElements")}</h2>
+              <p className="mt-1 text-sm text-slate-400">{t("scene.sceneElementsHint")}</p>
+            </div>
+
+            <div className="mt-4 grid gap-5">
+              {assetTagCategories.map((category) => {
+                const categoryTags = assetTags.filter((tag) => tag.category === category);
+                const datalistId = `${category}-asset-tags`;
+
+                return (
+                  <div className="grid gap-3" key={category}>
+                    <h3 className="text-xs font-semibold uppercase text-slate-500">
+                      {optionLabel("assetTagCategories", category)}
+                    </h3>
+                    {canEditScript ? (
+                      <form className="flex gap-2" onSubmit={(event) => void addAssetTag(event, category)}>
+                        <label className="sr-only" htmlFor={`${category}-tag-input`}>
+                          {optionLabel("assetTagCategories", category)}
+                        </label>
+                        <input
+                          className="h-10 min-w-0 flex-1 rounded-md border border-neutral-700 bg-black px-3 text-sm text-slate-100"
+                          id={`${category}-tag-input`}
+                          list={datalistId}
+                          onChange={(event) => updateTagInput(category, event.target.value)}
+                          placeholder={t("scene.writeOrSelect")}
+                          value={tagInputs[category]}
+                        />
+                        <datalist id={datalistId}>
+                          {tagSuggestions[category].map((tag) => (
+                            <option key={tag.id} value={tag.name} />
+                          ))}
+                        </datalist>
+                        <button
+                          className="h-10 rounded-md bg-red-900 px-3 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-60"
+                          disabled={isSavingTag === category || !tagInputs[category].trim()}
+                          type="submit"
+                        >
+                          {t("scene.add")}
+                        </button>
+                      </form>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      {categoryTags.map((tag) => (
+                        <span
+                          className="inline-flex items-center gap-2 rounded-md border border-neutral-800 bg-black px-2 py-1 text-sm text-slate-300"
+                          key={tag.id}
+                        >
+                          {tag.name}
+                          {canEditScript ? (
+                            <button
+                              className="text-xs font-semibold text-red-300 hover:text-red-200"
+                              onClick={() => void removeAssetTag(tag.id)}
+                              type="button"
+                            >
+                              {t("scene.remove")}
+                            </button>
+                          ) : null}
+                        </span>
+                      ))}
+                      {categoryTags.length === 0 ? (
+                        <p className="text-sm text-slate-500">{t("scene.noTags")}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {tagStatus ? (
+              <p className="mt-3 rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">
+                {tagStatus}
+              </p>
+            ) : null}
+          </section>
+
           <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30">
-            <h2 className="font-semibold text-slate-50">Shots</h2>
+            <h2 className="font-semibold text-slate-50">{t("scene.shots")}</h2>
             <div className="mt-4 grid gap-2">
               {shots.map((shot) => (
                 <button
@@ -773,16 +1103,18 @@ export function SceneDetailWorkspace({
                 >
                   <span className="font-semibold">Shot {shot.shotNumber}</span>
                   {shot.shotType ? <span className="text-slate-500"> · {shot.shotType}</span> : null}
-                  <span className="mt-1 block text-xs text-slate-500">{shot.status}</span>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    {optionLabel("shotStatuses", shot.status)}
+                  </span>
                 </button>
               ))}
             </div>
           </div>
 
           <form className="grid gap-4 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30" onSubmit={uploadAttachment}>
-            <h2 className="font-semibold text-slate-50">Adjuntos</h2>
+            <h2 className="font-semibold text-slate-50">{t("scene.attachments")}</h2>
             <label className="grid gap-2 text-sm font-medium text-slate-300">
-              Titulo
+              {t("scene.title")}
               <input
                 className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
                 onChange={(event) => setAttachmentTitle(event.target.value)}
@@ -790,7 +1122,7 @@ export function SceneDetailWorkspace({
               />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-300">
-              Fecha
+              {t("scene.attachmentDate")}
               <input
                 className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
                 onChange={(event) => setAttachmentDate(event.target.value)}
@@ -799,7 +1131,7 @@ export function SceneDetailWorkspace({
               />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-300">
-              Descripcion
+              {t("scene.description")}
               <textarea
                 className="min-h-20 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100"
                 onChange={(event) => setAttachmentDescription(event.target.value)}
@@ -811,7 +1143,7 @@ export function SceneDetailWorkspace({
               onClick={() => fileInputRef.current?.click()}
               type="button"
             >
-              {attachmentFile ? attachmentFile.name : "Seleccionar archivo"}
+              {attachmentFile ? attachmentFile.name : t("scene.selectFile")}
             </button>
             <input
               className="hidden"
@@ -824,13 +1156,13 @@ export function SceneDetailWorkspace({
               disabled={isUploadingAttachment}
               type="submit"
             >
-              {isUploadingAttachment ? "Subiendo..." : "Agregar adjunto"}
+              {isUploadingAttachment ? t("scene.uploading") : t("scene.addAttachment")}
             </button>
             {attachmentStatus ? <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{attachmentStatus}</p> : null}
           </form>
 
           <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30">
-            <h2 className="font-semibold text-slate-50">Lista de archivos</h2>
+            <h2 className="font-semibold text-slate-50">{t("scene.fileList")}</h2>
             <div className="mt-4 grid gap-3">
               {attachments.map((attachment) => (
                 <article className="rounded-md border border-neutral-800 bg-black/40 p-3" key={attachment.id}>
@@ -855,14 +1187,16 @@ export function SceneDetailWorkspace({
                       rel="noreferrer"
                       target="_blank"
                     >
-                      Abrir {attachment.fileName}
+                      {t("scene.openFile", { fileName: attachment.fileName })}
                     </a>
                   ) : (
                     <p className="mt-3 text-sm text-slate-500">{attachment.fileName}</p>
                   )}
                 </article>
               ))}
-              {attachments.length === 0 ? <p className="text-sm text-slate-400">Sin adjuntos en esta escena.</p> : null}
+              {attachments.length === 0 ? (
+                <p className="text-sm text-slate-400">{t("scene.noAttachments")}</p>
+              ) : null}
             </div>
           </div>
 

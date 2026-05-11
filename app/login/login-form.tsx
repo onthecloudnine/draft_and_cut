@@ -1,16 +1,18 @@
 "use client";
 
 import { useActionState } from "react";
+import { useI18n } from "@/lib/i18n/client";
 import { loginAction } from "./actions";
 
 export function LoginForm() {
   const [error, action, isPending] = useActionState(loginAction, undefined);
+  const { t } = useI18n();
 
   return (
     <form action={action} className="grid gap-4">
       <div className="grid gap-2">
         <label className="text-sm font-medium text-slate-300" htmlFor="email">
-          Email
+          {t("login.email")}
         </label>
         <input
           className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-50 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
@@ -23,7 +25,7 @@ export function LoginForm() {
       </div>
       <div className="grid gap-2">
         <label className="text-sm font-medium text-slate-300" htmlFor="password">
-          Contrasena
+          {t("login.password")}
         </label>
         <input
           className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-50 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
@@ -40,7 +42,7 @@ export function LoginForm() {
         disabled={isPending}
         type="submit"
       >
-        {isPending ? "Ingresando..." : "Ingresar"}
+        {isPending ? t("login.submitting") : t("login.submit")}
       </button>
     </form>
   );

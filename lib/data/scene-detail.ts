@@ -1,12 +1,16 @@
 import { connectDb } from "@/lib/db/mongoose";
 import { maybeGetSignedObjectUrl } from "@/lib/s3/signed-url";
+import { AssetTag } from "@/models/AssetTag";
+import { Project } from "@/models/Project";
 import { Scene } from "@/models/Scene";
+import { SceneAssetTag } from "@/models/SceneAssetTag";
 import { SceneAttachment } from "@/models/SceneAttachment";
 import { SceneResourceAssignment } from "@/models/SceneResourceAssignment";
 import { ProjectMembership } from "@/models/ProjectMembership";
 import { Shot } from "@/models/Shot";
 import { User } from "@/models/User";
 import { VideoVersion } from "@/models/VideoVersion";
+import type { SceneSoundOption } from "@/types/domain";
 
 function compareNumericText(left: string, right: string) {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
@@ -21,13 +25,19 @@ export async function getSceneDetailData(sceneId: string) {
     return null;
   }
 
-  const [shots, videos, attachments, memberships, resourceAssignments] = await Promise.all([
+  const [project, shots, videos, attachments, memberships, resourceAssignments, sceneAssetTags] = await Promise.all([
+    Project.findById(scene.projectId).select("fpsDefault").lean(),
     Shot.find({ sceneId }).sort({ shotNumber: 1 }).lean(),
     VideoVersion.find({ sceneId }).sort({ isFavorite: -1, createdAt: -1 }).lean(),
     SceneAttachment.find({ sceneId, status: "ready" }).sort({ attachmentDate: -1, createdAt: -1 }).lean(),
     ProjectMembership.find({ projectId: scene.projectId }).lean(),
-    SceneResourceAssignment.find({ sceneId }).sort({ createdAt: 1 }).lean()
+    SceneResourceAssignment.find({ sceneId }).sort({ createdAt: 1 }).lean(),
+    SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean()
   ]);
+  const assetTags = await AssetTag.find({ _id: { $in: sceneAssetTags.map((assignment) => assignment.tagId) } })
+    .select("name category")
+    .lean();
+  const assetTagById = new Map(assetTags.map((tag) => [String(tag._id), tag]));
   shots.sort((left, right) => compareNumericText(left.shotNumber, right.shotNumber));
   const userIds = Array.from(
     new Set([
@@ -51,7 +61,9 @@ export async function getSceneDetailData(sceneId: string) {
       literaryScript: scene.literaryScript ?? "",
       location: scene.location,
       timeOfDay: scene.timeOfDay,
-      status: scene.status
+      soundOptions: (scene.soundOptions?.length ? scene.soundOptions : ["none"]) as SceneSoundOption[],
+      status: scene.status,
+      fpsDefault: project?.fpsDefault ?? 24
     },
     shots: shots.map((shot) => ({
       id: String(shot._id),
@@ -64,6 +76,7 @@ export async function getSceneDetailData(sceneId: string) {
       sound: shot.sound,
       requiredElements: shot.requiredElements,
       productionNotes: shot.productionNotes,
+      durationFrames: shot.durationFrames ?? null,
       startFrame: shot.startFrame ?? null,
       endFrame: shot.endFrame ?? null
     })),
@@ -137,6 +150,23 @@ export async function getSceneDetailData(sceneId: string) {
           assignedAt: assignment.createdAt?.toISOString()
         };
       })
-      .filter((resource): resource is NonNullable<typeof resource> => Boolean(resource))
+      .filter((resource): resource is NonNullable<typeof resource> => Boolean(resource)),
+    assetTags: sceneAssetTags
+      .map((assignment) => {
+        const tag = assetTagById.get(String(assignment.tagId));
+
+        if (!tag) {
+          return null;
+        }
+
+        return {
+          id: String(assignment._id),
+          tagId: String(assignment.tagId),
+          category: assignment.category,
+          name: tag.name
+        };
+      })
+      .filter((tag): tag is NonNullable<typeof tag> => Boolean(tag))
+      .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }))
   };
 }

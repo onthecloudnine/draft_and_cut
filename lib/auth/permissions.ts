@@ -2,7 +2,7 @@ import { connectDb } from "@/lib/db/mongoose";
 import { ProjectMembership } from "@/models/ProjectMembership";
 import type { Permission, UserRole } from "@/types/domain";
 
-const rolePermissions: Record<UserRole, Permission[]> = {
+const rolePermissions: Record<string, Permission[]> = {
   admin: [
     "project:read",
     "project:manage",
@@ -29,7 +29,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
 };
 
 export function roleHasPermission(role: UserRole, permission: Permission) {
-  return rolePermissions[role].includes(permission);
+  return rolePermissions[role]?.includes(permission) ?? false;
 }
 
 export async function getProjectRole(userId: string, projectId: string): Promise<UserRole | null> {

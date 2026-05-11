@@ -30,6 +30,7 @@ AWS_REGION=
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_S3_BUCKET=
+AWS_S3_UPLOAD_ACL=none
 NEXT_PUBLIC_MAX_UPLOAD_MB=500
 ```
 
@@ -64,6 +65,8 @@ La app esta preparada para Vercel, con estas consideraciones:
 - Las variables de entorno deben configurarse por entorno: Development, Preview y Production.
 - `AUTH_URL` debe usar el dominio real de produccion.
 - El bucket S3 debe permitir CORS para los dominios Vercel autorizados.
+- Si la politica del bucket exige ACL, usa `AWS_S3_UPLOAD_ACL=bucket-owner-full-control`. Si el bucket tiene ACL deshabilitado, usa `AWS_S3_UPLOAD_ACL=none` o elimina la variable.
+- Para subidas directas desde navegador, el bucket S3 necesita CORS con `PUT`, `GET`, `HEAD`, `AllowedHeaders: ["*"]` y `ExposeHeaders: ["ETag"]` para los dominios de la app.
 - Los videos no pasan por Vercel: se suben directo desde el navegador a S3 mediante URL firmada.
 
 ## Rutas MVP

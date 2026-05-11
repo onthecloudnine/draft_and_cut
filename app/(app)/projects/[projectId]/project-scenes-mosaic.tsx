@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/client";
 
 type SceneCard = {
   id: string;
@@ -34,19 +37,9 @@ type ProjectScenesMosaicProps = {
   userRole: string;
 };
 
-function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    draft: "Borrador",
-    in_progress: "En progreso",
-    in_review: "En revision",
-    approved: "Aprobada",
-    archived: "Archivada"
-  };
-
-  return labels[status] ?? status;
-}
-
 export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenesMosaicProps) {
+  const { optionLabel, t } = useI18n();
+
   return (
     <div className="h-full overflow-y-auto">
       <section className="border-b border-neutral-800 bg-black px-5 py-5 sm:px-7">
@@ -61,7 +54,7 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
               className="inline-flex h-10 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 px-4 text-sm font-medium text-slate-200 hover:bg-neutral-800"
               href={`/upload?projectId=${project.id}`}
             >
-              Subir version
+              {t("app.uploadVersion")}
             </Link>
           </div>
         </div>
@@ -70,9 +63,9 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
       <section className="px-5 py-5 sm:px-7">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-50">Escenas</h2>
+            <h2 className="text-lg font-semibold text-slate-50">{t("project.scenes")}</h2>
             <p className="mt-1 text-sm text-slate-400">
-              {scenes.length} escenas disponibles · perfil {userRole}
+              {t("project.availableScenes", { count: scenes.length, role: optionLabel("userRoles", userRole) })}
             </p>
           </div>
         </div>
@@ -86,16 +79,16 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
               <Link className="block border-b border-neutral-800 bg-black p-4 text-white hover:bg-neutral-900" href={`/scenes/${scene.id}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase text-slate-400">Escena</p>
+                    <p className="text-xs uppercase text-slate-400">{t("project.scene")}</p>
                     <h3 className="mt-1 text-3xl font-semibold leading-none">{scene.sceneNumber}</h3>
                   </div>
                   <span className="rounded-md bg-white/10 px-2 py-1 text-xs text-slate-200">
-                    {statusLabel(scene.status)}
+                    {optionLabel("sceneStatuses", scene.status)}
                   </span>
                 </div>
                 <p className="mt-5 line-clamp-2 text-sm font-medium leading-5">{scene.title}</p>
                 <p className="mt-2 text-xs text-slate-400">
-                  {scene.location || "Sin locacion"} · {scene.timeOfDay || "Sin momento"}
+                  {scene.location || t("project.noLocation")} · {scene.timeOfDay || t("project.noTime")}
                 </p>
               </Link>
 
@@ -105,20 +98,20 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div className="rounded-md bg-black px-2 py-2">
                     <p className="font-semibold text-slate-100">{scene.shots.length}</p>
-                    <p className="mt-1 text-slate-500">shots</p>
+                    <p className="mt-1 text-slate-500">{t("project.shots")}</p>
                   </div>
                   <div className="rounded-md bg-black px-2 py-2">
                     <p className="font-semibold text-slate-100">{scene.videoCount}</p>
-                    <p className="mt-1 text-slate-500">videos</p>
+                    <p className="mt-1 text-slate-500">{t("project.videos")}</p>
                   </div>
                   <div className="rounded-md bg-black px-2 py-2">
                     <p className="font-semibold text-slate-100">{scene.openComments}</p>
-                    <p className="mt-1 text-slate-500">abiertos</p>
+                    <p className="mt-1 text-slate-500">{t("project.open")}</p>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold uppercase text-slate-500">Shots</p>
+                  <p className="text-xs font-semibold uppercase text-slate-500">{t("scene.shots")}</p>
                   <div className="mt-2 grid max-h-28 gap-1.5 overflow-y-auto pr-1">
                     {scene.shots.map((shot) => (
                       <Link
@@ -131,7 +124,9 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                       </Link>
                     ))}
                     {scene.shots.length === 0 ? (
-                      <p className="rounded-md bg-black px-2 py-2 text-xs text-slate-500">Sin shots importados.</p>
+                      <p className="rounded-md bg-black px-2 py-2 text-xs text-slate-500">
+                        {t("project.emptyShots")}
+                      </p>
                     ) : null}
                   </div>
                 </div>
@@ -139,11 +134,14 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                 <div className="border-t border-neutral-800 pt-3 text-xs text-slate-500">
                   {scene.latestVideo ? (
                     <p>
-                      Ultimo video: {scene.latestVideo.stage} v{scene.latestVideo.versionNumber} ·{" "}
-                      {scene.latestVideo.status}
+                      {t("project.latestVideo", {
+                        stage: optionLabel("productionStages", scene.latestVideo.stage),
+                        versionNumber: scene.latestVideo.versionNumber,
+                        status: scene.latestVideo.status
+                      })}
                     </p>
                   ) : (
-                    <p>Sin videos asociados.</p>
+                    <p>{t("project.noVideos")}</p>
                   )}
                 </div>
               </div>
@@ -153,7 +151,7 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
 
         {scenes.length === 0 ? (
           <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-8 text-center text-sm text-slate-400">
-            Este proyecto todavia no tiene escenas importadas.
+            {t("project.emptyScenes")}
           </div>
         ) : null}
       </section>

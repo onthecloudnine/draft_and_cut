@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useI18n } from "@/lib/i18n/client";
 import { commentPriorities, commentStatuses, type CommentPriority, type CommentStatus } from "@/types/domain";
 import { secondsToFrame, secondsToTimecode } from "@/lib/timecode";
 
@@ -55,6 +56,7 @@ type ReviewData = {
 };
 
 export function ReviewWorkspace({ data }: { data: ReviewData }) {
+  const { optionLabel, t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [commentText, setCommentText] = useState("");
@@ -88,7 +90,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
     setError("");
 
     if (!commentText.trim()) {
-      setError("Escribe un comentario antes de guardar.");
+      setError(t("review.commentRequired"));
       return;
     }
 
@@ -108,7 +110,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
 
       if (!response.ok) {
         const payload = await response.json();
-        throw new Error(payload.error ?? "No se pudo crear el comentario.");
+        throw new Error(payload.error ?? t("review.createError"));
       }
 
       const payload = await response.json();
@@ -116,7 +118,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
       setCommentText("");
       setPriority("medium");
     } catch (commentError) {
-      setError(commentError instanceof Error ? commentError.message : "Error inesperado.");
+      setError(commentError instanceof Error ? commentError.message : t("review.unexpectedError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -156,18 +158,18 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
               onClick={() => stepFrame(-1)}
               type="button"
             >
-              Frame -
+              {t("review.frameBack")}
             </button>
             <button
               className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-neutral-800"
               onClick={() => stepFrame(1)}
               type="button"
             >
-              Frame +
+              {t("review.frameForward")}
             </button>
             <div className="ml-auto grid grid-cols-3 gap-4 text-sm">
               <div>
-                <p className="text-slate-500">Tiempo</p>
+                <p className="text-slate-500">{t("review.time")}</p>
                 <p className="font-medium text-slate-100">{currentTime.toFixed(3)}s</p>
               </div>
               <div>
@@ -205,7 +207,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
 
         <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30" onSubmit={createComment}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold text-slate-50">Comentar frame {currentFrame}</h2>
+            <h2 className="font-semibold text-slate-50">{t("review.commentFrame", { frame: currentFrame })}</h2>
             <select
               className="h-9 rounded-md border border-neutral-700 bg-black px-2 text-sm text-slate-100"
               onChange={(event) => setPriority(event.target.value as CommentPriority)}
@@ -213,7 +215,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
             >
               {commentPriorities.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {optionLabel("commentPriorities", item)}
                 </option>
               ))}
             </select>
@@ -221,7 +223,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
           <textarea
             className="min-h-24 rounded-md border border-neutral-700 bg-black px-3 py-2 text-sm text-slate-100"
             onChange={(event) => setCommentText(event.target.value)}
-            placeholder="Escribe la observacion para este frame..."
+            placeholder={t("review.commentPlaceholder")}
             value={commentText}
           />
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -231,7 +233,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
               disabled={isSubmitting}
               type="submit"
             >
-              {isSubmitting ? "Guardando..." : "Guardar comentario"}
+              {isSubmitting ? t("review.saving") : t("review.saveComment")}
             </button>
           </div>
         </form>
@@ -239,7 +241,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
 
       <aside className="grid gap-4">
         <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30">
-          <h2 className="font-semibold text-slate-50">Guion tecnico</h2>
+          <h2 className="font-semibold text-slate-50">{t("review.technicalScript")}</h2>
           {data.shot ? (
             <div className="mt-4 grid gap-3 text-sm">
               <p className="font-medium text-slate-50">
@@ -248,36 +250,36 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
               <p className="leading-6 text-slate-400">{data.shot.description}</p>
               <dl className="grid gap-3">
                 <div>
-                  <dt className="text-slate-500">Accion</dt>
+                  <dt className="text-slate-500">{t("scene.action")}</dt>
                   <dd className="text-slate-100">{data.shot.action || "-"}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Camara</dt>
+                  <dt className="text-slate-500">{t("scene.camera")}</dt>
                   <dd className="text-slate-100">{data.shot.camera || "-"}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Sonido</dt>
+                  <dt className="text-slate-500">{t("scene.sound")}</dt>
                   <dd className="text-slate-100">{data.shot.sound || "-"}</dd>
                 </div>
               </dl>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-400">Esta version corresponde a escena completa.</p>
+            <p className="mt-3 text-sm text-slate-400">{t("review.completeSceneVersion")}</p>
           )}
         </section>
 
         <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold text-slate-50">Comentarios</h2>
+            <h2 className="font-semibold text-slate-50">{t("review.comments")}</h2>
             <select
               className="h-9 rounded-md border border-neutral-700 bg-black px-2 text-sm text-slate-100"
               onChange={(event) => setStatusFilter(event.target.value as CommentStatus | "all")}
               value={statusFilter}
             >
-              <option value="all">todos</option>
+              <option value="all">{t("review.all")}</option>
               {commentStatuses.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {optionLabel("commentStatuses", item)}
                 </option>
               ))}
             </select>
@@ -288,12 +290,12 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-slate-50">
-                      Frame {comment.frame} / {comment.timecode}
+                      {t("review.frame")} {comment.frame} / {comment.timecode}
                     </p>
                     <p className="mt-2 leading-6 text-slate-400">{comment.text}</p>
                   </div>
                   <span className="rounded-md bg-neutral-800 px-2 py-1 text-xs text-slate-300">
-                    {comment.priority}
+                    {optionLabel("commentPriorities", comment.priority)}
                   </span>
                 </div>
                 <select
@@ -303,14 +305,14 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
                 >
                   {commentStatuses.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {optionLabel("commentStatuses", item)}
                     </option>
                   ))}
                 </select>
               </article>
             ))}
             {filteredComments.length === 0 ? (
-              <p className="text-sm text-slate-400">Sin comentarios para este filtro.</p>
+              <p className="text-sm text-slate-400">{t("review.emptyComments")}</p>
             ) : null}
           </div>
         </section>
