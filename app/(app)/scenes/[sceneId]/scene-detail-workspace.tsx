@@ -110,6 +110,7 @@ type SceneDetailWorkspaceProps = {
   assetTags: AssetTagData[];
   canEditScript: boolean;
   canManageResources: boolean;
+  canManageVideos: boolean;
   initialShotId?: string;
 };
 
@@ -281,18 +282,20 @@ function createEmptyShot(shots: ShotData[]): ShotData {
 export function SceneDetailWorkspace({
   scene: initialScene,
   shots: initialShots,
-  videos,
+  videos: initialVideos,
   attachments: initialAttachments,
   projectMembers,
   humanResources: initialHumanResources,
   assetTags: initialAssetTags,
   canEditScript,
+  canManageVideos,
   canManageResources,
   initialShotId
 }: SceneDetailWorkspaceProps) {
   const { optionLabel, t } = useI18n();
   const [scene, setScene] = useState(initialScene);
   const [shots, setShots] = useState(initialShots);
+  const [videos, setVideos] = useState(initialVideos);
   const [activeShotId, setActiveShotId] = useState(initialShotId ?? initialShots[0]?.id ?? "");
   const [selectedVideoId, setSelectedVideoId] = useState("");
   const [attachments, setAttachments] = useState(initialAttachments);
@@ -323,6 +326,7 @@ export function SceneDetailWorkspace({
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isSavingResource, setIsSavingResource] = useState(false);
   const [isSavingTag, setIsSavingTag] = useState<AssetTagCategory | "">("");
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const normalVideoSlotRef = useRef<HTMLDivElement>(null);
@@ -412,20 +416,32 @@ export function SceneDetailWorkspace({
                 : t("scene.noVideoSelection")}
             </p>
           </div>
-          {availableVideos.length > 1 ? (
-            <select
-              className="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-sm text-white"
-              onChange={(event) => setSelectedVideoId(event.target.value)}
-              value={activeVideo?.id ?? ""}
-            >
-              {availableVideos.map((video) => (
-                <option key={video.id} value={video.id}>
-                  {optionLabel("productionStages", video.stage)} v{video.versionNumber}{" "}
-                  {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
-                </option>
-              ))}
-            </select>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {availableVideos.length > 1 ? (
+              <select
+                className="h-9 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-sm text-white"
+                onChange={(event) => setSelectedVideoId(event.target.value)}
+                value={activeVideo?.id ?? ""}
+              >
+                {availableVideos.map((video) => (
+                  <option key={video.id} value={video.id}>
+                    {optionLabel("productionStages", video.stage)} v{video.versionNumber}{" "}
+                    {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {canManageVideos && activeVideo ? (
+              <button
+                className="h-9 rounded-md border border-red-900/70 px-3 text-sm font-medium text-red-200 hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isDeletingVideo}
+                onClick={() => void deleteActiveVideo()}
+                type="button"
+              >
+                {isDeletingVideo ? t("scene.deletingVideo") : t("scene.deleteVideo")}
+              </button>
+            ) : null}
+          </div>
         </div>
         <div ref={normalVideoSlotRef}>
           {renderMovableVideoFrame()}
@@ -439,6 +455,39 @@ export function SceneDetailWorkspace({
     setIsCompactHeaderVisible((current) =>
       current === shouldShowCompactHeader ? current : shouldShowCompactHeader
     );
+  }
+
+  async function deleteActiveVideo() {
+    if (!canManageVideos || !activeVideo || isDeletingVideo) {
+      return;
+    }
+
+    if (!window.confirm(t("scene.deleteVideoConfirm"))) {
+      return;
+    }
+
+    setError("");
+    setScriptStatus("");
+    setIsDeletingVideo(true);
+
+    try {
+      const response = await fetch(`/api/videos/${activeVideo.id}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.error ?? t("scene.deleteVideoError"));
+      }
+
+      const payload = (await response.json()) as { nextVideoVersionId: string | null };
+
+      setVideos((current) => current.filter((video) => video.id !== activeVideo.id));
+      setSelectedVideoId(payload.nextVideoVersionId ?? "");
+      setScriptStatus(t("scene.videoDeleted"));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("scene.deleteVideoError"));
+    } finally {
+      setIsDeletingVideo(false);
+    }
   }
 
   function updateShot(shotId: string, patch: Partial<ShotData>) {
@@ -804,6 +853,16 @@ export function SceneDetailWorkspace({
                 >
                   {t("scene.uploadVideo")}
                 </Link>
+                {canManageVideos && activeVideo ? (
+                  <button
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-red-900/70 px-4 text-sm font-medium text-red-200 hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isDeletingVideo}
+                    onClick={() => void deleteActiveVideo()}
+                    type="button"
+                  >
+                    {isDeletingVideo ? t("scene.deletingVideo") : t("scene.deleteVideo")}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

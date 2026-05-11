@@ -29,6 +29,7 @@ export default async function SceneDetailPage({
       assetTags={data.assetTags}
       canEditScript={role === "admin"}
       canManageResources={role === "admin"}
+      canManageVideos={role === "admin"}
       humanResources={data.humanResources}
       initialShotId={shotId}
       projectMembers={data.projectMembers}
