@@ -36,6 +36,29 @@ export function buildVideoS3Key(input: BuildVideoKeyInput) {
   return `projects/${input.projectSlug}/scenes/${sceneNumber}/full/${input.stage}/${version}`;
 }
 
+export function buildVideoThumbnailS3Key(input: BuildVideoKeyInput) {
+  const version = `v${String(input.versionNumber).padStart(3, "0")}.thumb.jpg`;
+  const sceneNumber = padNumber(input.sceneNumber);
+
+  if (input.scope === "shot") {
+    if (!input.shotNumber) {
+      throw new Error("shotNumber is required for shot scoped videos");
+    }
+
+    return `projects/${input.projectSlug}/scenes/${sceneNumber}/shots/${padNumber(input.shotNumber)}/${input.stage}/${version}`;
+  }
+
+  return `projects/${input.projectSlug}/scenes/${sceneNumber}/full/${input.stage}/${version}`;
+}
+
+export function deriveThumbnailKeyFromVideoKey(videoKey: string) {
+  if (videoKey.endsWith(".mp4")) {
+    return `${videoKey.slice(0, -".mp4".length)}.thumb.jpg`;
+  }
+
+  return `${videoKey}.thumb.jpg`;
+}
+
 export function buildSceneAttachmentS3Key(input: {
   projectSlug: string;
   sceneNumber: string;

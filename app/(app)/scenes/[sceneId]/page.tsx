@@ -32,6 +32,8 @@ export default async function SceneDetailPage({
       canManageVideos={role === "admin"}
       humanResources={data.humanResources}
       initialShotId={shotId}
+      nextScene={data.nextScene}
+      previousScene={data.previousScene}
       projectMembers={data.projectMembers}
       scene={data.scene}
       shots={data.shots}

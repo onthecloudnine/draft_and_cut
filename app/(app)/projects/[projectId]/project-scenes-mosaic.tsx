@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/client";
 
 type SceneCard = {
@@ -12,9 +13,14 @@ type SceneCard = {
   timeOfDay: string;
   status: string;
   latestVideo: {
+    id?: string;
     versionNumber: number;
     stage: string;
     status: string;
+    url?: string | null;
+    mimeType?: string | null;
+    duration?: number | null;
+    thumbnailUrl?: string | null;
   } | null;
   openComments: number;
   videoCount: number;
@@ -24,6 +30,17 @@ type SceneCard = {
     shotType: string;
     description: string;
   }>;
+};
+
+type PlaylistItem = {
+  sceneId: string;
+  videoVersionId: string;
+  sceneNumber: string;
+  title: string;
+  versionNumber: number;
+  url: string;
+  mimeType: string | null;
+  thumbnailUrl: string | null;
 };
 
 type ProjectScenesMosaicProps = {
@@ -39,6 +56,23 @@ type ProjectScenesMosaicProps = {
 
 export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenesMosaicProps) {
   const { optionLabel, t } = useI18n();
+
+  const playlist = useMemo<PlaylistItem[]>(
+    () =>
+      scenes
+        .filter((scene) => scene.latestVideo?.url && scene.latestVideo.id)
+        .map((scene) => ({
+          sceneId: scene.id,
+          videoVersionId: scene.latestVideo!.id!,
+          sceneNumber: scene.sceneNumber,
+          title: scene.title,
+          versionNumber: scene.latestVideo!.versionNumber,
+          url: scene.latestVideo!.url!,
+          mimeType: scene.latestVideo!.mimeType ?? null,
+          thumbnailUrl: scene.latestVideo!.thumbnailUrl ?? null
+        })),
+    [scenes]
+  );
 
   return (
     <div className="h-full overflow-y-auto">
@@ -67,6 +101,12 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
         </div>
       </section>
 
+      {playlist.length > 0 ? (
+        <section className="border-b border-neutral-800 bg-neutral-950 px-5 py-5 sm:px-7">
+          <ScenesPlaylistPlayer items={playlist} />
+        </section>
+      ) : null}
+
       <section className="px-5 py-5 sm:px-7">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -83,6 +123,20 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
               className="grid min-h-80 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg shadow-black/30"
               key={scene.id}
             >
+              {scene.latestVideo?.thumbnailUrl ? (
+                <Link
+                  className="block aspect-video w-full overflow-hidden bg-black"
+                  href={`/scenes/${scene.id}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt={scene.title}
+                    className="h-full w-full object-cover transition hover:opacity-90"
+                    loading="lazy"
+                    src={scene.latestVideo.thumbnailUrl}
+                  />
+                </Link>
+              ) : null}
               <Link className="block border-b border-neutral-800 bg-black p-4 text-white hover:bg-neutral-900" href={`/scenes/${scene.id}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -164,4 +218,213 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
       </section>
     </div>
   );
+}
+
+function ScenesPlaylistPlayer({ items }: { items: PlaylistItem[] }) {
+  const { t } = useI18n();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const backfilledRef = useRef<Set<string>>(new Set());
+  const [index, setIndex] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string>>({});
+
+  const baseCurrent = items[index] ?? items[0];
+  const current = baseCurrent
+    ? {
+        ...baseCurrent,
+        thumbnailUrl: thumbnailOverrides[baseCurrent.videoVersionId] ?? baseCurrent.thumbnailUrl
+      }
+    : baseCurrent;
+
+  useEffect(() => {
+    if (index >= items.length) {
+      setIndex(0);
+    }
+  }, [items.length, index]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !current) return;
+    video.load();
+    if (autoPlay) {
+      video.play().catch(() => {
+        /* autoplay may be blocked until user interacts */
+      });
+    }
+  }, [current?.url, autoPlay]);
+
+  useEffect(() => {
+    if (!baseCurrent) return;
+    if (baseCurrent.thumbnailUrl) return;
+    if (backfilledRef.current.has(baseCurrent.videoVersionId)) return;
+    backfilledRef.current.add(baseCurrent.videoVersionId);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const blob = await captureFrameFromUrl(baseCurrent.url);
+        if (cancelled || !blob) return;
+
+        const initResponse = await fetch(`/api/videos/${baseCurrent.videoVersionId}/thumbnail`, {
+          method: "POST"
+        });
+        if (!initResponse.ok) return;
+        const init = (await initResponse.json()) as {
+          thumbnailKey: string;
+          uploadUrl: string;
+          uploadHeaders?: Record<string, string>;
+        };
+
+        const putResponse = await fetch(init.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "image/jpeg", ...(init.uploadHeaders ?? {}) },
+          body: blob
+        });
+        if (!putResponse.ok || cancelled) return;
+
+        await fetch(`/api/videos/${baseCurrent.videoVersionId}/thumbnail`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thumbnailKey: init.thumbnailKey })
+        });
+        if (cancelled) return;
+
+        const previewUrl = URL.createObjectURL(blob);
+        setThumbnailOverrides((current) => ({
+          ...current,
+          [baseCurrent.videoVersionId]: previewUrl
+        }));
+      } catch {
+        /* best-effort — leave card without thumb */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseCurrent?.videoVersionId, baseCurrent?.url, baseCurrent?.thumbnailUrl]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(thumbnailOverrides).forEach((url) => URL.revokeObjectURL(url));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!current) return null;
+
+  const handleEnded = () => {
+    setAutoPlay(true);
+    setIndex((value) => (value + 1) % items.length);
+  };
+
+  const handleSelect = (nextIndex: number) => {
+    setAutoPlay(true);
+    setIndex(nextIndex);
+  };
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black">
+        <div className="flex items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-red-300">{t("project.playlistTitle")}</p>
+            <p className="mt-1 truncate text-sm text-slate-200">
+              {t("project.playlistNow", {
+                sceneNumber: current.sceneNumber,
+                versionNumber: current.versionNumber
+              })}
+              {current.title ? <span className="text-slate-500"> · {current.title}</span> : null}
+            </p>
+          </div>
+          <p className="shrink-0 text-xs text-slate-500">
+            {index + 1} / {items.length}
+          </p>
+        </div>
+        <video
+          ref={videoRef}
+          className="aspect-video w-full bg-black"
+          controls
+          playsInline
+          preload="metadata"
+          poster={current.thumbnailUrl ?? undefined}
+          onEnded={handleEnded}
+          key={current.sceneId}
+        >
+          <source src={current.url} type={current.mimeType ?? undefined} />
+        </video>
+      </div>
+
+      <aside className="rounded-lg border border-neutral-800 bg-neutral-900">
+        <p className="border-b border-neutral-800 px-3 py-2 text-xs font-semibold uppercase text-slate-400">
+          {t("project.playlistQueue", { count: items.length })}
+        </p>
+        <ul className="max-h-72 overflow-y-auto py-1 lg:max-h-[calc(100%-2.5rem)]">
+          {items.map((item, itemIndex) => {
+            const isActive = itemIndex === index;
+            return (
+              <li key={item.sceneId}>
+                <button
+                  type="button"
+                  onClick={() => handleSelect(itemIndex)}
+                  className={`flex w-full items-center gap-3 px-3 py-2 text-left text-xs transition ${
+                    isActive
+                      ? "bg-red-900/40 text-slate-50"
+                      : "text-slate-300 hover:bg-neutral-800"
+                  }`}
+                >
+                  <span className="w-10 shrink-0 font-semibold text-slate-100">
+                    {item.sceneNumber}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                  <span className="shrink-0 text-slate-500">v{item.versionNumber}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+    </div>
+  );
+}
+
+async function captureFrameFromUrl(url: string): Promise<Blob | null> {
+  const video = document.createElement("video");
+  video.crossOrigin = "anonymous";
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  video.src = url;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("metadata"));
+    });
+    const seekTo = Math.min(
+      Math.max(video.duration - 0.2, 0.1),
+      Math.max(3.0, video.duration * 0.33)
+    );
+    await new Promise<void>((resolve, reject) => {
+      video.onseeked = () => resolve();
+      video.onerror = () => reject(new Error("seek"));
+      video.currentTime = seekTo;
+    });
+    const maxWidth = 640;
+    const ratio = video.videoWidth > 0 ? Math.min(1, maxWidth / video.videoWidth) : 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * ratio));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * ratio));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.8)
+    );
+  } catch {
+    return null;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+  }
 }

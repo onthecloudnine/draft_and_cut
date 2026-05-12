@@ -8,7 +8,8 @@ import { VideoVersion } from "@/models/VideoVersion";
 
 const completeUploadSchema = z.object({
   uploaded: z.boolean(),
-  etag: z.string().optional()
+  etag: z.string().optional(),
+  thumbnailUploaded: z.boolean().optional()
 });
 
 export async function POST(
@@ -33,6 +34,9 @@ export async function POST(
 
     videoVersion.status = body.uploaded ? "ready_for_review" : "failed";
     videoVersion.etag = body.etag;
+    if (body.thumbnailUploaded === false) {
+      videoVersion.thumbnailKey = null;
+    }
     await videoVersion.save();
 
     if (body.uploaded) {

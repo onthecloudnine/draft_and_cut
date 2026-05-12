@@ -28,6 +28,10 @@
   },
   "scene": {
     "backToProject": "Volver al proyecto",
+    "previousScene": "Escena {sceneNumber}",
+    "nextScene": "Escena {sceneNumber}",
+    "previousSceneEmpty": "Primera escena",
+    "nextSceneEmpty": "Ultima escena",
     "scene": "Escena",
     "downloadAssetsZip": "Descargar assets ZIP",
     "uploadVideo": "Subir video",
@@ -193,7 +197,10 @@
     "emptyShots": "Sin shots importados.",
     "latestVideo": "Ultimo video: {stage} v{versionNumber} · {status}",
     "noVideos": "Sin videos asociados.",
-    "emptyScenes": "Este proyecto todavia no tiene escenas importadas."
+    "emptyScenes": "Este proyecto todavia no tiene escenas importadas.",
+    "playlistTitle": "Reproduccion continua",
+    "playlistNow": "Escena {sceneNumber} · v{versionNumber}",
+    "playlistQueue": "Cola ({count})"
   },
   "review": {
     "backToScene": "Volver a escena",

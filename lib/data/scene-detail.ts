@@ -25,6 +25,19 @@ export async function getSceneDetailData(sceneId: string) {
     return null;
   }
 
+  const projectScenes = await Scene.find({ projectId: scene.projectId })
+    .select("sceneNumber title")
+    .lean();
+  projectScenes.sort((left, right) => compareNumericText(left.sceneNumber, right.sceneNumber));
+  const currentIndex = projectScenes.findIndex(
+    (item) => String(item._id) === String(scene._id)
+  );
+  const previousScene = currentIndex > 0 ? projectScenes[currentIndex - 1] : null;
+  const nextScene =
+    currentIndex >= 0 && currentIndex < projectScenes.length - 1
+      ? projectScenes[currentIndex + 1]
+      : null;
+
   const [
     project,
     shots,
@@ -75,6 +88,20 @@ export async function getSceneDetailData(sceneId: string) {
       status: scene.status,
       fpsDefault: project?.fpsDefault ?? 24
     },
+    previousScene: previousScene
+      ? {
+          id: String(previousScene._id),
+          sceneNumber: previousScene.sceneNumber,
+          title: previousScene.title
+        }
+      : null,
+    nextScene: nextScene
+      ? {
+          id: String(nextScene._id),
+          sceneNumber: nextScene.sceneNumber,
+          title: nextScene.title
+        }
+      : null,
     shots: shots.map((shot) => ({
       id: String(shot._id),
       shotNumber: shot.shotNumber,

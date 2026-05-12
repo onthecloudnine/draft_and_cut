@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import { assertProjectPermission } from "@/lib/auth/permissions";
 import { connectDb } from "@/lib/db/mongoose";
 import { getS3Client } from "@/lib/s3/client";
-import { buildVideoS3Key } from "@/lib/s3/keys";
+import { buildVideoS3Key, buildVideoThumbnailS3Key } from "@/lib/s3/keys";
 import { buildPutObjectUpload } from "@/lib/s3/upload";
 import { jsonError } from "@/lib/api/http";
 import { Project } from "@/models/Project";
@@ -74,6 +74,13 @@ export async function POST(request: Request) {
       stage: body.stage,
       versionNumber
     });
+    const thumbnailKey = buildVideoThumbnailS3Key({
+      projectSlug: project.slug,
+      sceneNumber: scene.sceneNumber,
+      scope: "scene",
+      stage: body.stage,
+      versionNumber
+    });
     const frameCount = Math.round(body.duration * body.fps);
 
     const videoVersion = await VideoVersion.create({
@@ -94,11 +101,14 @@ export async function POST(request: Request) {
       uploadedBy: user.id,
       notes: body.notes,
       scriptVersionId: activeScriptVersion?._id,
-      uploadId
+      uploadId,
+      thumbnailKey
     });
 
     const { command, uploadHeaders } = buildPutObjectUpload({ key: s3Key, contentType: body.mimeType });
     const uploadUrl = await getSignedUrl(getS3Client(), command, { expiresIn: 60 * 10 });
+    const thumbnailUpload = buildPutObjectUpload({ key: thumbnailKey, contentType: "image/jpeg" });
+    const thumbnailUploadUrl = await getSignedUrl(getS3Client(), thumbnailUpload.command, { expiresIn: 60 * 10 });
 
     return NextResponse.json({
       uploadId,
@@ -106,7 +116,9 @@ export async function POST(request: Request) {
       versionNumber,
       uploadType: "single",
       uploadHeaders,
-      uploadUrl
+      uploadUrl,
+      thumbnailUploadUrl,
+      thumbnailUploadHeaders: thumbnailUpload.uploadHeaders
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

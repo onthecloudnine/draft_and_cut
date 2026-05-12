@@ -28,6 +28,10 @@
   },
   "scene": {
     "backToProject": "Back to project",
+    "previousScene": "Scene {sceneNumber}",
+    "nextScene": "Scene {sceneNumber}",
+    "previousSceneEmpty": "First scene",
+    "nextSceneEmpty": "Last scene",
     "scene": "Scene",
     "downloadAssetsZip": "Download assets ZIP",
     "uploadVideo": "Upload video",
@@ -193,7 +197,10 @@
     "emptyShots": "No shots imported.",
     "latestVideo": "Latest video: {stage} v{versionNumber} · {status}",
     "noVideos": "No associated videos.",
-    "emptyScenes": "This project does not have imported scenes yet."
+    "emptyScenes": "This project does not have imported scenes yet.",
+    "playlistTitle": "Continuous playback",
+    "playlistNow": "Scene {sceneNumber} · v{versionNumber}",
+    "playlistQueue": "Queue ({count})"
   },
   "review": {
     "backToScene": "Back to scene",

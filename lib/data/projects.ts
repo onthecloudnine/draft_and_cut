@@ -5,6 +5,7 @@ import { Scene } from "@/models/Scene";
 import { Shot } from "@/models/Shot";
 import { VideoVersion } from "@/models/VideoVersion";
 import { Comment } from "@/models/Comment";
+import { maybeGetSignedObjectUrl } from "@/lib/s3/signed-url";
 
 function compareNumericText(left: string, right: string) {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
@@ -59,12 +60,16 @@ export async function getProjectSceneSummaries(projectId: string) {
       const [latestVideo, openComments, videoCount] = await Promise.all([
         VideoVersion.findOne({ sceneId: scene._id })
           .sort({ createdAt: -1 })
-          .select("versionNumber stage status createdAt")
+          .select("versionNumber stage status createdAt s3Key mimeType duration thumbnailKey")
           .lean(),
         Comment.countDocuments({ sceneId: scene._id, status: { $in: ["open", "in_progress"] } }),
         VideoVersion.countDocuments({ sceneId: scene._id })
       ]);
       const sceneShots = shotsByScene.get(String(scene._id)) ?? [];
+      const [latestVideoUrl, latestThumbnailUrl] = await Promise.all([
+        latestVideo?.s3Key ? maybeGetSignedObjectUrl(latestVideo.s3Key) : Promise.resolve(null),
+        latestVideo?.thumbnailKey ? maybeGetSignedObjectUrl(latestVideo.thumbnailKey) : Promise.resolve(null)
+      ]);
 
       return {
         id: String(scene._id),
@@ -80,7 +85,11 @@ export async function getProjectSceneSummaries(projectId: string) {
               versionNumber: latestVideo.versionNumber,
               stage: latestVideo.stage,
               status: latestVideo.status,
-              createdAt: latestVideo.createdAt?.toISOString()
+              createdAt: latestVideo.createdAt?.toISOString(),
+              url: latestVideoUrl,
+              mimeType: latestVideo.mimeType ?? null,
+              duration: latestVideo.duration ?? null,
+              thumbnailUrl: latestThumbnailUrl
             }
           : null,
         openComments,

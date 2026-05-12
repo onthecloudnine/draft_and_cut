@@ -24,7 +24,8 @@ const videoVersionSchema = new Schema(
     isFavorite: { type: Boolean, default: false, index: true },
     scriptVersionId: { type: Schema.Types.ObjectId, ref: "ScriptVersion" },
     uploadId: { type: String, required: true, unique: true },
-    etag: { type: String }
+    etag: { type: String },
+    thumbnailKey: { type: String, default: null }
   },
   { timestamps: true }
 );

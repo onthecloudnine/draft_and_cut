@@ -100,6 +100,12 @@ type AssetTagSuggestion = {
   name: string;
 };
 
+type SceneSiblingData = {
+  id: string;
+  sceneNumber: string;
+  title: string;
+};
+
 type SceneDetailWorkspaceProps = {
   scene: SceneData;
   shots: ShotData[];
@@ -112,6 +118,8 @@ type SceneDetailWorkspaceProps = {
   canManageResources: boolean;
   canManageVideos: boolean;
   initialShotId?: string;
+  previousScene?: SceneSiblingData | null;
+  nextScene?: SceneSiblingData | null;
 };
 
 function formatDate(value: string) {
@@ -290,7 +298,9 @@ export function SceneDetailWorkspace({
   canEditScript,
   canManageVideos,
   canManageResources,
-  initialShotId
+  initialShotId,
+  previousScene = null,
+  nextScene = null
 }: SceneDetailWorkspaceProps) {
   const { optionLabel, t } = useI18n();
   const [scene, setScene] = useState(initialScene);
@@ -869,9 +879,43 @@ export function SceneDetailWorkspace({
         </div>
 
       <section className="border-b border-neutral-800 bg-black px-5 py-4 sm:px-7">
-        <Link className="text-sm font-medium text-red-300 hover:text-red-200" href={`/projects/${scene.projectId}`}>
-          {t("scene.backToProject")}
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link className="text-sm font-medium text-red-300 hover:text-red-200" href={`/projects/${scene.projectId}`}>
+            {t("scene.backToProject")}
+          </Link>
+          <nav className="flex items-center gap-2">
+            {previousScene ? (
+              <Link
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs font-medium text-slate-200 hover:bg-neutral-800"
+                href={`/scenes/${previousScene.id}`}
+                title={previousScene.title}
+              >
+                <span aria-hidden>←</span>
+                <span>{t("scene.previousScene", { sceneNumber: previousScene.sceneNumber })}</span>
+              </Link>
+            ) : (
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-neutral-800 px-3 text-xs font-medium text-slate-600">
+                <span aria-hidden>←</span>
+                <span>{t("scene.previousSceneEmpty")}</span>
+              </span>
+            )}
+            {nextScene ? (
+              <Link
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-900 px-3 text-xs font-medium text-slate-200 hover:bg-neutral-800"
+                href={`/scenes/${nextScene.id}`}
+                title={nextScene.title}
+              >
+                <span>{t("scene.nextScene", { sceneNumber: nextScene.sceneNumber })}</span>
+                <span aria-hidden>→</span>
+              </Link>
+            ) : (
+              <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-md border border-neutral-800 px-3 text-xs font-medium text-slate-600">
+                <span>{t("scene.nextSceneEmpty")}</span>
+                <span aria-hidden>→</span>
+              </span>
+            )}
+          </nav>
+        </div>
         <div className="mt-3 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">

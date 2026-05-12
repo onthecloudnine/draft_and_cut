@@ -16,6 +16,49 @@ type VideoMetadata = {
   fileSizeMb: number;
 };
 
+async function captureVideoThumbnail(file: File): Promise<Blob | null> {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  video.crossOrigin = "anonymous";
+  video.src = objectUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("metadata"));
+    });
+    const seekTo = Math.min(
+      Math.max(video.duration - 0.2, 0.1),
+      Math.max(3.0, video.duration * 0.33)
+    );
+    await new Promise<void>((resolve, reject) => {
+      video.onseeked = () => resolve();
+      video.onerror = () => reject(new Error("seek"));
+      video.currentTime = seekTo;
+    });
+    const maxWidth = 640;
+    const ratio = video.videoWidth > 0 ? Math.min(1, maxWidth / video.videoWidth) : 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * ratio));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * ratio));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.8)
+    );
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+    video.removeAttribute("src");
+    video.load();
+  }
+}
+
 type UploadFormProps = {
   options: UploadOptions;
   initialProjectId?: string;
@@ -137,13 +180,31 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
         throw new Error(`${t("upload.s3Rejected")} (${uploadResponse.status})${s3Error ? `: ${s3Error}` : ""}`);
       }
 
+      let thumbnailUploaded = false;
+      if (initPayload.thumbnailUploadUrl) {
+        const thumbnailBlob = await captureVideoThumbnail(file);
+        if (thumbnailBlob) {
+          try {
+            const thumbnailResponse = await fetch(initPayload.thumbnailUploadUrl, {
+              method: "PUT",
+              headers: { "Content-Type": "image/jpeg", ...(initPayload.thumbnailUploadHeaders ?? {}) },
+              body: thumbnailBlob
+            });
+            thumbnailUploaded = thumbnailResponse.ok;
+          } catch {
+            thumbnailUploaded = false;
+          }
+        }
+      }
+
       setStatus(t("upload.confirming"));
       const completeResponse = await fetch(`/api/uploads/${initPayload.uploadId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           uploaded: true,
-          etag: uploadResponse.headers.get("etag") ?? undefined
+          etag: uploadResponse.headers.get("etag") ?? undefined,
+          thumbnailUploaded
         })
       });
 
