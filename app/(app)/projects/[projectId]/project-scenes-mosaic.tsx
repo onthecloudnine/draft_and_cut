@@ -83,21 +83,6 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
             <h1 className="mt-2 text-2xl font-semibold text-slate-50">{project.title}</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{project.description}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              className="inline-flex h-10 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 px-4 text-sm font-medium text-slate-200 hover:bg-neutral-800"
-              href={`/join/${project.slug}`}
-              target="_blank"
-            >
-              {t("project.accessPage")}
-            </Link>
-            <Link
-              className="inline-flex h-10 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 px-4 text-sm font-medium text-slate-200 hover:bg-neutral-800"
-              href={`/upload?projectId=${project.id}`}
-            >
-              {t("app.uploadVersion")}
-            </Link>
-          </div>
         </div>
       </section>
 

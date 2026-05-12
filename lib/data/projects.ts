@@ -11,6 +11,26 @@ function compareNumericText(left: string, right: string) {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
 }
 
+export async function getAllProjectsForAdmin() {
+  await connectDb();
+  const projects = await Project.find({}).sort({ title: 1 }).lean();
+  const sceneCounts = await Scene.aggregate<{ _id: unknown; count: number }>([
+    { $group: { _id: "$projectId", count: { $sum: 1 } } }
+  ]);
+  const sceneCountByProject = new Map(sceneCounts.map((row) => [String(row._id), row.count]));
+
+  return projects.map((project) => ({
+    id: String(project._id),
+    slug: project.slug,
+    title: project.title,
+    description: project.description,
+    fpsDefault: project.fpsDefault,
+    sceneCount: sceneCountByProject.get(String(project._id)) ?? 0,
+    createdAt: project.createdAt?.toISOString(),
+    updatedAt: project.updatedAt?.toISOString()
+  }));
+}
+
 export async function getProjectsForUser(userId: string) {
   await connectDb();
 

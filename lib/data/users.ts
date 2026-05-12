@@ -28,18 +28,26 @@ export type ProjectJoinRequestAdminItem = {
   createdAt?: string;
 };
 
+export type ProjectAccessAdminItem = {
+  id: string;
+  slug: string;
+  title: string;
+};
+
 export async function getUsersForAdmin(): Promise<{
   users: UserAdminListItem[];
   joinRequests: ProjectJoinRequestAdminItem[];
+  projects: ProjectAccessAdminItem[];
 }> {
   await connectDb();
 
-  const [users, memberships, joinRequests] = await Promise.all([
+  const [users, memberships, joinRequests, projects] = await Promise.all([
     User.find({}).sort({ name: 1, email: 1 }).lean(),
     ProjectMembership.aggregate<{ _id: string; count: number }>([
       { $group: { _id: "$userId", count: { $sum: 1 } } }
     ]),
-    ProjectJoinRequest.find({ status: "pending" }).sort({ createdAt: 1 }).lean()
+    ProjectJoinRequest.find({ status: "pending" }).sort({ createdAt: 1 }).lean(),
+    Project.find({}).select("slug title").sort({ title: 1 }).lean()
   ]);
   const projectCountByUserId = new Map(memberships.map((membership) => [String(membership._id), membership.count]));
   const requestUserIds = joinRequests.map((request) => request.userId);
@@ -83,6 +91,11 @@ export async function getUsersForAdmin(): Promise<{
           createdAt: request.createdAt?.toISOString()
         };
       })
-      .filter((request): request is ProjectJoinRequestAdminItem => Boolean(request))
+      .filter((request): request is ProjectJoinRequestAdminItem => Boolean(request)),
+    projects: projects.map((project) => ({
+      id: String(project._id),
+      slug: project.slug,
+      title: project.title
+    }))
   };
 }

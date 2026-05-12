@@ -7,13 +7,21 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 
 type AppShellProps = {
   children: React.ReactNode;
+  canManageProjects?: boolean;
   canManageUsers?: boolean;
   dictionary: Dictionary;
   locale: Locale;
   userName?: string | null;
 };
 
-export function AppShell({ canManageUsers = false, children, dictionary, locale, userName }: AppShellProps) {
+export function AppShell({
+  canManageProjects = false,
+  canManageUsers = false,
+  children,
+  dictionary,
+  locale,
+  userName
+}: AppShellProps) {
   const t = (path: string) => translate(dictionary, path);
 
   return (
@@ -31,6 +39,11 @@ export function AppShell({ canManageUsers = false, children, dictionary, locale,
               <Link className="text-sm font-medium text-slate-400 hover:text-slate-50" href="/upload">
                 {t("app.uploadVersion")}
               </Link>
+              {canManageProjects ? (
+                <Link className="text-sm font-medium text-slate-400 hover:text-slate-50" href="/projects-admin">
+                  {t("app.projectsAdmin")}
+                </Link>
+              ) : null}
               {canManageUsers ? (
                 <Link className="text-sm font-medium text-slate-400 hover:text-slate-50" href="/users">
                   {t("app.users")}

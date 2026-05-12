@@ -1,14 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { accountRoles, userRoles, type AccountRole, type UserRole } from "@/types/domain";
-import type { ProjectJoinRequestAdminItem, UserAdminListItem } from "@/lib/data/users";
+import type {
+  ProjectAccessAdminItem,
+  ProjectJoinRequestAdminItem,
+  UserAdminListItem
+} from "@/lib/data/users";
 
 type UsersAdminProps = {
   currentUserId: string;
   initialJoinRequests: ProjectJoinRequestAdminItem[];
   initialUsers: UserAdminListItem[];
+  projects: ProjectAccessAdminItem[];
 };
 
 type FormState = {
@@ -28,7 +34,7 @@ const emptyForm: FormState = {
   isActive: true
 };
 
-export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers }: UsersAdminProps) {
+export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers, projects }: UsersAdminProps) {
   const { optionLabel, t } = useI18n();
   const [users, setUsers] = useState(initialUsers);
   const [joinRequests, setJoinRequests] = useState(initialJoinRequests);
@@ -329,6 +335,35 @@ export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers }:
           {users.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-400">{t("users.empty")}</div>
           ) : null}
+        </div>
+      </section>
+
+      <section className="pb-5">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg shadow-black/30">
+          <div className="border-b border-neutral-800 px-5 py-4">
+            <h2 className="font-semibold text-slate-50">{t("users.accessPagesTitle")}</h2>
+            <p className="mt-1 text-sm text-slate-400">{t("users.accessPagesSubtitle")}</p>
+          </div>
+          <ul className="divide-y divide-neutral-800">
+            {projects.map((project) => (
+              <li className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" key={project.id}>
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-100">{project.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{project.slug}</p>
+                </div>
+                <Link
+                  className="inline-flex h-9 items-center justify-center rounded-md border border-neutral-700 bg-neutral-900 px-3 text-sm font-medium text-slate-200 hover:bg-neutral-800"
+                  href={`/join/${project.slug}`}
+                  target="_blank"
+                >
+                  {t("project.accessPage")}
+                </Link>
+              </li>
+            ))}
+            {projects.length === 0 ? (
+              <li className="px-5 py-4 text-sm text-slate-500">{t("users.accessPagesEmpty")}</li>
+            ) : null}
+          </ul>
         </div>
       </section>
 

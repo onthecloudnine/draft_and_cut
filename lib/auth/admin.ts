@@ -22,3 +22,17 @@ export async function assertCanManageUsers(userId: string) {
     throw new Error("Forbidden");
   }
 }
+
+export async function isGlobalAdmin(userId: string) {
+  await connectDb();
+  const user = await User.findById(userId).select("accountRole").lean();
+  return user?.accountRole === "admin";
+}
+
+export async function assertGlobalAdmin(userId: string) {
+  const allowed = await isGlobalAdmin(userId);
+
+  if (!allowed) {
+    throw new Error("Forbidden");
+  }
+}
