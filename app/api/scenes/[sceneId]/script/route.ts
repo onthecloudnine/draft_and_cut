@@ -7,7 +7,7 @@ import { jsonError } from "@/lib/api/http";
 import { Scene } from "@/models/Scene";
 import { ScriptVersion } from "@/models/ScriptVersion";
 import { Shot } from "@/models/Shot";
-import { sceneSoundOptions, shotStatuses, type SceneSoundOption } from "@/types/domain";
+import { sceneSoundOptions, sceneStatuses, shotStatuses, type SceneSoundOption } from "@/types/domain";
 
 const shotInputSchema = z.object({
   id: z.string().min(1).optional(),
@@ -20,7 +20,9 @@ const shotInputSchema = z.object({
   sound: z.string().optional().default(""),
   requiredElements: z.array(z.string()).optional().default([]),
   productionNotes: z.string().optional().default(""),
-  durationFrames: z.number().int().nonnegative().nullable().optional().default(null)
+  durationFrames: z.number().int().nonnegative().nullable().optional().default(null),
+  startFrame: z.number().int().nonnegative().nullable().optional().default(null),
+  endFrame: z.number().int().nonnegative().nullable().optional().default(null)
 });
 
 const scriptUpdateSchema = z.object({
@@ -29,7 +31,10 @@ const scriptUpdateSchema = z.object({
     description: z.string().optional().default(""),
     location: z.string().optional().default(""),
     timeOfDay: z.string().optional().default(""),
-    soundOptions: z.array(z.enum(sceneSoundOptions)).optional().default(["none"])
+    soundOptions: z.array(z.enum(sceneSoundOptions)).optional().default(["none"]),
+    status: z.enum(sceneStatuses).optional(),
+    literaryHeading: z.string().optional().default(""),
+    literaryScript: z.string().optional().default("")
   }),
   shots: z.array(shotInputSchema)
 });
@@ -103,7 +108,9 @@ function buildShotUpdate(shot: ScriptShotInput) {
     sound: shot.sound,
     requiredElements: shot.requiredElements.map((item) => item.trim()).filter(Boolean),
     productionNotes: shot.productionNotes,
-    durationFrames: shot.durationFrames
+    durationFrames: shot.durationFrames,
+    startFrame: shot.startFrame,
+    endFrame: shot.endFrame
   };
 }
 
@@ -149,14 +156,20 @@ export async function PATCH(
       scene.currentScriptVersionId
     );
 
-    await Scene.findByIdAndUpdate(sceneId, {
+    const sceneUpdate: Record<string, unknown> = {
       title: body.scene.title,
       description: body.scene.description,
       location: body.scene.location,
       timeOfDay: body.scene.timeOfDay,
       soundOptions: normalizeSceneSoundOptions(body.scene.soundOptions),
+      literaryHeading: body.scene.literaryHeading,
+      literaryScript: body.scene.literaryScript,
       currentScriptVersionId: scriptVersionId
-    });
+    };
+    if (body.scene.status) {
+      sceneUpdate.status = body.scene.status;
+    }
+    await Scene.findByIdAndUpdate(sceneId, sceneUpdate);
 
     const keptShotIds = new Set<string>();
 

@@ -1,11 +1,13 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
+import { productionStages } from "@/types/domain";
 
 const sceneResourceAssignmentSchema = new Schema(
   {
     projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
     sceneId: { type: Schema.Types.ObjectId, ref: "Scene", required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    assignedBy: { type: Schema.Types.ObjectId, ref: "User", required: true }
+    assignedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    stages: { type: [{ type: String, enum: productionStages }], default: [] }
   },
   { timestamps: true }
 );

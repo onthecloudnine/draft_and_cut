@@ -175,6 +175,7 @@ export async function getSceneDetailData(sceneId: string) {
           name: member.name,
           email: member.email,
           role: membershipRoleByUserId.get(String(assignment.userId)) ?? "read_only",
+          stages: assignment.stages ?? [],
           assignedAt: assignment.createdAt?.toISOString()
         };
       })

@@ -32,17 +32,6 @@ type SceneCard = {
   }>;
 };
 
-type PlaylistItem = {
-  sceneId: string;
-  videoVersionId: string;
-  sceneNumber: string;
-  title: string;
-  versionNumber: number;
-  url: string;
-  mimeType: string | null;
-  thumbnailUrl: string | null;
-};
-
 type ProjectScenesMosaicProps = {
   project: {
     id: string;
@@ -56,203 +45,60 @@ type ProjectScenesMosaicProps = {
 
 export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenesMosaicProps) {
   const { optionLabel, t } = useI18n();
-
-  const playlist = useMemo<PlaylistItem[]>(
-    () =>
-      scenes
-        .filter((scene) => scene.latestVideo?.url && scene.latestVideo.id)
-        .map((scene) => ({
-          sceneId: scene.id,
-          videoVersionId: scene.latestVideo!.id!,
-          sceneNumber: scene.sceneNumber,
-          title: scene.title,
-          versionNumber: scene.latestVideo!.versionNumber,
-          url: scene.latestVideo!.url!,
-          mimeType: scene.latestVideo!.mimeType ?? null,
-          thumbnailUrl: scene.latestVideo!.thumbnailUrl ?? null
-        })),
-    [scenes]
-  );
-
-  return (
-    <div className="h-full overflow-y-auto">
-      <section className="border-b border-neutral-800 bg-black px-5 py-5 sm:px-7">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase text-red-300">{project.slug}</p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-50">{project.title}</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{project.description}</p>
-          </div>
-        </div>
-      </section>
-
-      {playlist.length > 0 ? (
-        <section className="border-b border-neutral-800 bg-neutral-950 px-5 py-5 sm:px-7">
-          <ScenesPlaylistPlayer items={playlist} />
-        </section>
-      ) : null}
-
-      <section className="px-5 py-5 sm:px-7">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-50">{t("project.scenes")}</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              {t("project.availableScenes", { count: scenes.length, role: optionLabel("userRoles", userRole) })}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {scenes.map((scene) => (
-            <article
-              className="grid min-h-80 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg shadow-black/30"
-              key={scene.id}
-            >
-              {scene.latestVideo?.thumbnailUrl ? (
-                <Link
-                  className="block aspect-video w-full overflow-hidden bg-black"
-                  href={`/scenes/${scene.id}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt={scene.title}
-                    className="h-full w-full object-cover transition hover:opacity-90"
-                    loading="lazy"
-                    src={scene.latestVideo.thumbnailUrl}
-                  />
-                </Link>
-              ) : null}
-              <Link className="block border-b border-neutral-800 bg-black p-4 text-white hover:bg-neutral-900" href={`/scenes/${scene.id}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase text-slate-400">{t("project.scene")}</p>
-                    <h3 className="mt-1 text-3xl font-semibold leading-none">{scene.sceneNumber}</h3>
-                  </div>
-                  <span className="rounded-md bg-white/10 px-2 py-1 text-xs text-slate-200">
-                    {optionLabel("sceneStatuses", scene.status)}
-                  </span>
-                </div>
-                <p className="mt-5 line-clamp-2 text-sm font-medium leading-5">{scene.title}</p>
-                <p className="mt-2 text-xs text-slate-400">
-                  {scene.location || t("project.noLocation")} · {scene.timeOfDay || t("project.noTime")}
-                </p>
-              </Link>
-
-              <div className="grid gap-4 p-4">
-                <p className="line-clamp-3 text-sm leading-6 text-slate-400">{scene.description}</p>
-
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-md bg-black px-2 py-2">
-                    <p className="font-semibold text-slate-100">{scene.shots.length}</p>
-                    <p className="mt-1 text-slate-500">{t("project.shots")}</p>
-                  </div>
-                  <div className="rounded-md bg-black px-2 py-2">
-                    <p className="font-semibold text-slate-100">{scene.videoCount}</p>
-                    <p className="mt-1 text-slate-500">{t("project.videos")}</p>
-                  </div>
-                  <div className="rounded-md bg-black px-2 py-2">
-                    <p className="font-semibold text-slate-100">{scene.openComments}</p>
-                    <p className="mt-1 text-slate-500">{t("project.open")}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase text-slate-500">{t("scene.shots")}</p>
-                  <div className="mt-2 grid max-h-28 gap-1.5 overflow-y-auto pr-1">
-                    {scene.shots.map((shot) => (
-                      <Link
-                        className="rounded-md border border-neutral-800 bg-black/60 px-2 py-1.5 text-xs hover:border-red-900/70 hover:bg-neutral-900"
-                        href={`/scenes/${scene.id}?shotId=${shot.id}`}
-                        key={shot.id}
-                      >
-                        <span className="font-semibold text-slate-100">Shot {shot.shotNumber}</span>
-                        {shot.shotType ? <span className="text-slate-500"> · {shot.shotType}</span> : null}
-                      </Link>
-                    ))}
-                    {scene.shots.length === 0 ? (
-                      <p className="rounded-md bg-black px-2 py-2 text-xs text-slate-500">
-                        {t("project.emptyShots")}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="border-t border-neutral-800 pt-3 text-xs text-slate-500">
-                  {scene.latestVideo ? (
-                    <p>
-                      {t("project.latestVideo", {
-                        stage: optionLabel("productionStages", scene.latestVideo.stage),
-                        versionNumber: scene.latestVideo.versionNumber,
-                        status: scene.latestVideo.status
-                      })}
-                    </p>
-                  ) : (
-                    <p>{t("project.noVideos")}</p>
-                  )}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {scenes.length === 0 ? (
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-8 text-center text-sm text-slate-400">
-            {t("project.emptyScenes")}
-          </div>
-        ) : null}
-      </section>
-    </div>
-  );
-}
-
-function ScenesPlaylistPlayer({ items }: { items: PlaylistItem[] }) {
-  const { t } = useI18n();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const backfilledRef = useRef<Set<string>>(new Set());
-  const [index, setIndex] = useState(0);
+  const [selectedSceneId, setSelectedSceneId] = useState<string>(() => {
+    const firstWithVideo = scenes.find((scene) => scene.latestVideo?.url);
+    return firstWithVideo?.id ?? scenes[0]?.id ?? "";
+  });
   const [autoPlay, setAutoPlay] = useState(false);
   const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string>>({});
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const backfilledRef = useRef<Set<string>>(new Set());
+  const timelineRef = useRef<HTMLUListElement | null>(null);
+  const activeThumbRef = useRef<HTMLLIElement | null>(null);
 
-  const baseCurrent = items[index] ?? items[0];
-  const current = baseCurrent
-    ? {
-        ...baseCurrent,
-        thumbnailUrl: thumbnailOverrides[baseCurrent.videoVersionId] ?? baseCurrent.thumbnailUrl
-      }
-    : baseCurrent;
+  const selectedScene = useMemo(
+    () => scenes.find((scene) => scene.id === selectedSceneId) ?? scenes[0] ?? null,
+    [scenes, selectedSceneId]
+  );
 
-  useEffect(() => {
-    if (index >= items.length) {
-      setIndex(0);
-    }
-  }, [items.length, index]);
+  const currentVideo = selectedScene?.latestVideo ?? null;
+  const playableUrl = currentVideo?.url ?? null;
+  const playablePoster = useMemo(() => {
+    if (!currentVideo?.id) return currentVideo?.thumbnailUrl ?? undefined;
+    return thumbnailOverrides[currentVideo.id] ?? currentVideo.thumbnailUrl ?? undefined;
+  }, [currentVideo?.id, currentVideo?.thumbnailUrl, thumbnailOverrides]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !current) return;
+    if (!video) return;
     video.load();
-    if (autoPlay) {
+    if (autoPlay && playableUrl) {
       video.play().catch(() => {
-        /* autoplay may be blocked until user interacts */
+        /* autoplay may be blocked */
       });
     }
-  }, [current?.url, autoPlay]);
+  }, [playableUrl, autoPlay]);
 
   useEffect(() => {
-    if (!baseCurrent) return;
-    if (baseCurrent.thumbnailUrl) return;
-    if (backfilledRef.current.has(baseCurrent.videoVersionId)) return;
-    backfilledRef.current.add(baseCurrent.videoVersionId);
+    if (!activeThumbRef.current) return;
+    activeThumbRef.current.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [selectedSceneId]);
 
+  useEffect(() => {
+    if (!currentVideo?.id || !currentVideo.url) return;
+    if (currentVideo.thumbnailUrl) return;
+    if (backfilledRef.current.has(currentVideo.id)) return;
+    backfilledRef.current.add(currentVideo.id);
+
+    const videoId = currentVideo.id;
+    const videoUrl = currentVideo.url;
     let cancelled = false;
     void (async () => {
       try {
-        const blob = await captureFrameFromUrl(baseCurrent.url);
+        const blob = await captureFrameFromUrl(videoUrl);
         if (cancelled || !blob) return;
 
-        const initResponse = await fetch(`/api/videos/${baseCurrent.videoVersionId}/thumbnail`, {
-          method: "POST"
-        });
+        const initResponse = await fetch(`/api/videos/${videoId}/thumbnail`, { method: "POST" });
         if (!initResponse.ok) return;
         const init = (await initResponse.json()) as {
           thumbnailKey: string;
@@ -267,7 +113,7 @@ function ScenesPlaylistPlayer({ items }: { items: PlaylistItem[] }) {
         });
         if (!putResponse.ok || cancelled) return;
 
-        await fetch(`/api/videos/${baseCurrent.videoVersionId}/thumbnail`, {
+        await fetch(`/api/videos/${videoId}/thumbnail`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ thumbnailKey: init.thumbnailKey })
@@ -275,19 +121,16 @@ function ScenesPlaylistPlayer({ items }: { items: PlaylistItem[] }) {
         if (cancelled) return;
 
         const previewUrl = URL.createObjectURL(blob);
-        setThumbnailOverrides((current) => ({
-          ...current,
-          [baseCurrent.videoVersionId]: previewUrl
-        }));
+        setThumbnailOverrides((current) => ({ ...current, [videoId]: previewUrl }));
       } catch {
-        /* best-effort — leave card without thumb */
+        /* best-effort */
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [baseCurrent?.videoVersionId, baseCurrent?.url, baseCurrent?.thumbnailUrl]);
+  }, [currentVideo?.id, currentVideo?.url, currentVideo?.thumbnailUrl]);
 
   useEffect(() => {
     return () => {
@@ -296,79 +139,299 @@ function ScenesPlaylistPlayer({ items }: { items: PlaylistItem[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!current) return null;
+  const handleSelect = (sceneId: string, opts: { play?: boolean } = {}) => {
+    setAutoPlay(Boolean(opts.play));
+    setSelectedSceneId(sceneId);
+  };
 
   const handleEnded = () => {
-    setAutoPlay(true);
-    setIndex((value) => (value + 1) % items.length);
+    if (!selectedScene) return;
+    const idx = scenes.findIndex((scene) => scene.id === selectedScene.id);
+    for (let i = idx + 1; i < scenes.length; i += 1) {
+      if (scenes[i].latestVideo?.url) {
+        handleSelect(scenes[i].id, { play: true });
+        return;
+      }
+    }
   };
 
-  const handleSelect = (nextIndex: number) => {
-    setAutoPlay(true);
-    setIndex(nextIndex);
-  };
+  const totalScenes = scenes.length;
+  const scenesWithVideo = useMemo(() => scenes.filter((scene) => scene.latestVideo?.url).length, [scenes]);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-      <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black">
-        <div className="flex items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3">
+    <div className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
+      <section className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3 sm:px-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-red-300">{t("project.playlistTitle")}</p>
-            <p className="mt-1 truncate text-sm text-slate-200">
-              {t("project.playlistNow", {
-                sceneNumber: current.sceneNumber,
-                versionNumber: current.versionNumber
-              })}
-              {current.title ? <span className="text-slate-500"> · {current.title}</span> : null}
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400">{project.slug}</p>
+            <h1 className="mt-0.5 truncate text-lg font-semibold text-zinc-50">{project.title}</h1>
           </div>
-          <p className="shrink-0 text-xs text-slate-500">
-            {index + 1} / {items.length}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <StatPill label={t("project.scenes")} value={totalScenes} />
+            <StatPill label={t("project.videos")} value={scenesWithVideo} />
+            <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-400">
+              {optionLabel("userRoles", userRole)}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col bg-black">
+          <div className="flex min-h-0 flex-1 items-center justify-center p-3 sm:p-5">
+            {playableUrl ? (
+              <video
+                ref={videoRef}
+                key={selectedScene?.id}
+                className="max-h-full max-w-full rounded-md bg-black shadow-2xl shadow-black/60"
+                controls
+                onEnded={handleEnded}
+                playsInline
+                poster={playablePoster}
+                preload="metadata"
+              >
+                <source src={playableUrl} type={currentVideo?.mimeType ?? undefined} />
+              </video>
+            ) : (
+              <EmptyPlayer
+                title={t("scene.noPreviewTitle")}
+                subtitle={selectedScene ? t("scene.noPreviewBody") : t("project.emptyScenes")}
+              />
+            )}
+          </div>
+          {selectedScene ? (
+            <div className="shrink-0 border-t border-zinc-900 bg-zinc-950/80 px-4 py-2 text-xs text-zinc-400 sm:px-6">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="font-semibold text-zinc-200">
+                  {t("project.scene")} {selectedScene.sceneNumber}
+                </span>
+                {selectedScene.title ? <span className="truncate text-zinc-400">{selectedScene.title}</span> : null}
+                {currentVideo ? (
+                  <span className="text-zinc-500">
+                    · {optionLabel("productionStages", currentVideo.stage)} v{currentVideo.versionNumber}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <aside className="flex w-full shrink-0 flex-col border-zinc-800 bg-zinc-900 lg:w-[340px] lg:border-l xl:w-[380px]">
+          {selectedScene ? (
+            <SceneInfoPanel
+              key={selectedScene.id}
+              optionLabel={optionLabel}
+              scene={selectedScene}
+              t={t}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-zinc-500">
+              {t("project.emptyScenes")}
+            </div>
+          )}
+        </aside>
+      </section>
+
+      <section className="shrink-0 border-t border-zinc-800 bg-zinc-950">
+        <div className="flex items-center justify-between px-5 pb-1 pt-3 sm:px-7">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            {t("project.timelineTitle")}
+          </p>
+          <p className="text-[11px] text-zinc-600">
+            {t("project.timelineCount", { count: totalScenes })}
           </p>
         </div>
-        <video
-          ref={videoRef}
-          className="aspect-video w-full bg-black"
-          controls
-          playsInline
-          preload="metadata"
-          poster={current.thumbnailUrl ?? undefined}
-          onEnded={handleEnded}
-          key={current.sceneId}
+        <ul
+          ref={timelineRef}
+          className="flex gap-2.5 overflow-x-auto overflow-y-hidden px-5 pb-4 pt-2 sm:px-7"
         >
-          <source src={current.url} type={current.mimeType ?? undefined} />
-        </video>
-      </div>
-
-      <aside className="rounded-lg border border-neutral-800 bg-neutral-900">
-        <p className="border-b border-neutral-800 px-3 py-2 text-xs font-semibold uppercase text-slate-400">
-          {t("project.playlistQueue", { count: items.length })}
-        </p>
-        <ul className="max-h-72 overflow-y-auto py-1 lg:max-h-[calc(100%-2.5rem)]">
-          {items.map((item, itemIndex) => {
-            const isActive = itemIndex === index;
+          {scenes.map((scene) => {
+            const isActive = scene.id === selectedSceneId;
+            const overrideThumb = scene.latestVideo?.id
+              ? thumbnailOverrides[scene.latestVideo.id]
+              : undefined;
+            const thumb = overrideThumb ?? scene.latestVideo?.thumbnailUrl ?? null;
             return (
-              <li key={item.sceneId}>
+              <li
+                key={scene.id}
+                ref={isActive ? activeThumbRef : null}
+                className="shrink-0"
+              >
                 <button
-                  type="button"
-                  onClick={() => handleSelect(itemIndex)}
-                  className={`flex w-full items-center gap-3 px-3 py-2 text-left text-xs transition ${
+                  className={[
+                    "group relative flex w-44 flex-col overflow-hidden rounded-md border text-left transition",
                     isActive
-                      ? "bg-red-900/40 text-slate-50"
-                      : "text-slate-300 hover:bg-neutral-800"
-                  }`}
+                      ? "border-red-500/80 ring-2 ring-red-500/40"
+                      : "border-zinc-800 hover:border-zinc-600"
+                  ].join(" ")}
+                  onClick={() => handleSelect(scene.id, { play: true })}
+                  type="button"
                 >
-                  <span className="w-10 shrink-0 font-semibold text-slate-100">
-                    {item.sceneNumber}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                  <span className="shrink-0 text-slate-500">v{item.versionNumber}</span>
+                  <div className="relative aspect-video w-full bg-zinc-900">
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt={scene.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        src={thumb}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-zinc-600">
+                        {t("project.noVideos")}
+                      </div>
+                    )}
+                    <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-100">
+                      {scene.sceneNumber}
+                    </span>
+                    {scene.latestVideo ? (
+                      <span className="absolute right-1.5 top-1.5 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        v{scene.latestVideo.versionNumber}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-0.5 bg-zinc-900 px-2 py-1.5">
+                    <p className="truncate text-[12px] font-medium text-zinc-100">{scene.title || "—"}</p>
+                    <p className="truncate text-[10px] text-zinc-500">
+                      {optionLabel("sceneStatuses", scene.status)}
+                      {scene.openComments > 0 ? ` · ${scene.openComments} ${t("project.open")}` : ""}
+                    </p>
+                  </div>
                 </button>
               </li>
             );
           })}
+          {scenes.length === 0 ? (
+            <li className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+              {t("project.emptyScenes")}
+            </li>
+          ) : null}
         </ul>
-      </aside>
+      </section>
+    </div>
+  );
+}
+
+function StatPill({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-400">
+      <span className="font-semibold text-zinc-100">{value}</span>
+      <span className="text-zinc-500">{label}</span>
+    </span>
+  );
+}
+
+function EmptyPlayer({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="flex max-w-md flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/60 px-8 py-12 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-zinc-500">
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+          <path d="M5 5h11l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" strokeLinejoin="round" />
+          <path d="M10 11l5 3-5 3z" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-zinc-200">{title}</p>
+      <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>
+    </div>
+  );
+}
+
+function SceneInfoPanel({
+  optionLabel,
+  scene,
+  t
+}: {
+  optionLabel: (group: string, value: string) => string;
+  scene: SceneCard;
+  t: (path: string, replacements?: Record<string, string | number>) => string;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-zinc-800 px-4 py-4 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {t("project.scene")} {scene.sceneNumber}
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-zinc-50">{scene.title || "—"}</h2>
+          </div>
+          <span className="shrink-0 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-[11px] font-medium text-zinc-300">
+            {optionLabel("sceneStatuses", scene.status)}
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500">
+          {scene.location || t("project.noLocation")} · {scene.timeOfDay || t("project.noTime")}
+        </p>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+          <Metric label={t("project.shots")} value={scene.shots.length} />
+          <Metric label={t("project.videos")} value={scene.videoCount} />
+          <Metric label={t("project.open")} value={scene.openComments} />
+        </div>
+
+        {scene.description ? (
+          <p className="mt-4 whitespace-pre-line text-sm leading-6 text-zinc-300">{scene.description}</p>
+        ) : null}
+
+        {scene.latestVideo ? (
+          <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs">
+            <p className="font-semibold uppercase tracking-wider text-zinc-500">
+              {t("scene.loadedVideo")}
+            </p>
+            <p className="mt-1 text-zinc-200">
+              {t("project.latestVideo", {
+                stage: optionLabel("productionStages", scene.latestVideo.stage),
+                versionNumber: scene.latestVideo.versionNumber,
+                status: scene.latestVideo.status
+              })}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            {t("scene.shots")}
+          </p>
+          <ul className="mt-2 grid gap-1.5">
+            {scene.shots.map((shot) => (
+              <li key={shot.id}>
+                <Link
+                  className="block rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-900"
+                  href={`/scenes/${scene.id}?shotId=${shot.id}`}
+                >
+                  <span className="font-semibold text-zinc-100">Shot {shot.shotNumber}</span>
+                  {shot.shotType ? <span className="text-zinc-500"> · {shot.shotType}</span> : null}
+                </Link>
+              </li>
+            ))}
+            {scene.shots.length === 0 ? (
+              <li className="rounded-md bg-zinc-950 px-2.5 py-2 text-xs text-zinc-500">
+                {t("project.emptyShots")}
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-zinc-800 p-3 sm:p-4">
+        <Link
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
+          href={`/scenes/${scene.id}`}
+        >
+          {t("project.openScene")}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2">
+      <p className="text-sm font-semibold text-zinc-100">{value}</p>
+      <p className="mt-0.5 text-zinc-500">{label}</p>
     </div>
   );
 }
