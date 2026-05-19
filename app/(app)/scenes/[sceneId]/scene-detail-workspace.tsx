@@ -143,6 +143,7 @@ type SceneDetailWorkspaceProps = {
 };
 
 type TopView = "timeline" | "table";
+type TimelineTool = "select" | "blade";
 type SidebarTab = "scene" | "script" | "shot" | "team" | "elements" | "files";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -341,6 +342,7 @@ export function SceneDetailWorkspace({
   const [activeShotId, setActiveShotId] = useState(initialShotId ?? sortedInitialShots[0]?.id ?? "");
   const [selectedVideoId, setSelectedVideoId] = useState("");
   const [topView, setTopView] = useState<TopView>("timeline");
+  const [timelineTool, setTimelineTool] = useState<TimelineTool>("select");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("scene");
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -396,6 +398,63 @@ export function SceneDetailWorkspace({
   const savedHashRef = useRef<string>("");
   const saveQueueRef = useRef<{ inFlight: boolean; pending: boolean }>({ inFlight: false, pending: false });
   const syncToServerRef = useRef<() => Promise<void>>(async () => {});
+
+  type HistorySnapshot = { scene: SceneData; shots: ShotData[] };
+  const historyRef = useRef<{ past: HistorySnapshot[]; future: HistorySnapshot[]; lastAt: number }>({
+    past: [],
+    future: [],
+    lastAt: 0
+  });
+  const [historyVersion, setHistoryVersion] = useState(0);
+
+  function cloneHistorySnapshot(snap: HistorySnapshot): HistorySnapshot {
+    return {
+      scene: { ...snap.scene, soundOptions: [...snap.scene.soundOptions] },
+      shots: snap.shots.map((s) => ({ ...s, requiredElements: [...s.requiredElements] }))
+    };
+  }
+
+  const recordHistory = useCallback((options?: { immediate?: boolean }) => {
+    const now = Date.now();
+    if (!options?.immediate && now - historyRef.current.lastAt < 600) return;
+    historyRef.current.past.push(cloneHistorySnapshot(stateRef.current));
+    if (historyRef.current.past.length > 100) historyRef.current.past.shift();
+    historyRef.current.future = [];
+    historyRef.current.lastAt = now;
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
+  const undo = useCallback(() => {
+    const h = historyRef.current;
+    if (h.past.length === 0) return;
+    const prev = h.past.pop()!;
+    h.future.push(cloneHistorySnapshot(stateRef.current));
+    h.lastAt = 0;
+    setScene(prev.scene);
+    setShots(prev.shots);
+    setActiveShotId((current) => (prev.shots.some((s) => s.id === current) ? current : prev.shots[0]?.id ?? ""));
+    setHistoryVersion((v) => v + 1);
+    requestAutosaveRef.current();
+  }, []);
+
+  const redo = useCallback(() => {
+    const h = historyRef.current;
+    if (h.future.length === 0) return;
+    const next = h.future.pop()!;
+    h.past.push(cloneHistorySnapshot(stateRef.current));
+    h.lastAt = 0;
+    setScene(next.scene);
+    setShots(next.shots);
+    setActiveShotId((current) => (next.shots.some((s) => s.id === current) ? current : next.shots[0]?.id ?? ""));
+    setHistoryVersion((v) => v + 1);
+    requestAutosaveRef.current();
+  }, []);
+
+  const canUndo = historyRef.current.past.length > 0;
+  const canRedo = historyRef.current.future.length > 0;
+  void historyVersion; // re-derive canUndo/canRedo whenever the version changes
+
+  const requestAutosaveRef = useRef<() => void>(() => {});
 
   const computeHash = (next: { scene: SceneData; shots: ShotData[] }) =>
     JSON.stringify({
@@ -508,6 +567,10 @@ export function SceneDetailWorkspace({
   }, [canEditScript]);
 
   useEffect(() => {
+    requestAutosaveRef.current = requestAutosave;
+  }, [requestAutosave]);
+
+  useEffect(() => {
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
@@ -535,11 +598,27 @@ export function SceneDetailWorkspace({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target) {
-        if (target.isContentEditable) return;
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const inField =
+        target != null &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT");
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && (event.key === "z" || event.key === "Z")) {
+        if (inField) return;
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
       }
+      if (mod && (event.key === "y" || event.key === "Y")) {
+        if (inField) return;
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (inField) return;
       if (event.key === "g" || event.key === "G") {
         event.preventDefault();
         setIsScriptOverlayOpen((current) => !current);
@@ -552,19 +631,22 @@ export function SceneDetailWorkspace({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isScriptOverlayOpen]);
+  }, [isScriptOverlayOpen, undo, redo]);
 
   function updateScene(patch: Partial<SceneData>) {
+    recordHistory();
     setScene((current) => ({ ...current, ...patch }));
     requestAutosave();
   }
 
   function updateShot(shotId: string, patch: Partial<ShotData>) {
+    recordHistory();
     setShots((current) => current.map((shot) => (shot.id === shotId ? { ...shot, ...patch } : shot)));
     requestAutosave();
   }
 
   function toggleSceneSoundOption(option: SceneSoundOption, checked: boolean) {
+    recordHistory({ immediate: true });
     setScene((current) => {
       let nextOptions: SceneSoundOption[];
       if (option === "none") {
@@ -583,6 +665,7 @@ export function SceneDetailWorkspace({
 
   function addShotAfter(referenceShot: ShotData | null) {
     if (!canEditScript) return;
+    recordHistory({ immediate: true });
     const newShot = cloneShot(referenceShot, shots);
     setShots((current) => {
       if (!referenceShot) return [...current, newShot];
@@ -595,9 +678,52 @@ export function SceneDetailWorkspace({
     requestAutosave();
   }
 
+  function splitShot(shotId: string, atFrame: number) {
+    if (!canEditScript) return;
+    const idx = shots.findIndex((s) => s.id === shotId);
+    if (idx < 0) return;
+    const original = shots[idx];
+    if (
+      typeof original.startFrame !== "number" ||
+      typeof original.endFrame !== "number" ||
+      original.endFrame <= original.startFrame
+    ) {
+      setError(t("scene.splitShotError"));
+      return;
+    }
+    const minFrames = 1;
+    const cut = Math.max(original.startFrame + minFrames, Math.min(original.endFrame - minFrames, Math.round(atFrame)));
+    if (cut <= original.startFrame || cut >= original.endFrame) {
+      setError(t("scene.splitShotError"));
+      return;
+    }
+    recordHistory({ immediate: true });
+    const newShot: ShotData = {
+      ...original,
+      id: `new-${crypto.randomUUID()}`,
+      shotNumber: nextShotNumberAfter(original.shotNumber, shots),
+      requiredElements: [...original.requiredElements],
+      startFrame: cut,
+      endFrame: original.endFrame,
+      durationFrames: original.endFrame - cut
+    };
+    setShots((current) => {
+      const at = current.findIndex((s) => s.id === shotId);
+      if (at < 0) return current;
+      const updatedLeft: ShotData = {
+        ...current[at],
+        endFrame: cut,
+        durationFrames: cut - (current[at].startFrame ?? 0)
+      };
+      return [...current.slice(0, at), updatedLeft, newShot, ...current.slice(at + 1)];
+    });
+    requestAutosave();
+  }
+
   function removeShot(shotId: string) {
     if (!canEditScript) return;
     if (!window.confirm(t("scene.removeShotConfirm"))) return;
+    recordHistory({ immediate: true });
     const nextShots = shots.filter((shot) => shot.id !== shotId);
     setShots(nextShots);
     if (activeShotId === shotId) {
@@ -916,8 +1042,12 @@ export function SceneDetailWorkspace({
             onRemoveAssetTag={removeAssetTag}
             onRemoveHumanResource={removeHumanResource}
             onRemoveShot={removeShot}
+            onRedo={redo}
             onSelectShot={setActiveShotId}
             onSelectVideo={setSelectedVideoId}
+            onSetTimelineTool={setTimelineTool}
+            onSplitShot={splitShot}
+            onUndo={undo}
             onTagInputChange={updateTagInput}
             onUpdateResourceStages={updateResourceStages}
             onUpdateScene={updateScene}
@@ -938,7 +1068,10 @@ export function SceneDetailWorkspace({
             sidebarTab={sidebarTab}
             tagInputs={tagInputs}
             tagSuggestions={tagSuggestions}
+            canRedo={canRedo}
+            canUndo={canUndo}
             t={t}
+            timelineTool={timelineTool}
             toggleSceneSoundOption={toggleSceneSoundOption}
           />
         ) : (
@@ -1227,9 +1360,15 @@ type TimelineViewProps = {
   onRemoveAssetTag: (id: string) => void;
   onRemoveHumanResource: (id: string) => void;
   onRemoveShot: (id: string) => void;
+  onRedo: () => void;
   onSelectShot: (id: string) => void;
   onSelectVideo: (id: string) => void;
+  onSetTimelineTool: (tool: TimelineTool) => void;
+  onSplitShot: (id: string, atFrame: number) => void;
+  onUndo: () => void;
   onTagInputChange: (category: AssetTagCategory, value: string) => void;
+  canRedo: boolean;
+  canUndo: boolean;
   onUpdateResourceStages: (id: string, stages: ProductionStage[]) => void;
   onUpdateScene: (patch: Partial<SceneData>) => void;
   onUpdateShot: (id: string, patch: Partial<ShotData>) => void;
@@ -1250,6 +1389,7 @@ type TimelineViewProps = {
   tagInputs: Record<string, string>;
   tagSuggestions: Record<string, AssetTagSuggestion[]>;
   t: (path: string, replacements?: Record<string, string | number>) => string;
+  timelineTool: TimelineTool;
   toggleSceneSoundOption: (option: SceneSoundOption, checked: boolean) => void;
 };
 
@@ -1261,15 +1401,22 @@ function TimelineView(props: TimelineViewProps) {
     canEditScript,
     onAddShotAfter,
     onOpenMerge,
+    canRedo,
+    canUndo,
+    onRedo,
     onSelectShot,
     onSelectVideo,
+    onSetTimelineTool,
+    onSplitShot,
+    onUndo,
     onUpdateShot,
     optionLabel,
     scene,
     setSidebarTab,
     shots,
     sidebarTab,
-    t
+    t,
+    timelineTool
   } = props;
 
   const activeThumbRef = useRef<HTMLLIElement | null>(null);
@@ -1426,6 +1573,65 @@ function TimelineView(props: TimelineViewProps) {
       }
     },
     [onUpdateShot]
+  );
+
+  const TIMELINE_PADDING_PX = 12;
+  const timelineGeometry = useMemo(() => {
+    const gap = canEditScript ? 16 : 8;
+    const items: { startPx: number; widthPx: number }[] = [];
+    let cursor = 0;
+    const resizingIdx = resizingShotId ? shots.findIndex((s) => s.id === resizingShotId) : -1;
+    for (let i = 0; i < shots.length; i += 1) {
+      const shot = shots[i];
+      const durationSecs =
+        typeof shot.durationFrames === "number" && shot.durationFrames > 0
+          ? shot.durationFrames / fps
+          : 2;
+      const isInvolvedInResize =
+        resizingShotId != null && (i === resizingIdx || i === resizingIdx + 1);
+      const w = isInvolvedInResize
+        ? Math.max(16, Math.round(durationSecs * PIXELS_PER_SECOND))
+        : Math.max(MIN_THUMB_WIDTH_PX, Math.round(durationSecs * PIXELS_PER_SECOND));
+      const itemGap = i < shots.length - 1 ? gap : 0;
+      items.push({ startPx: cursor, widthPx: w });
+      cursor += w + itemGap;
+    }
+    return { items, totalWidth: cursor };
+  }, [shots, canEditScript, fps, resizingShotId]);
+
+  const playheadPx = useMemo(() => {
+    if (!activeShot) return null;
+    const idx = shots.findIndex((s) => s.id === activeShot.id);
+    if (idx < 0 || !timelineGeometry.items[idx]) return null;
+    const item = timelineGeometry.items[idx];
+    const startFrame = activeShot.startFrame;
+    const endFrame = activeShot.endFrame;
+    if (typeof startFrame !== "number" || typeof endFrame !== "number" || endFrame <= startFrame) {
+      return TIMELINE_PADDING_PX + item.startPx;
+    }
+    const playbackFrames = playbackSeconds * fps;
+    const progress = Math.max(0, Math.min(1, (playbackFrames - startFrame) / (endFrame - startFrame)));
+    return TIMELINE_PADDING_PX + item.startPx + progress * item.widthPx;
+  }, [activeShot, shots, timelineGeometry, playbackSeconds, fps]);
+
+  const playheadScrubbingRef = useRef(false);
+  const seekFromTimelinePx = useCallback(
+    (xPx: number) => {
+      const adjusted = xPx - TIMELINE_PADDING_PX;
+      for (let i = 0; i < timelineGeometry.items.length; i += 1) {
+        const item = timelineGeometry.items[i];
+        if (adjusted >= item.startPx && adjusted <= item.startPx + item.widthPx) {
+          const shot = shots[i];
+          if (typeof shot.startFrame !== "number" || typeof shot.endFrame !== "number") return;
+          const ratio = Math.max(0, Math.min(1, (adjusted - item.startPx) / Math.max(1, item.widthPx)));
+          const frame = shot.startFrame + ratio * (shot.endFrame - shot.startFrame);
+          if (shot.id !== activeShot?.id) onSelectShot(shot.id);
+          seekTo(frame / fps);
+          return;
+        }
+      }
+    },
+    [timelineGeometry, shots, fps, seekTo, onSelectShot, activeShot?.id]
   );
 
   const stepFrame = useCallback(
@@ -1599,9 +1805,84 @@ function TimelineView(props: TimelineViewProps) {
 
       <section className="shrink-0 border-t border-zinc-800 bg-zinc-950">
         <div className="flex items-center justify-between gap-3 px-5 pb-1 pt-3 sm:px-7">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-            {t("scene.shotsTimeline")}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {t("scene.shotsTimeline")}
+            </p>
+            {canEditScript ? (
+              <div className="inline-flex overflow-hidden rounded-md border border-zinc-800">
+                <button
+                  aria-label={t("scene.undo")}
+                  className="inline-flex h-7 w-8 items-center justify-center bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-zinc-900 disabled:hover:text-zinc-400"
+                  disabled={!canUndo}
+                  onClick={onUndo}
+                  title={t("scene.undo")}
+                  type="button"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                    <path d="M9 14l-4-4 4-4" />
+                    <path d="M5 10h11a4 4 0 0 1 0 8h-2" />
+                  </svg>
+                </button>
+                <button
+                  aria-label={t("scene.redo")}
+                  className="inline-flex h-7 w-8 items-center justify-center border-l border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-zinc-900 disabled:hover:text-zinc-400"
+                  disabled={!canRedo}
+                  onClick={onRedo}
+                  title={t("scene.redo")}
+                  type="button"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                    <path d="M15 14l4-4-4-4" />
+                    <path d="M19 10H8a4 4 0 0 0 0 8h2" />
+                  </svg>
+                </button>
+              </div>
+            ) : null}
+            {canEditScript ? (
+              <div className="inline-flex overflow-hidden rounded-md border border-zinc-800">
+                <button
+                  aria-label={t("scene.toolSelect")}
+                  className={[
+                    "inline-flex h-7 w-8 items-center justify-center text-xs",
+                    timelineTool === "select"
+                      ? "bg-red-600 text-white"
+                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  ].join(" ")}
+                  onClick={() => onSetTimelineTool("select")}
+                  title={t("scene.toolSelect")}
+                  type="button"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                    <path d="M5 3l14 8-6 1-2 6z" />
+                  </svg>
+                </button>
+                <button
+                  aria-label={t("scene.toolBlade")}
+                  className={[
+                    "inline-flex h-7 w-8 items-center justify-center border-l border-zinc-800 text-xs",
+                    timelineTool === "blade"
+                      ? "bg-red-600 text-white"
+                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  ].join(" ")}
+                  onClick={() => onSetTimelineTool("blade")}
+                  title={t("scene.toolBlade")}
+                  type="button"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                    <circle cx="6" cy="6" r="3" />
+                    <circle cx="6" cy="18" r="3" />
+                    <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                    <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                    <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                  </svg>
+                </button>
+              </div>
+            ) : null}
+            {timelineTool === "blade" ? (
+              <span className="text-[11px] text-amber-400">{t("scene.toolBladeHint")}</span>
+            ) : null}
+          </div>
           <div className="flex items-center gap-3 text-[11px] text-zinc-500">
             <span>{shots.length} {t("scene.shotsCount")}</span>
             {canEditScript ? (
@@ -1615,78 +1896,111 @@ function TimelineView(props: TimelineViewProps) {
             ) : null}
           </div>
         </div>
-        <ul className="flex items-stretch gap-0 overflow-x-auto overflow-y-hidden px-3 pb-4 pt-2">
-          {shots.map((shot, idx) => {
-            const isActive = shot.id === activeShot?.id;
-            const nextShot = shots[idx + 1];
-            const hasRange =
-              typeof shot.startFrame === "number" &&
-              typeof shot.endFrame === "number" &&
-              shot.endFrame > shot.startFrame;
-            const playbackFrames = playbackSeconds * fps;
-            const playbackProgress =
-              isActive && hasRange
-                ? Math.max(
-                    0,
-                    Math.min(1, (playbackFrames - (shot.startFrame ?? 0)) / Math.max(1, (shot.endFrame ?? 0) - (shot.startFrame ?? 0)))
-                  )
-                : 0;
-            const durationSecs =
-              typeof shot.durationFrames === "number" && shot.durationFrames > 0
-                ? shot.durationFrames / fps
-                : 2;
-            const resizingIdx = resizingShotId
-              ? shots.findIndex((s) => s.id === resizingShotId)
-              : -1;
-            const isInvolvedInResize =
-              resizingShotId != null && (idx === resizingIdx || idx === resizingIdx + 1);
-            const widthPx = isInvolvedInResize
-              ? Math.max(16, Math.round(durationSecs * PIXELS_PER_SECOND))
-              : Math.max(MIN_THUMB_WIDTH_PX, Math.round(durationSecs * PIXELS_PER_SECOND));
-            const canResize =
-              canEditScript &&
-              hasRange &&
-              nextShot != null &&
-              typeof nextShot.startFrame === "number" &&
-              typeof nextShot.endFrame === "number";
-            return (
-              <li className="flex shrink-0 items-stretch" key={shot.id} ref={isActive ? activeThumbRef : null}>
-                <ShotThumbnail
-                  canResize={canResize}
-                  fps={fps}
-                  hasRange={hasRange}
-                  isActive={isActive}
-                  onResizeEnd={handleResizeEnd}
-                  onResizeRight={handleResizeRightEdge}
-                  onResizeStart={handleResizeStart}
-                  onSeek={seekTo}
-                  onSelect={handleSelectShotFromThumb}
-                  optionLabel={optionLabel}
-                  pixelsPerSecond={PIXELS_PER_SECOND}
-                  playbackProgress={playbackProgress}
-                  scrubbingRef={isScrubbingRef}
-                  scene={scene}
-                  shot={shot}
-                  widthPx={widthPx}
-                />
-                {nextShot ? (
-                  <MergeGap
-                    canEdit={canEditScript}
-                    left={shot}
-                    onMerge={onOpenMerge}
-                    right={nextShot}
-                    t={t}
+        <div className="overflow-x-auto overflow-y-hidden">
+          <ul
+            className="relative flex items-stretch gap-0 px-3 pb-4 pt-2"
+            style={{ minWidth: `${timelineGeometry.totalWidth + TIMELINE_PADDING_PX * 2}px` }}
+          >
+            {shots.map((shot, idx) => {
+              const isActive = shot.id === activeShot?.id;
+              const nextShot = shots[idx + 1];
+              const hasRange =
+                typeof shot.startFrame === "number" &&
+                typeof shot.endFrame === "number" &&
+                shot.endFrame > shot.startFrame;
+              const widthPx = timelineGeometry.items[idx]?.widthPx ?? MIN_THUMB_WIDTH_PX;
+              const canResize =
+                canEditScript &&
+                hasRange &&
+                nextShot != null &&
+                typeof nextShot.startFrame === "number" &&
+                typeof nextShot.endFrame === "number";
+              return (
+                <li className="flex shrink-0 items-stretch" key={shot.id} ref={isActive ? activeThumbRef : null}>
+                  <ShotThumbnail
+                    canResize={canResize}
+                    fps={fps}
+                    hasRange={hasRange}
+                    isActive={isActive}
+                    onResizeEnd={handleResizeEnd}
+                    onResizeRight={handleResizeRightEdge}
+                    onResizeStart={handleResizeStart}
+                    onSeek={seekTo}
+                    onSelect={handleSelectShotFromThumb}
+                    onSplit={onSplitShot}
+                    optionLabel={optionLabel}
+                    pixelsPerSecond={PIXELS_PER_SECOND}
+                    scrubbingRef={isScrubbingRef}
+                    scene={scene}
+                    shot={shot}
+                    tool={timelineTool}
+                    widthPx={widthPx}
                   />
-                ) : null}
+                  {nextShot ? (
+                    <MergeGap
+                      canEdit={canEditScript}
+                      left={shot}
+                      onMerge={onOpenMerge}
+                      right={nextShot}
+                      t={t}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
+            {shots.length === 0 ? (
+              <li className="flex h-24 w-full items-center justify-center px-5 text-sm text-zinc-500">
+                {t("scene.emptyShots")}
               </li>
-            );
-          })}
-          {shots.length === 0 ? (
-            <li className="flex h-24 w-full items-center justify-center px-5 text-sm text-zinc-500">
-              {t("scene.emptyShots")}
-            </li>
-          ) : null}
-        </ul>
+            ) : null}
+            {playheadPx !== null ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute top-2 z-40 w-px bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.8)]"
+                style={{ left: `${playheadPx}px`, bottom: "16px" }}
+              >
+                <div
+                  className="pointer-events-auto absolute -left-1.5 -top-1 h-3 w-3 cursor-ew-resize rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)]"
+                  onPointerCancel={(event) => {
+                    if (!playheadScrubbingRef.current) return;
+                    try {
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                    } catch {
+                      /* ignore */
+                    }
+                    playheadScrubbingRef.current = false;
+                    isScrubbingRef.current = false;
+                  }}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    playheadScrubbingRef.current = true;
+                    isScrubbingRef.current = true;
+                  }}
+                  onPointerMove={(event) => {
+                    if (!playheadScrubbingRef.current) return;
+                    const ul = (event.currentTarget.parentElement?.parentElement) as HTMLElement | null;
+                    if (!ul) return;
+                    const rect = ul.getBoundingClientRect();
+                    const xPx = event.clientX - rect.left;
+                    seekFromTimelinePx(xPx);
+                  }}
+                  onPointerUp={(event) => {
+                    if (!playheadScrubbingRef.current) return;
+                    try {
+                      event.currentTarget.releasePointerCapture(event.pointerId);
+                    } catch {
+                      /* ignore */
+                    }
+                    playheadScrubbingRef.current = false;
+                    isScrubbingRef.current = false;
+                  }}
+                />
+              </div>
+            ) : null}
+          </ul>
+        </div>
       </section>
     </div>
   );
@@ -1954,12 +2268,13 @@ type ShotThumbnailProps = {
   onResizeStart: (shotId: string) => void;
   onSeek: (seconds: number) => void;
   onSelect: (shotId: string) => void;
+  onSplit: (shotId: string, atFrame: number) => void;
   optionLabel: (group: string, value: string) => string;
   pixelsPerSecond: number;
-  playbackProgress: number;
   scrubbingRef: React.MutableRefObject<boolean>;
   scene: SceneData;
   shot: ShotData;
+  tool: TimelineTool;
   widthPx: number;
 };
 
@@ -1973,18 +2288,20 @@ const ShotThumbnail = memo(function ShotThumbnail({
   onResizeStart,
   onSeek,
   onSelect,
+  onSplit,
   optionLabel,
   pixelsPerSecond,
-  playbackProgress,
   scrubbingRef,
   scene,
   shot,
+  tool,
   widthPx
 }: ShotThumbnailProps) {
   const handleSelect = useCallback(() => onSelect(shot.id), [onSelect, shot.id]);
   const localScrubbingRef = useRef(false);
   const resizeStateRef = useRef<{ startX: number; startEndFrame: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [bladePreview, setBladePreview] = useState<{ xPct: number; frame: number } | null>(null);
 
   const seekFromClientX = (clientX: number, target: HTMLElement) => {
     if (typeof shot.startFrame !== "number" || typeof shot.endFrame !== "number") return;
@@ -1994,7 +2311,21 @@ const ShotThumbnail = memo(function ShotThumbnail({
     onSeek(seconds);
   };
 
+  const handleBladeClick = (clientX: number, target: HTMLElement) => {
+    if (typeof shot.startFrame !== "number" || typeof shot.endFrame !== "number") return;
+    const rect = target.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
+    const frame = shot.startFrame + ratio * (shot.endFrame - shot.startFrame);
+    onSplit(shot.id, frame);
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (tool === "blade" && hasRange) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleBladeClick(event.clientX, event.currentTarget);
+      return;
+    }
     if (!isActive) {
       handleSelect();
       return;
@@ -2008,9 +2339,24 @@ const ShotThumbnail = memo(function ShotThumbnail({
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (tool === "blade" && hasRange && typeof shot.startFrame === "number" && typeof shot.endFrame === "number") {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+      const frame = shot.startFrame + ratio * (shot.endFrame - shot.startFrame);
+      setBladePreview({ xPct: ratio * 100, frame });
+      return;
+    }
     if (!localScrubbingRef.current) return;
     seekFromClientX(event.clientX, event.currentTarget);
   };
+
+  const handlePointerLeave = () => {
+    if (bladePreview !== null) setBladePreview(null);
+  };
+
+  useEffect(() => {
+    if (tool !== "blade" && bladePreview !== null) setBladePreview(null);
+  }, [tool, bladePreview]);
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!localScrubbingRef.current) return;
@@ -2079,35 +2425,39 @@ const ShotThumbnail = memo(function ShotThumbnail({
       <div
         className={[
           "relative flex h-20 w-full select-none items-end overflow-hidden bg-zinc-900 p-2 touch-none",
-          isActive && hasRange ? "cursor-ew-resize" : "cursor-pointer"
+          tool === "blade" && hasRange
+            ? "cursor-crosshair"
+            : isActive && hasRange
+              ? "cursor-ew-resize"
+              : "cursor-pointer"
         ].join(" ")}
         onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
+        onPointerLeave={handlePointerLeave}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
         <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-200">
           {framesToTimecode(shot.startFrame, scene.fpsDefault)}
         </span>
-        {isActive && hasRange ? (
-          <>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-0 bg-red-500/10"
-              style={{ width: `${playbackProgress * 100}%` }}
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 z-20 w-px bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.8)]"
-              style={{ left: `${playbackProgress * 100}%` }}
-            >
-              <div className="absolute -left-[3px] top-0 h-1.5 w-1.5 rounded-full bg-red-500" />
-            </div>
-          </>
-        ) : null}
         <p className="pointer-events-none relative z-10 text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
           {shot.shotNumber}
         </p>
+        {tool === "blade" && bladePreview ? (
+          <>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 z-20 w-px bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"
+              style={{ left: `${bladePreview.xPct}%` }}
+            />
+            <span
+              className="pointer-events-none absolute z-30 -translate-x-1/2 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950 shadow"
+              style={{ left: `${bladePreview.xPct}%`, top: "2px" }}
+            >
+              {framesToTimecode(Math.round(bladePreview.frame), scene.fpsDefault)}
+            </span>
+          </>
+        ) : null}
       </div>
       <button
         className="flex min-h-12 flex-col gap-0.5 bg-zinc-900 px-2 py-1.5 text-left hover:bg-zinc-800"
@@ -2148,14 +2498,15 @@ const ShotThumbnail = memo(function ShotThumbnail({
 
 function areShotThumbnailPropsEqual(prev: ShotThumbnailProps, next: ShotThumbnailProps) {
   if (prev.isActive !== next.isActive) return false;
-  if (next.isActive && prev.playbackProgress !== next.playbackProgress) return false;
   if (prev.hasRange !== next.hasRange) return false;
   if (prev.canResize !== next.canResize) return false;
   if (prev.widthPx !== next.widthPx) return false;
   if (prev.pixelsPerSecond !== next.pixelsPerSecond) return false;
   if (prev.fps !== next.fps) return false;
+  if (prev.tool !== next.tool) return false;
   if (prev.onSeek !== next.onSeek) return false;
   if (prev.onSelect !== next.onSelect) return false;
+  if (prev.onSplit !== next.onSplit) return false;
   if (prev.onResizeRight !== next.onResizeRight) return false;
   if (prev.onResizeStart !== next.onResizeStart) return false;
   if (prev.onResizeEnd !== next.onResizeEnd) return false;
