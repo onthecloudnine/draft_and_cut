@@ -1246,6 +1246,10 @@ function TimelineView(props: TimelineViewProps) {
   const shotsRef = useRef(shots);
   shotsRef.current = shots;
 
+  const [resizingShotId, setResizingShotId] = useState<string | null>(null);
+  const handleResizeStart = useCallback((shotId: string) => setResizingShotId(shotId), []);
+  const handleResizeEnd = useCallback(() => setResizingShotId(null), []);
+
   const handleResizeRightEdge = useCallback(
     (shotId: string, newEndFrame: number) => {
       const currentShots = shotsRef.current;
@@ -1484,7 +1488,14 @@ function TimelineView(props: TimelineViewProps) {
               typeof shot.durationFrames === "number" && shot.durationFrames > 0
                 ? shot.durationFrames / fps
                 : 2;
-            const widthPx = Math.max(MIN_THUMB_WIDTH_PX, Math.round(durationSecs * PIXELS_PER_SECOND));
+            const resizingIdx = resizingShotId
+              ? shots.findIndex((s) => s.id === resizingShotId)
+              : -1;
+            const isInvolvedInResize =
+              resizingShotId != null && (idx === resizingIdx || idx === resizingIdx + 1);
+            const widthPx = isInvolvedInResize
+              ? Math.max(16, Math.round(durationSecs * PIXELS_PER_SECOND))
+              : Math.max(MIN_THUMB_WIDTH_PX, Math.round(durationSecs * PIXELS_PER_SECOND));
             const canResize =
               canEditScript &&
               hasRange &&
@@ -1498,7 +1509,9 @@ function TimelineView(props: TimelineViewProps) {
                   fps={fps}
                   hasRange={hasRange}
                   isActive={isActive}
+                  onResizeEnd={handleResizeEnd}
                   onResizeRight={handleResizeRightEdge}
+                  onResizeStart={handleResizeStart}
                   onSeek={seekTo}
                   onSelect={handleSelectShotFromThumb}
                   optionLabel={optionLabel}
@@ -1789,7 +1802,9 @@ type ShotThumbnailProps = {
   fps: number;
   hasRange: boolean;
   isActive: boolean;
+  onResizeEnd: () => void;
   onResizeRight: (shotId: string, newEndFrame: number) => void;
+  onResizeStart: (shotId: string) => void;
   onSeek: (seconds: number) => void;
   onSelect: (shotId: string) => void;
   optionLabel: (group: string, value: string) => string;
@@ -1806,7 +1821,9 @@ const ShotThumbnail = memo(function ShotThumbnail({
   fps,
   hasRange,
   isActive,
+  onResizeEnd,
   onResizeRight,
+  onResizeStart,
   onSeek,
   onSelect,
   optionLabel,
@@ -1877,6 +1894,7 @@ const ShotThumbnail = memo(function ShotThumbnail({
     event.currentTarget.setPointerCapture(event.pointerId);
     resizeStateRef.current = { startX: event.clientX, startEndFrame: shot.endFrame };
     setIsResizing(true);
+    onResizeStart(shot.id);
   };
 
   const handleResizePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -1897,6 +1915,7 @@ const ShotThumbnail = memo(function ShotThumbnail({
     }
     resizeStateRef.current = null;
     setIsResizing(false);
+    onResizeEnd();
   };
 
   return (
@@ -1991,6 +2010,8 @@ function areShotThumbnailPropsEqual(prev: ShotThumbnailProps, next: ShotThumbnai
   if (prev.onSeek !== next.onSeek) return false;
   if (prev.onSelect !== next.onSelect) return false;
   if (prev.onResizeRight !== next.onResizeRight) return false;
+  if (prev.onResizeStart !== next.onResizeStart) return false;
+  if (prev.onResizeEnd !== next.onResizeEnd) return false;
   if (prev.optionLabel !== next.optionLabel) return false;
   if (prev.scrubbingRef !== next.scrubbingRef) return false;
   if (prev.scene.fpsDefault !== next.scene.fpsDefault) return false;
