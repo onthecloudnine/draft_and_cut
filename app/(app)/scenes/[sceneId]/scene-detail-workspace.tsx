@@ -145,6 +145,49 @@ type SceneDetailWorkspaceProps = {
 type TopView = "timeline" | "table";
 type SidebarTab = "scene" | "script" | "shot" | "team" | "elements" | "files";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
+
+const DRAFT_STORAGE_PREFIX = "scene-draft:";
+
+function readLocalDraft(sceneId: string): { scene: SceneData; shots: ShotData[]; ts: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${DRAFT_STORAGE_PREFIX}${sceneId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.ts === "number" &&
+      parsed.scene &&
+      Array.isArray(parsed.shots)
+    ) {
+      return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function writeLocalDraft(sceneId: string, scene: SceneData, shots: ShotData[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      `${DRAFT_STORAGE_PREFIX}${sceneId}`,
+      JSON.stringify({ scene, shots, ts: Date.now() })
+    );
+  } catch {
+    /* quota or disabled */
+  }
+}
+
+function clearLocalDraft(sceneId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(`${DRAFT_STORAGE_PREFIX}${sceneId}`);
+  } catch {
+    /* ignore */
+  }
+}
 type MergeRequest = {
   leftId: string;
   rightId: string;
@@ -300,6 +343,7 @@ export function SceneDetailWorkspace({
   const [topView, setTopView] = useState<TopView>("timeline");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("scene");
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [mergeRequest, setMergeRequest] = useState<MergeRequest | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   const [isScriptOverlayOpen, setIsScriptOverlayOpen] = useState(false);
@@ -350,6 +394,8 @@ export function SceneDetailWorkspace({
   stateRef.current = { scene, shots };
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedHashRef = useRef<string>("");
+  const saveQueueRef = useRef<{ inFlight: boolean; pending: boolean }>({ inFlight: false, pending: false });
+  const syncToServerRef = useRef<() => Promise<void>>(async () => {});
 
   const computeHash = (next: { scene: SceneData; shots: ShotData[] }) =>
     JSON.stringify({
@@ -384,54 +430,80 @@ export function SceneDetailWorkspace({
     savedHashRef.current = computeHash({ scene: initialScene, shots: sortedInitialShots });
   }, [initialScene, sortedInitialShots]);
 
+  const syncToServer = useCallback(async () => {
+    if (!canEditScript) return;
+    if (saveQueueRef.current.inFlight) {
+      saveQueueRef.current.pending = true;
+      return;
+    }
+    const snapshot = stateRef.current;
+    const hash = computeHash(snapshot);
+    if (hash === savedHashRef.current) {
+      setAutosaveStatus("saved");
+      return;
+    }
+    saveQueueRef.current.inFlight = true;
+    setAutosaveStatus("saving");
+    try {
+      const response = await fetch(`/api/scenes/${snapshot.scene.id}/script`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scene: {
+            title: snapshot.scene.title || "—",
+            description: snapshot.scene.description,
+            location: snapshot.scene.location,
+            timeOfDay: snapshot.scene.timeOfDay,
+            soundOptions: snapshot.scene.soundOptions,
+            status: snapshot.scene.status,
+            literaryHeading: snapshot.scene.literaryHeading,
+            literaryScript: snapshot.scene.literaryScript
+          },
+          shots: snapshot.shots.map((shot) => ({
+            ...shot,
+            id: shot.id.startsWith("new-") ? undefined : shot.id
+          }))
+        })
+      });
+      if (!response.ok) throw new Error("autosave failed");
+      const payload = (await response.json()) as { shots?: ShotData[] };
+      if (payload.shots) {
+        const sorted = [...payload.shots].sort((a, b) => compareShotNumbers(a.shotNumber, b.shotNumber));
+        setShots(sorted);
+        setActiveShotId((current) =>
+          sorted.some((shot) => shot.id === current) ? current : sorted[0]?.id ?? ""
+        );
+        savedHashRef.current = computeHash({ scene: snapshot.scene, shots: sorted });
+      } else {
+        savedHashRef.current = hash;
+      }
+      setLastSavedAt(Date.now());
+      setAutosaveStatus("saved");
+      clearLocalDraft(snapshot.scene.id);
+    } catch {
+      setAutosaveStatus("error");
+    } finally {
+      saveQueueRef.current.inFlight = false;
+      if (saveQueueRef.current.pending) {
+        saveQueueRef.current.pending = false;
+        // Re-run with latest state; do not await to avoid stacking.
+        void syncToServerRef.current();
+      }
+    }
+  }, [canEditScript]);
+
+  useEffect(() => {
+    syncToServerRef.current = syncToServer;
+  }, [syncToServer]);
+
   const requestAutosave = useCallback(() => {
     if (!canEditScript) return;
+    const snapshot = stateRef.current;
+    writeLocalDraft(snapshot.scene.id, snapshot.scene, snapshot.shots);
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     setAutosaveStatus("saving");
-    autosaveTimer.current = setTimeout(async () => {
-      const snapshot = stateRef.current;
-      const hash = computeHash(snapshot);
-      if (hash === savedHashRef.current) {
-        setAutosaveStatus("saved");
-        return;
-      }
-      try {
-        const response = await fetch(`/api/scenes/${snapshot.scene.id}/script`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            scene: {
-              title: snapshot.scene.title || "—",
-              description: snapshot.scene.description,
-              location: snapshot.scene.location,
-              timeOfDay: snapshot.scene.timeOfDay,
-              soundOptions: snapshot.scene.soundOptions,
-              status: snapshot.scene.status,
-              literaryHeading: snapshot.scene.literaryHeading,
-              literaryScript: snapshot.scene.literaryScript
-            },
-            shots: snapshot.shots.map((shot) => ({
-              ...shot,
-              id: shot.id.startsWith("new-") ? undefined : shot.id
-            }))
-          })
-        });
-        if (!response.ok) throw new Error("autosave failed");
-        const payload = (await response.json()) as { shots?: ShotData[] };
-        if (payload.shots) {
-          const sorted = [...payload.shots].sort((a, b) => compareShotNumbers(a.shotNumber, b.shotNumber));
-          setShots(sorted);
-          setActiveShotId((current) =>
-            sorted.some((shot) => shot.id === current) ? current : sorted[0]?.id ?? ""
-          );
-          savedHashRef.current = computeHash({ scene: snapshot.scene, shots: sorted });
-        } else {
-          savedHashRef.current = hash;
-        }
-        setAutosaveStatus("saved");
-      } catch {
-        setAutosaveStatus("error");
-      }
+    autosaveTimer.current = setTimeout(() => {
+      void syncToServerRef.current();
     }, 700);
   }, [canEditScript]);
 
@@ -439,6 +511,25 @@ export function SceneDetailWorkspace({
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
+  }, []);
+
+  useEffect(() => {
+    const draft = readLocalDraft(initialScene.id);
+    if (!draft) return;
+    const serverHash = computeHash({ scene: initialScene, shots: sortedInitialShots });
+    const draftHash = computeHash({ scene: draft.scene, shots: draft.shots });
+    if (draftHash === serverHash) {
+      clearLocalDraft(initialScene.id);
+      return;
+    }
+    setScene(draft.scene);
+    setShots([...draft.shots].sort((a, b) => compareShotNumbers(a.shotNumber, b.shotNumber)));
+    savedHashRef.current = serverHash;
+    setAutosaveStatus("saving");
+    autosaveTimer.current = setTimeout(() => {
+      void syncToServerRef.current();
+    }, 700);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -559,6 +650,9 @@ export function SceneDetailWorkspace({
       setShots(sorted);
       setActiveShotId(payload.keptShotId);
       savedHashRef.current = computeHash({ scene: stateRef.current.scene, shots: sorted });
+      setLastSavedAt(Date.now());
+      setAutosaveStatus("saved");
+      clearLocalDraft(stateRef.current.scene.id);
       setMergeRequest(null);
     } catch (mergeError) {
       setError(mergeError instanceof Error ? mergeError.message : t("scene.mergeError"));
@@ -778,6 +872,7 @@ export function SceneDetailWorkspace({
     <div className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
       <SceneHeader
         autosaveStatus={autosaveStatus}
+        lastSavedAt={lastSavedAt}
         activeVideo={activeVideo}
         canManageVideos={canManageVideos}
         isDeletingVideo={isDeletingVideo}
@@ -904,6 +999,7 @@ function SceneHeader({
   activeVideo,
   canManageVideos,
   isDeletingVideo,
+  lastSavedAt,
   nextScene,
   onDeleteVideo,
   previousScene,
@@ -914,6 +1010,7 @@ function SceneHeader({
   activeVideo: VideoData | null;
   canManageVideos: boolean;
   isDeletingVideo: boolean;
+  lastSavedAt: number | null;
   nextScene: SceneSiblingData | null;
   onDeleteVideo: () => void;
   previousScene: SceneSiblingData | null;
@@ -939,7 +1036,7 @@ function SceneHeader({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <AutosaveBadge status={autosaveStatus} t={t} />
+          <AutosaveBadge lastSavedAt={lastSavedAt} status={autosaveStatus} t={t} />
           {previousScene ? (
             <Link
               className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
@@ -989,26 +1086,76 @@ function SceneHeader({
 }
 
 function AutosaveBadge({
+  lastSavedAt,
   status,
   t
 }: {
+  lastSavedAt: number | null;
   status: AutosaveStatus;
   t: (path: string) => string;
 }) {
-  const map: Record<AutosaveStatus, { label: string; cls: string }> = {
-    idle: { label: "", cls: "" },
+  const { locale } = useI18n();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, [lastSavedAt]);
+
+  const relative = lastSavedAt ? formatLastSaved(lastSavedAt, now, locale) : "";
+
+  const map: Record<AutosaveStatus, { label: string; cls: string } | null> = {
+    idle: relative ? { label: `${t("scene.autosaveSaved")} · ${relative}`, cls: "text-zinc-400" } : null,
     saving: { label: t("scene.autosaveSaving"), cls: "text-amber-400" },
-    saved: { label: t("scene.autosaveSaved"), cls: "text-emerald-400" },
-    error: { label: t("scene.autosaveError"), cls: "text-red-400" }
+    saved: relative
+      ? { label: `${t("scene.autosaveSaved")} · ${relative}`, cls: "text-emerald-400" }
+      : { label: t("scene.autosaveSaved"), cls: "text-emerald-400" },
+    error: relative
+      ? { label: `${t("scene.autosaveError")} · ${relative}`, cls: "text-red-400" }
+      : { label: t("scene.autosaveError"), cls: "text-red-400" }
   };
   const data = map[status];
-  if (!data.label) return null;
+  if (!data) return null;
   return (
     <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${data.cls}`}>
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
       {data.label}
     </span>
   );
+}
+
+function formatLastSaved(ts: number, now: number, locale: string): string {
+  const diffMs = Math.max(0, now - ts);
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) {
+    try {
+      return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-sec, "second");
+    } catch {
+      return `hace ${sec}s`;
+    }
+  }
+  const min = Math.floor(sec / 60);
+  if (min < 60) {
+    try {
+      return new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(-min, "minute");
+    } catch {
+      return `hace ${min}m`;
+    }
+  }
+  const hours = Math.floor(min / 60);
+  if (hours < 24) {
+    try {
+      return new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(-hours, "hour");
+    } catch {
+      return `hace ${hours}h`;
+    }
+  }
+  try {
+    return new Date(ts).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
 }
 
 function TopTabs({
