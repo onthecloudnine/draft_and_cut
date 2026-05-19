@@ -136,6 +136,8 @@
     "mergeKeepHint": "Se mantiene la info de este plano. El otro se elimina.",
     "mergeError": "No se pudo consolidar los planos.",
     "mergeSaveFirst": "Guarda los planos nuevos antes de consolidar.",
+    "mergePreview": "Timecodes resultantes",
+    "mergePreviewHint": "Combina los rangos: izq {left} + der {right}",
     "cancel": "Cancelar",
     "autosaveSaving": "Guardando...",
     "autosaveSaved": "Guardado",

@@ -78,6 +78,15 @@ export async function POST(
     const keepShot = body.keep === "left" ? leftShot : rightShot;
     const dropShot = body.keep === "left" ? rightShot : leftShot;
 
+    // Determine temporal order. Prefer ordering by startFrame; fall back to UI order (left earlier).
+    const leftStart = typeof leftShot.startFrame === "number" ? leftShot.startFrame : null;
+    const rightStart = typeof rightShot.startFrame === "number" ? rightShot.startFrame : null;
+    let earlierShot = leftShot;
+    if (leftStart !== null && rightStart !== null && rightStart < leftStart) {
+      earlierShot = rightShot;
+    }
+
+    // Union of the timecode ranges.
     const startCandidates = [leftShot.startFrame, rightShot.startFrame].filter(
       (value): value is number => typeof value === "number"
     );
@@ -85,9 +94,24 @@ export async function POST(
       (value): value is number => typeof value === "number"
     );
 
-    const mergedStartFrame = startCandidates.length > 0 ? Math.min(...startCandidates) : keepShot.startFrame ?? null;
-    const mergedEndFrame = endCandidates.length > 0 ? Math.max(...endCandidates) : keepShot.endFrame ?? null;
+    let mergedStartFrame: number | null =
+      startCandidates.length > 0 ? Math.min(...startCandidates) : keepShot.startFrame ?? null;
+    let mergedEndFrame: number | null =
+      endCandidates.length > 0 ? Math.max(...endCandidates) : keepShot.endFrame ?? null;
 
+    // Mixed case: only one side has timecodes, the other has duration. Extend the range by the
+    // missing side's duration so frames are not lost. Direction is implied by the UI left/right.
+    const leftHasRange =
+      typeof leftShot.startFrame === "number" && typeof leftShot.endFrame === "number";
+    const rightHasRange =
+      typeof rightShot.startFrame === "number" && typeof rightShot.endFrame === "number";
+    if (leftHasRange && !rightHasRange && (rightShot.durationFrames ?? 0) > 0) {
+      mergedEndFrame = (mergedEndFrame ?? 0) + (rightShot.durationFrames ?? 0);
+    } else if (!leftHasRange && rightHasRange && (leftShot.durationFrames ?? 0) > 0) {
+      mergedStartFrame = Math.max(0, (mergedStartFrame ?? 0) - (leftShot.durationFrames ?? 0));
+    }
+
+    // durationFrames is derived from the range when both endpoints exist (single source of truth).
     let mergedDurationFrames: number | null = null;
     if (mergedStartFrame !== null && mergedEndFrame !== null && mergedEndFrame >= mergedStartFrame) {
       mergedDurationFrames = mergedEndFrame - mergedStartFrame;
@@ -97,17 +121,34 @@ export async function POST(
       mergedDurationFrames = a + b > 0 ? a + b : keepShot.durationFrames ?? null;
     }
 
-    keepShot.startFrame = mergedStartFrame ?? undefined;
-    keepShot.endFrame = mergedEndFrame ?? undefined;
-    keepShot.durationFrames = mergedDurationFrames ?? undefined;
-    await keepShot.save();
+    // shotNumber follows the earliest shot so the resulting number matches its temporal position.
+    const mergedShotNumber = earlierShot.shotNumber;
 
+    // Reassign videos first, then delete the dropped shot. This frees its shotNumber in case the
+    // merged shotNumber comes from the dropped side (unique index on scriptVersionId+sceneNumber+shotNumber).
     await VideoVersion.updateMany(
       { sceneId, shotId: dropShot._id },
       { $set: { shotId: keepShot._id } }
     );
-
     await Shot.deleteOne({ _id: dropShot._id });
+
+    if (mergedStartFrame !== null) {
+      keepShot.startFrame = mergedStartFrame;
+    } else {
+      keepShot.set("startFrame", undefined);
+    }
+    if (mergedEndFrame !== null) {
+      keepShot.endFrame = mergedEndFrame;
+    } else {
+      keepShot.set("endFrame", undefined);
+    }
+    if (mergedDurationFrames !== null) {
+      keepShot.durationFrames = mergedDurationFrames;
+    } else {
+      keepShot.set("durationFrames", undefined);
+    }
+    keepShot.shotNumber = mergedShotNumber;
+    await keepShot.save();
 
     const updatedShots = await Shot.find({ sceneId }).lean();
     updatedShots.sort((left, right) =>

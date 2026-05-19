@@ -145,7 +145,18 @@ type SceneDetailWorkspaceProps = {
 type TopView = "timeline" | "table";
 type SidebarTab = "scene" | "script" | "shot" | "team" | "elements" | "files";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
-type MergeRequest = { leftId: string; rightId: string; leftLabel: string; rightLabel: string };
+type MergeRequest = {
+  leftId: string;
+  rightId: string;
+  leftLabel: string;
+  rightLabel: string;
+  leftStartFrame: number | null;
+  leftEndFrame: number | null;
+  leftDurationFrames: number | null;
+  rightStartFrame: number | null;
+  rightEndFrame: number | null;
+  rightDurationFrames: number | null;
+};
 
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
@@ -508,7 +519,13 @@ export function SceneDetailWorkspace({
       leftId: left.id,
       rightId: right.id,
       leftLabel: `${left.shotNumber}${left.shotType ? ` · ${left.shotType}` : ""}`,
-      rightLabel: `${right.shotNumber}${right.shotType ? ` · ${right.shotType}` : ""}`
+      rightLabel: `${right.shotNumber}${right.shotType ? ` · ${right.shotType}` : ""}`,
+      leftStartFrame: left.startFrame,
+      leftEndFrame: left.endFrame,
+      leftDurationFrames: left.durationFrames,
+      rightStartFrame: right.startFrame,
+      rightEndFrame: right.endFrame,
+      rightDurationFrames: right.durationFrames
     });
   }
 
@@ -857,6 +874,7 @@ export function SceneDetailWorkspace({
 
       {mergeRequest ? (
         <MergeModal
+          fps={scene.fpsDefault}
           isSubmitting={isMerging}
           onCancel={() => setMergeRequest(null)}
           onConfirm={confirmMerge}
@@ -2918,25 +2936,53 @@ function TimecodeCell({
 }
 
 function MergeModal({
+  fps,
   isSubmitting,
   onCancel,
   onConfirm,
   request,
   t
 }: {
+  fps: number;
   isSubmitting: boolean;
   onCancel: () => void;
   onConfirm: (keep: "left" | "right") => void;
   request: MergeRequest;
   t: (path: string, replacements?: Record<string, string | number>) => string;
 }) {
+  const preview = computeMergePreview(request);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div className="w-full max-w-xl rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
         <div className="border-b border-zinc-800 px-5 py-4">
           <h2 className="text-base font-semibold text-zinc-50">{t("scene.mergeShots")}</h2>
           <p className="mt-1 text-xs text-zinc-400">{t("scene.mergeHelp")}</p>
         </div>
+
+        <div className="grid gap-2 border-b border-zinc-800 px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            {t("scene.mergePreview")}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <PreviewTile label={t("scene.startTc")}>
+              {framesToTimecode(preview.startFrame, fps)}
+            </PreviewTile>
+            <PreviewTile label={t("scene.endTc")}>
+              {framesToTimecode(preview.endFrame, fps)}
+            </PreviewTile>
+            <PreviewTile label={t("scene.durationTc")}>
+              {framesToTimecode(preview.durationFrames, fps)}
+            </PreviewTile>
+          </div>
+          <p className="text-[10px] text-zinc-500">
+            {t("scene.mergePreviewHint", {
+              left: `${formatTimeRange(request.leftStartFrame, request.leftEndFrame, fps)}`,
+              right: `${formatTimeRange(request.rightStartFrame, request.rightEndFrame, fps)}`
+            })}
+          </p>
+        </div>
+
         <div className="grid gap-3 p-5 sm:grid-cols-2">
           <button
             className="flex flex-col items-start gap-1 rounded-md border border-zinc-800 bg-zinc-900 p-4 text-left text-sm transition hover:border-red-600 hover:bg-red-600/10 disabled:opacity-50"
@@ -2976,6 +3022,52 @@ function MergeModal({
       </div>
     </div>
   );
+}
+
+function PreviewTile({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-2 text-center">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">{label}</p>
+      <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-zinc-100">{children}</p>
+    </div>
+  );
+}
+
+function formatTimeRange(start: number | null, end: number | null, fps: number) {
+  if (start === null && end === null) return "—";
+  const safeStart = start ?? 0;
+  const safeEnd = end ?? safeStart;
+  return `${framesToTimecode(safeStart, fps)} → ${framesToTimecode(safeEnd, fps)}`;
+}
+
+function computeMergePreview(req: MergeRequest) {
+  const starts = [req.leftStartFrame, req.rightStartFrame].filter(
+    (value): value is number => typeof value === "number"
+  );
+  const ends = [req.leftEndFrame, req.rightEndFrame].filter(
+    (value): value is number => typeof value === "number"
+  );
+
+  let startFrame = starts.length > 0 ? Math.min(...starts) : null;
+  let endFrame = ends.length > 0 ? Math.max(...ends) : null;
+
+  const leftHasRange = req.leftStartFrame !== null && req.leftEndFrame !== null;
+  const rightHasRange = req.rightStartFrame !== null && req.rightEndFrame !== null;
+  if (leftHasRange && !rightHasRange && (req.rightDurationFrames ?? 0) > 0) {
+    endFrame = (endFrame ?? 0) + (req.rightDurationFrames ?? 0);
+  } else if (!leftHasRange && rightHasRange && (req.leftDurationFrames ?? 0) > 0) {
+    startFrame = Math.max(0, (startFrame ?? 0) - (req.leftDurationFrames ?? 0));
+  }
+
+  let durationFrames: number | null = null;
+  if (startFrame !== null && endFrame !== null && endFrame >= startFrame) {
+    durationFrames = endFrame - startFrame;
+  } else {
+    const sum = (req.leftDurationFrames ?? 0) + (req.rightDurationFrames ?? 0);
+    durationFrames = sum > 0 ? sum : null;
+  }
+
+  return { startFrame, endFrame, durationFrames };
 }
 
 function ScriptOverlay({

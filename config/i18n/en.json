@@ -136,6 +136,8 @@
     "mergeKeepHint": "This shot's info is preserved. The other is removed.",
     "mergeError": "Could not merge shots.",
     "mergeSaveFirst": "Save the new shots before merging.",
+    "mergePreview": "Resulting timecodes",
+    "mergePreviewHint": "Combines ranges: left {left} + right {right}",
     "cancel": "Cancel",
     "autosaveSaving": "Saving...",
     "autosaveSaved": "Saved",
