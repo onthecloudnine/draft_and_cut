@@ -1,7 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -11,7 +13,12 @@ import {
   type FormEvent
 } from "react";
 import { useI18n } from "@/lib/i18n/client";
-import { RichTextEditor, plainTextToHtml } from "@/components/rich-text-editor";
+import { plainTextToHtml } from "@/components/rich-text-editor";
+
+const RichTextEditor = dynamic(
+  () => import("@/components/rich-text-editor").then((mod) => ({ default: mod.RichTextEditor })),
+  { ssr: false, loading: () => <div className="min-h-[200px] text-sm text-zinc-500">Cargando editor...</div> }
+);
 import {
   assetTagCategories,
   productionStages,
@@ -1197,6 +1204,14 @@ function TimelineView(props: TimelineViewProps) {
     onSelectShot(shots[activeShotIndex + 1].id);
   }, [activeShotIndex, shots, onSelectShot]);
 
+  const handleSelectShotFromThumb = useCallback(
+    (shotId: string) => {
+      onSelectShot(shotId);
+      setSidebarTab("shot");
+    },
+    [onSelectShot, setSidebarTab]
+  );
+
   const stepFrame = useCallback(
     (delta: number) => {
       const video = videoRef.current;
@@ -1319,7 +1334,10 @@ function TimelineView(props: TimelineViewProps) {
                 }}
                 onPause={() => setIsPlaying(false)}
                 onPlay={() => setIsPlaying(true)}
-                onTimeUpdate={(event) => setPlaybackSeconds(event.currentTarget.currentTime)}
+                onTimeUpdate={(event) => {
+                  const next = event.currentTarget.currentTime;
+                  setPlaybackSeconds((prev) => (Math.abs(next - prev) >= 0.066 ? next : prev));
+                }}
                 onVolumeChange={(event) => setIsMuted(event.currentTarget.muted)}
                 playsInline
                 src={activeVideo.url}
@@ -1404,10 +1422,7 @@ function TimelineView(props: TimelineViewProps) {
                   hasRange={hasRange}
                   isActive={isActive}
                   onSeek={seekTo}
-                  onSelect={() => {
-                    onSelectShot(shot.id);
-                    setSidebarTab("shot");
-                  }}
+                  onSelect={handleSelectShotFromThumb}
                   optionLabel={optionLabel}
                   playbackProgress={playbackProgress}
                   scrubbingRef={isScrubbingRef}
@@ -1689,7 +1704,20 @@ function TransportButton({
   );
 }
 
-function ShotThumbnail({
+type ShotThumbnailProps = {
+  fps: number;
+  hasRange: boolean;
+  isActive: boolean;
+  onSeek: (seconds: number) => void;
+  onSelect: (shotId: string) => void;
+  optionLabel: (group: string, value: string) => string;
+  playbackProgress: number;
+  scrubbingRef: React.MutableRefObject<boolean>;
+  scene: SceneData;
+  shot: ShotData;
+};
+
+const ShotThumbnail = memo(function ShotThumbnail({
   fps,
   hasRange,
   isActive,
@@ -1700,18 +1728,8 @@ function ShotThumbnail({
   scrubbingRef,
   scene,
   shot
-}: {
-  fps: number;
-  hasRange: boolean;
-  isActive: boolean;
-  onSeek: (seconds: number) => void;
-  onSelect: () => void;
-  optionLabel: (group: string, value: string) => string;
-  playbackProgress: number;
-  scrubbingRef: React.MutableRefObject<boolean>;
-  scene: SceneData;
-  shot: ShotData;
-}) {
+}: ShotThumbnailProps) {
+  const handleSelect = useCallback(() => onSelect(shot.id), [onSelect, shot.id]);
   const localScrubbingRef = useRef(false);
 
   const seekFromClientX = (clientX: number, target: HTMLElement) => {
@@ -1724,7 +1742,7 @@ function ShotThumbnail({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!isActive) {
-      onSelect();
+      handleSelect();
       return;
     }
     if (!hasRange) return;
@@ -1806,7 +1824,7 @@ function ShotThumbnail({
       </div>
       <button
         className="flex min-h-12 flex-col gap-0.5 bg-zinc-900 px-2 py-1.5 text-left hover:bg-zinc-800"
-        onClick={onSelect}
+        onClick={handleSelect}
         type="button"
       >
         <p className="truncate text-[11px] font-medium text-zinc-100">{shot.shotType || "—"}</p>
@@ -1816,6 +1834,30 @@ function ShotThumbnail({
         </p>
       </button>
     </div>
+  );
+}, areShotThumbnailPropsEqual);
+
+function areShotThumbnailPropsEqual(prev: ShotThumbnailProps, next: ShotThumbnailProps) {
+  if (prev.isActive !== next.isActive) return false;
+  if (next.isActive && prev.playbackProgress !== next.playbackProgress) return false;
+  if (prev.hasRange !== next.hasRange) return false;
+  if (prev.fps !== next.fps) return false;
+  if (prev.onSeek !== next.onSeek) return false;
+  if (prev.onSelect !== next.onSelect) return false;
+  if (prev.optionLabel !== next.optionLabel) return false;
+  if (prev.scrubbingRef !== next.scrubbingRef) return false;
+  if (prev.scene.fpsDefault !== next.scene.fpsDefault) return false;
+  const a = prev.shot;
+  const b = next.shot;
+  if (a === b) return true;
+  return (
+    a.id === b.id &&
+    a.shotNumber === b.shotNumber &&
+    a.shotType === b.shotType &&
+    a.status === b.status &&
+    a.startFrame === b.startFrame &&
+    a.endFrame === b.endFrame &&
+    a.durationFrames === b.durationFrames
   );
 }
 

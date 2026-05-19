@@ -362,5 +362,10 @@
       "high": "High",
       "critical": "Critical"
     }
+  },
+  "mobile": {
+    "tapToExpand": "Swipe up to expand",
+    "tapToFull": "Swipe up to fullscreen",
+    "tapToCollapse": "Swipe down to collapse"
   }
 }

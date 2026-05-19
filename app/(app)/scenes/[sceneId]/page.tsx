@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { assertProjectPermission } from "@/lib/auth/permissions";
 import { getSceneDetailData } from "@/lib/data/scene-detail";
-import { SceneDetailWorkspace } from "./scene-detail-workspace";
+import { SceneDetailRouter } from "./scene-detail-router";
 
 export default async function SceneDetailPage({
   params,
@@ -24,7 +24,7 @@ export default async function SceneDetailPage({
   const role = await assertProjectPermission(user.id, data.scene.projectId, "project:read");
 
   return (
-    <SceneDetailWorkspace
+    <SceneDetailRouter
       attachments={data.attachments}
       assetTags={data.assetTags}
       canEditScript={role === "admin"}

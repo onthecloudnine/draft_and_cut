@@ -51,6 +51,8 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
   });
   const [autoPlay, setAutoPlay] = useState(false);
   const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string>>({});
+  const thumbnailOverridesRef = useRef(thumbnailOverrides);
+  thumbnailOverridesRef.current = thumbnailOverrides;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const backfilledRef = useRef<Set<string>>(new Set());
   const timelineRef = useRef<HTMLUListElement | null>(null);
@@ -134,9 +136,8 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
 
   useEffect(() => {
     return () => {
-      Object.values(thumbnailOverrides).forEach((url) => URL.revokeObjectURL(url));
+      Object.values(thumbnailOverridesRef.current).forEach((url) => URL.revokeObjectURL(url));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSelect = (sceneId: string, opts: { play?: boolean } = {}) => {

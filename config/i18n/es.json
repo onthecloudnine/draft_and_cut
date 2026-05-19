@@ -362,5 +362,10 @@
       "high": "Alta",
       "critical": "Critica"
     }
+  },
+  "mobile": {
+    "tapToExpand": "Deslizar arriba para ver mas",
+    "tapToFull": "Deslizar arriba para pantalla completa",
+    "tapToCollapse": "Deslizar abajo para contraer"
   }
 }

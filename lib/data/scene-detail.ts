@@ -25,9 +25,28 @@ export async function getSceneDetailData(sceneId: string) {
     return null;
   }
 
-  const projectScenes = await Scene.find({ projectId: scene.projectId })
-    .select("sceneNumber title")
-    .lean();
+  const [
+    projectScenes,
+    project,
+    shots,
+    videos,
+    attachments,
+    memberships,
+    resourceAssignments,
+    sceneAssetTags,
+    activeUsers
+  ] = await Promise.all([
+    Scene.find({ projectId: scene.projectId }).select("sceneNumber title").lean(),
+    Project.findById(scene.projectId).select("fpsDefault").lean(),
+    Shot.find({ sceneId }).sort({ shotNumber: 1 }).lean(),
+    VideoVersion.find({ sceneId }).sort({ isFavorite: -1, createdAt: -1 }).lean(),
+    SceneAttachment.find({ sceneId, status: "ready" }).sort({ attachmentDate: -1, createdAt: -1 }).lean(),
+    ProjectMembership.find({ projectId: scene.projectId }).lean(),
+    SceneResourceAssignment.find({ sceneId }).sort({ createdAt: 1 }).lean(),
+    SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean(),
+    User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean()
+  ]);
+
   projectScenes.sort((left, right) => compareNumericText(left.sceneNumber, right.sceneNumber));
   const currentIndex = projectScenes.findIndex(
     (item) => String(item._id) === String(scene._id)
@@ -38,30 +57,6 @@ export async function getSceneDetailData(sceneId: string) {
       ? projectScenes[currentIndex + 1]
       : null;
 
-  const [
-    project,
-    shots,
-    videos,
-    attachments,
-    memberships,
-    resourceAssignments,
-    sceneAssetTags,
-    activeUsers
-  ] = await Promise.all([
-    Project.findById(scene.projectId).select("fpsDefault").lean(),
-    Shot.find({ sceneId }).sort({ shotNumber: 1 }).lean(),
-    VideoVersion.find({ sceneId }).sort({ isFavorite: -1, createdAt: -1 }).lean(),
-    SceneAttachment.find({ sceneId, status: "ready" }).sort({ attachmentDate: -1, createdAt: -1 }).lean(),
-    ProjectMembership.find({ projectId: scene.projectId }).lean(),
-    SceneResourceAssignment.find({ sceneId }).sort({ createdAt: 1 }).lean(),
-    SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean(),
-    User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean()
-  ]);
-  const assetTags = await AssetTag.find({ _id: { $in: sceneAssetTags.map((assignment) => assignment.tagId) } })
-    .select("name category")
-    .lean();
-  const assetTagById = new Map(assetTags.map((tag) => [String(tag._id), tag]));
-  shots.sort((left, right) => compareNumericText(left.shotNumber, right.shotNumber));
   const userIds = Array.from(
     new Set([
       ...attachments.map((attachment) => String(attachment.uploadedBy)),
@@ -69,7 +64,15 @@ export async function getSceneDetailData(sceneId: string) {
       ...resourceAssignments.map((assignment) => String(assignment.userId))
     ])
   );
-  const users = await User.find({ _id: { $in: userIds } }).select("name email isActive").lean();
+
+  const [assetTags, users] = await Promise.all([
+    AssetTag.find({ _id: { $in: sceneAssetTags.map((assignment) => assignment.tagId) } })
+      .select("name category")
+      .lean(),
+    User.find({ _id: { $in: userIds } }).select("name email isActive").lean()
+  ]);
+  const assetTagById = new Map(assetTags.map((tag) => [String(tag._id), tag]));
+  shots.sort((left, right) => compareNumericText(left.shotNumber, right.shotNumber));
   const userById = new Map([...users, ...activeUsers].map((user) => [String(user._id), user]));
   const membershipRoleByUserId = new Map(memberships.map((membership) => [String(membership.userId), membership.role]));
 
