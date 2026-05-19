@@ -260,6 +260,9 @@ function cloneShot(previous: ShotData | null, shots: ShotData[]): ShotData {
   };
 }
 
+const PIXELS_PER_SECOND = 50;
+const MIN_THUMB_WIDTH_PX = 90;
+
 function compareShotNumbers(left: string, right: string) {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
 }
@@ -1113,6 +1116,7 @@ function TimelineView(props: TimelineViewProps) {
     onOpenMerge,
     onSelectShot,
     onSelectVideo,
+    onUpdateShot,
     optionLabel,
     scene,
     setSidebarTab,
@@ -1147,7 +1151,16 @@ function TimelineView(props: TimelineViewProps) {
     if (!video || !activeShot) return;
     if (typeof activeShot.startFrame !== "number") return;
     const targetSeconds = activeShot.startFrame / fps;
+    const endSeconds =
+      typeof activeShot.endFrame === "number" ? activeShot.endFrame / fps : null;
     const seek = () => {
+      // If the playhead is already within the active shot's range, don't seek.
+      // This means the active shot change came from auto-follow during playback,
+      // or the user clicked the already-active shot — in either case, jumping to
+      // startFrame would yank the user backwards.
+      if (endSeconds !== null && video.currentTime >= targetSeconds && video.currentTime < endSeconds) {
+        return;
+      }
       if (Math.abs(video.currentTime - targetSeconds) < 0.05) return;
       try {
         video.currentTime = targetSeconds;
@@ -1161,7 +1174,7 @@ function TimelineView(props: TimelineViewProps) {
       video.addEventListener("loadedmetadata", seek, { once: true });
       return () => video.removeEventListener("loadedmetadata", seek);
     }
-  }, [activeShot?.id, activeShot?.startFrame, fps, activeVideo?.id]);
+  }, [activeShot?.id, activeShot?.startFrame, activeShot?.endFrame, fps, activeVideo?.id]);
 
   useEffect(() => {
     setPlaybackSeconds(0);
@@ -1228,6 +1241,40 @@ function TimelineView(props: TimelineViewProps) {
       setSidebarTab("shot");
     },
     [onSelectShot, setSidebarTab]
+  );
+
+  const shotsRef = useRef(shots);
+  shotsRef.current = shots;
+
+  const handleResizeRightEdge = useCallback(
+    (shotId: string, newEndFrame: number) => {
+      const currentShots = shotsRef.current;
+      const idx = currentShots.findIndex((shot) => shot.id === shotId);
+      if (idx < 0) return;
+      const shot = currentShots[idx];
+      const next = currentShots[idx + 1];
+      if (typeof shot.startFrame !== "number") return;
+      const MIN_FRAMES = 1;
+      let clampedEnd = Math.max(shot.startFrame + MIN_FRAMES, newEndFrame);
+
+      if (next && typeof next.endFrame === "number") {
+        const maxEnd = next.endFrame - MIN_FRAMES;
+        clampedEnd = Math.min(clampedEnd, maxEnd);
+      }
+
+      onUpdateShot(shotId, {
+        endFrame: clampedEnd,
+        durationFrames: clampedEnd - shot.startFrame
+      });
+
+      if (next && typeof next.endFrame === "number") {
+        onUpdateShot(next.id, {
+          startFrame: clampedEnd,
+          durationFrames: next.endFrame - clampedEnd
+        });
+      }
+    },
+    [onUpdateShot]
   );
 
   const stepFrame = useCallback(
@@ -1433,19 +1480,34 @@ function TimelineView(props: TimelineViewProps) {
                     Math.min(1, (playbackFrames - (shot.startFrame ?? 0)) / Math.max(1, (shot.endFrame ?? 0) - (shot.startFrame ?? 0)))
                   )
                 : 0;
+            const durationSecs =
+              typeof shot.durationFrames === "number" && shot.durationFrames > 0
+                ? shot.durationFrames / fps
+                : 2;
+            const widthPx = Math.max(MIN_THUMB_WIDTH_PX, Math.round(durationSecs * PIXELS_PER_SECOND));
+            const canResize =
+              canEditScript &&
+              hasRange &&
+              nextShot != null &&
+              typeof nextShot.startFrame === "number" &&
+              typeof nextShot.endFrame === "number";
             return (
               <li className="flex shrink-0 items-stretch" key={shot.id} ref={isActive ? activeThumbRef : null}>
                 <ShotThumbnail
+                  canResize={canResize}
                   fps={fps}
                   hasRange={hasRange}
                   isActive={isActive}
+                  onResizeRight={handleResizeRightEdge}
                   onSeek={seekTo}
                   onSelect={handleSelectShotFromThumb}
                   optionLabel={optionLabel}
+                  pixelsPerSecond={PIXELS_PER_SECOND}
                   playbackProgress={playbackProgress}
                   scrubbingRef={isScrubbingRef}
                   scene={scene}
                   shot={shot}
+                  widthPx={widthPx}
                 />
                 {nextShot ? (
                   <MergeGap
@@ -1723,32 +1785,42 @@ function TransportButton({
 }
 
 type ShotThumbnailProps = {
+  canResize: boolean;
   fps: number;
   hasRange: boolean;
   isActive: boolean;
+  onResizeRight: (shotId: string, newEndFrame: number) => void;
   onSeek: (seconds: number) => void;
   onSelect: (shotId: string) => void;
   optionLabel: (group: string, value: string) => string;
+  pixelsPerSecond: number;
   playbackProgress: number;
   scrubbingRef: React.MutableRefObject<boolean>;
   scene: SceneData;
   shot: ShotData;
+  widthPx: number;
 };
 
 const ShotThumbnail = memo(function ShotThumbnail({
+  canResize,
   fps,
   hasRange,
   isActive,
+  onResizeRight,
   onSeek,
   onSelect,
   optionLabel,
+  pixelsPerSecond,
   playbackProgress,
   scrubbingRef,
   scene,
-  shot
+  shot,
+  widthPx
 }: ShotThumbnailProps) {
   const handleSelect = useCallback(() => onSelect(shot.id), [onSelect, shot.id]);
   const localScrubbingRef = useRef(false);
+  const resizeStateRef = useRef<{ startX: number; startEndFrame: number } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
   const seekFromClientX = (clientX: number, target: HTMLElement) => {
     if (typeof shot.startFrame !== "number" || typeof shot.endFrame !== "number") return;
@@ -1798,14 +1870,45 @@ const ShotThumbnail = memo(function ShotThumbnail({
     scrubbingRef.current = false;
   };
 
+  const handleResizePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!canResize || typeof shot.endFrame !== "number") return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeStateRef.current = { startX: event.clientX, startEndFrame: shot.endFrame };
+    setIsResizing(true);
+  };
+
+  const handleResizePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = resizeStateRef.current;
+    if (!state) return;
+    const deltaPx = event.clientX - state.startX;
+    const deltaFrames = Math.round((deltaPx / pixelsPerSecond) * fps);
+    const nextEnd = state.startEndFrame + deltaFrames;
+    onResizeRight(shot.id, nextEnd);
+  };
+
+  const handleResizePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeStateRef.current) return;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+    resizeStateRef.current = null;
+    setIsResizing(false);
+  };
+
   return (
     <div
       className={[
-        "group flex w-40 shrink-0 flex-col overflow-hidden rounded-md border transition",
+        "group relative flex shrink-0 flex-col overflow-hidden rounded-md border transition",
         isActive
           ? "border-red-500/80 ring-2 ring-red-500/40"
-          : "border-zinc-800 hover:border-zinc-600"
+          : "border-zinc-800 hover:border-zinc-600",
+        isResizing ? "ring-2 ring-amber-400/50" : ""
       ].join(" ")}
+      style={{ width: `${widthPx}px` }}
     >
       <div
         className={[
@@ -1851,6 +1954,28 @@ const ShotThumbnail = memo(function ShotThumbnail({
           <span className="text-zinc-600"> · {formatDurationSeconds(shot.durationFrames, scene.fpsDefault)}</span>
         </p>
       </button>
+      {canResize ? (
+        <div
+          aria-label="resize"
+          className={[
+            "absolute right-0 top-0 z-30 flex h-full w-2.5 cursor-col-resize touch-none items-center justify-center",
+            isResizing ? "bg-amber-400/40" : "bg-transparent hover:bg-amber-400/20"
+          ].join(" ")}
+          onPointerCancel={handleResizePointerUp}
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerUp}
+          role="separator"
+        >
+          <span
+            aria-hidden
+            className={[
+              "h-8 w-0.5 rounded-full transition",
+              isResizing ? "bg-amber-300" : "bg-zinc-700 group-hover:bg-amber-400/70"
+            ].join(" ")}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }, areShotThumbnailPropsEqual);
@@ -1859,9 +1984,13 @@ function areShotThumbnailPropsEqual(prev: ShotThumbnailProps, next: ShotThumbnai
   if (prev.isActive !== next.isActive) return false;
   if (next.isActive && prev.playbackProgress !== next.playbackProgress) return false;
   if (prev.hasRange !== next.hasRange) return false;
+  if (prev.canResize !== next.canResize) return false;
+  if (prev.widthPx !== next.widthPx) return false;
+  if (prev.pixelsPerSecond !== next.pixelsPerSecond) return false;
   if (prev.fps !== next.fps) return false;
   if (prev.onSeek !== next.onSeek) return false;
   if (prev.onSelect !== next.onSelect) return false;
+  if (prev.onResizeRight !== next.onResizeRight) return false;
   if (prev.optionLabel !== next.optionLabel) return false;
   if (prev.scrubbingRef !== next.scrubbingRef) return false;
   if (prev.scene.fpsDefault !== next.scene.fpsDefault) return false;

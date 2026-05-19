@@ -136,7 +136,12 @@ export function MobileSceneDetail({
     if (!video || !activeShot) return;
     if (typeof activeShot.startFrame !== "number") return;
     const target = activeShot.startFrame / fps;
+    const endSeconds =
+      typeof activeShot.endFrame === "number" ? activeShot.endFrame / fps : null;
     const seek = () => {
+      if (endSeconds !== null && video.currentTime >= target && video.currentTime < endSeconds) {
+        return;
+      }
       if (Math.abs(video.currentTime - target) < 0.05) return;
       try {
         video.currentTime = target;
@@ -149,7 +154,7 @@ export function MobileSceneDetail({
       video.addEventListener("loadedmetadata", seek, { once: true });
       return () => video.removeEventListener("loadedmetadata", seek);
     }
-  }, [activeShot?.id, activeShot?.startFrame, fps, activeVideo?.id]);
+  }, [activeShot?.id, activeShot?.startFrame, activeShot?.endFrame, fps, activeVideo?.id]);
 
   useEffect(() => {
     if (!activeThumbRef.current) return;
