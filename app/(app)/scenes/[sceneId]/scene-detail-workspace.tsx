@@ -202,6 +202,11 @@ type MergeRequest = {
   rightDurationFrames: number | null;
 };
 
+type AddShotRequest = {
+  afterShotId: string | null;
+  defaultStartFrame: number;
+};
+
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -268,41 +273,6 @@ function nextShotNumberAfter(prev: string | undefined, shots: ShotData[]): strin
   return String(n);
 }
 
-function cloneShot(previous: ShotData | null, shots: ShotData[]): ShotData {
-  const shotNumber = nextShotNumberAfter(previous?.shotNumber, shots);
-  if (!previous) {
-    return {
-      id: `new-${crypto.randomUUID()}`,
-      shotNumber,
-      shotType: "",
-      status: "animatic",
-      description: "",
-      action: "",
-      camera: "",
-      sound: "",
-      requiredElements: [],
-      productionNotes: "",
-      durationFrames: null,
-      startFrame: null,
-      endFrame: null
-    };
-  }
-  return {
-    id: `new-${crypto.randomUUID()}`,
-    shotNumber,
-    shotType: previous.shotType,
-    status: previous.status,
-    description: previous.description,
-    action: previous.action,
-    camera: previous.camera,
-    sound: previous.sound,
-    requiredElements: [...previous.requiredElements],
-    productionNotes: previous.productionNotes,
-    durationFrames: previous.durationFrames,
-    startFrame: null,
-    endFrame: null
-  };
-}
 
 const PIXELS_PER_SECOND = 50;
 const MIN_THUMB_WIDTH_PX = 90;
@@ -347,6 +317,7 @@ export function SceneDetailWorkspace({
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [mergeRequest, setMergeRequest] = useState<MergeRequest | null>(null);
+  const [addShotRequest, setAddShotRequest] = useState<AddShotRequest | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   const [isScriptOverlayOpen, setIsScriptOverlayOpen] = useState(false);
   const [error, setError] = useState("");
@@ -665,16 +636,63 @@ export function SceneDetailWorkspace({
 
   function addShotAfter(referenceShot: ShotData | null) {
     if (!canEditScript) return;
+    const refEnd =
+      referenceShot && typeof referenceShot.endFrame === "number"
+        ? referenceShot.endFrame
+        : referenceShot && typeof referenceShot.startFrame === "number"
+          ? referenceShot.startFrame
+          : 0;
+    setAddShotRequest({
+      afterShotId: referenceShot?.id ?? null,
+      defaultStartFrame: Math.max(0, refEnd)
+    });
+  }
+
+  function confirmAddShot(data: {
+    startFrame: number;
+    durationFrames: number;
+    shotType: string;
+    description: string;
+  }) {
+    if (!canEditScript || !addShotRequest) return;
     recordHistory({ immediate: true });
-    const newShot = cloneShot(referenceShot, shots);
+    const reference = addShotRequest.afterShotId
+      ? shots.find((s) => s.id === addShotRequest.afterShotId) ?? null
+      : null;
+    const endFrame = data.startFrame + data.durationFrames;
+    const newShot: ShotData = {
+      id: `new-${crypto.randomUUID()}`,
+      shotNumber: nextShotNumberAfter(reference?.shotNumber, shots),
+      shotType: data.shotType,
+      status: "animatic",
+      description: data.description,
+      action: "",
+      camera: "",
+      sound: "",
+      requiredElements: [],
+      productionNotes: "",
+      startFrame: data.startFrame,
+      endFrame,
+      durationFrames: data.durationFrames
+    };
     setShots((current) => {
-      if (!referenceShot) return [...current, newShot];
-      const idx = current.findIndex((shot) => shot.id === referenceShot.id);
-      if (idx < 0) return [...current, newShot];
-      return [...current.slice(0, idx + 1), newShot, ...current.slice(idx + 1)];
+      const idx = reference ? current.findIndex((s) => s.id === reference.id) : current.length - 1;
+      const insertAt = idx + 1;
+      // Ripple: shift every shot from the insertion point onward by the new duration.
+      const shifted = current.map((shot, i) => {
+        if (i < insertAt) return shot;
+        if (typeof shot.startFrame !== "number" || typeof shot.endFrame !== "number") return shot;
+        return {
+          ...shot,
+          startFrame: shot.startFrame + data.durationFrames,
+          endFrame: shot.endFrame + data.durationFrames
+        };
+      });
+      return [...shifted.slice(0, insertAt), newShot, ...shifted.slice(insertAt)];
     });
     setActiveShotId(newShot.id);
     setSidebarTab("shot");
+    setAddShotRequest(null);
     requestAutosave();
   }
 
@@ -1110,6 +1128,16 @@ export function SceneDetailWorkspace({
           onCancel={() => setMergeRequest(null)}
           onConfirm={confirmMerge}
           request={mergeRequest}
+          t={t}
+        />
+      ) : null}
+
+      {addShotRequest ? (
+        <AddShotModal
+          fps={scene.fpsDefault}
+          onCancel={() => setAddShotRequest(null)}
+          onConfirm={confirmAddShot}
+          request={addShotRequest}
           t={t}
         />
       ) : null}
@@ -3665,6 +3693,139 @@ function MergeModal({
             type="button"
           >
             {t("scene.cancel")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddShotModal({
+  fps,
+  onCancel,
+  onConfirm,
+  request,
+  t
+}: {
+  fps: number;
+  onCancel: () => void;
+  onConfirm: (data: {
+    startFrame: number;
+    durationFrames: number;
+    shotType: string;
+    description: string;
+  }) => void;
+  request: AddShotRequest;
+  t: (path: string, replacements?: Record<string, string | number>) => string;
+}) {
+  const [startTc, setStartTc] = useState(() => framesToTimecode(request.defaultStartFrame, fps));
+  const [durationTc, setDurationTc] = useState(() => framesToTimecode(2 * fps, fps));
+  const [shotType, setShotType] = useState("");
+  const [description, setDescription] = useState("");
+  const [touched, setTouched] = useState(false);
+
+  const startFrame = parseTimecode(startTc, fps);
+  const durationFrames = parseTimecode(durationTc, fps);
+  const valid =
+    startFrame !== null && startFrame >= 0 && durationFrames !== null && durationFrames > 0;
+  const endFrame = valid ? (startFrame as number) + (durationFrames as number) : null;
+
+  const submit = () => {
+    setTouched(true);
+    if (!valid) return;
+    onConfirm({
+      startFrame: startFrame as number,
+      durationFrames: durationFrames as number,
+      shotType: shotType.trim(),
+      description: description.trim()
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
+        <div className="border-b border-zinc-800 px-5 py-4">
+          <h2 className="text-base font-semibold text-zinc-50">{t("scene.addShotTitle")}</h2>
+          <p className="mt-1 text-xs text-zinc-400">{t("scene.addShotHelp")}</p>
+        </div>
+
+        <div className="grid gap-4 px-5 py-4">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="grid gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                {t("scene.addShotStart")}
+              </span>
+              <input
+                className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm tabular-nums text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                onChange={(event) => setStartTc(event.target.value)}
+                placeholder="00:00:00:00"
+                value={startTc}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                {t("scene.addShotDuration")}
+              </span>
+              <input
+                className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm tabular-nums text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                onChange={(event) => setDurationTc(event.target.value)}
+                placeholder="00:00:02:00"
+                value={durationTc}
+              />
+            </label>
+          </div>
+
+          <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-center">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+              {t("scene.addShotEnd")}
+            </p>
+            <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-zinc-100">
+              {endFrame !== null ? framesToTimecode(endFrame, fps) : "—"}
+            </p>
+          </div>
+
+          <label className="grid gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {t("scene.type")}
+            </span>
+            <input
+              className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              onChange={(event) => setShotType(event.target.value)}
+              value={shotType}
+            />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {t("scene.description")}
+            </span>
+            <textarea
+              className="min-h-20 resize-y rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm leading-5 text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              onChange={(event) => setDescription(event.target.value)}
+              value={description}
+            />
+          </label>
+
+          {touched && !valid ? (
+            <p className="text-[11px] text-red-400">{t("scene.addShotInvalid")}</p>
+          ) : null}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+          <button
+            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+            onClick={onCancel}
+            type="button"
+          >
+            {t("scene.cancel")}
+          </button>
+          <button
+            className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+            disabled={touched && !valid}
+            onClick={submit}
+            type="button"
+          >
+            {t("scene.addShotInsert")}
           </button>
         </div>
       </div>
