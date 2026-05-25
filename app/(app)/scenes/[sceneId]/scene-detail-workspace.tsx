@@ -498,12 +498,34 @@ export function SceneDetailWorkspace({
       if (!response.ok) throw new Error("autosave failed");
       const payload = (await response.json()) as { shots?: ShotData[] };
       if (payload.shots) {
-        const sorted = [...payload.shots].sort((a, b) => compareShotNumbers(a.shotNumber, b.shotNumber));
-        setShots(sorted);
-        setActiveShotId((current) =>
-          sorted.some((shot) => shot.id === current) ? current : sorted[0]?.id ?? ""
-        );
-        savedHashRef.current = computeHash({ scene: snapshot.scene, shots: sorted });
+        // Map temporary "new-*" ids in the sent snapshot to the real ids the server assigned.
+        // Match by shotNumber, which is unique within a scene. Importantly we do NOT replace
+        // any other field — the user may have kept typing during the in-flight fetch.
+        const sentNewByNumber = new Map<string, string>();
+        for (const sent of snapshot.shots) {
+          if (sent.id.startsWith("new-")) sentNewByNumber.set(sent.shotNumber, sent.id);
+        }
+        const tempToReal = new Map<string, string>();
+        for (const serverShot of payload.shots) {
+          const tempId = sentNewByNumber.get(serverShot.shotNumber);
+          if (tempId) tempToReal.set(tempId, serverShot.id);
+        }
+        if (tempToReal.size > 0) {
+          setShots((current) =>
+            current.map((shot) => {
+              const real = tempToReal.get(shot.id);
+              return real ? { ...shot, id: real } : shot;
+            })
+          );
+          setActiveShotId((current) => tempToReal.get(current) ?? current);
+        }
+        // Persisted hash reflects the snapshot we just sent with ids remapped, so the next
+        // autosave correctly detects whether the user has diverged from the server state.
+        const persistedShots = snapshot.shots.map((shot) => {
+          const real = tempToReal.get(shot.id);
+          return real ? { ...shot, id: real } : shot;
+        });
+        savedHashRef.current = computeHash({ scene: snapshot.scene, shots: persistedShots });
       } else {
         savedHashRef.current = hash;
       }
@@ -2680,11 +2702,13 @@ function TextInput({
 
 function TextArea({
   disabled,
+  onBlur,
   onChange,
   value,
   rows = 3
 }: {
   disabled?: boolean;
+  onBlur?: () => void;
   onChange: (value: string) => void;
   value: string;
   rows?: number;
@@ -2703,10 +2727,48 @@ function TextArea({
       ref={ref}
       className="w-full min-w-0 resize-none overflow-hidden rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-2 text-sm leading-5 text-zinc-100 focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
+      onBlur={onBlur}
       onChange={(event) => onChange(event.target.value)}
       rows={rows}
       style={{ minHeight: `${rows * 20 + 18}px` }}
       value={value}
+    />
+  );
+}
+
+function MultilineListField({
+  disabled,
+  onCommit,
+  value
+}: {
+  disabled?: boolean;
+  onCommit: (next: string[]) => void;
+  value: string[];
+}) {
+  const [text, setText] = useState(() => value.join("\n"));
+  const lastValueRef = useRef(value);
+  useEffect(() => {
+    // Only resync when the upstream array reference actually changes (e.g., the user
+    // switched to a different shot). Avoids stomping mid-typing whitespace/newlines.
+    if (lastValueRef.current !== value) {
+      lastValueRef.current = value;
+      setText(value.join("\n"));
+    }
+  }, [value]);
+  return (
+    <TextArea
+      disabled={disabled}
+      onBlur={() => {
+        const next = splitElements(text);
+        const canonical = next.join("\n");
+        if (canonical !== text) setText(canonical);
+        if (next.length !== value.length || next.some((item, i) => item !== value[i])) {
+          lastValueRef.current = next;
+          onCommit(next);
+        }
+      }}
+      onChange={setText}
+      value={text}
     />
   );
 }
@@ -2960,10 +3022,10 @@ function ShotTab(props: TimelineViewProps) {
       </div>
       <div className="grid gap-2">
         <FieldLabel>{t("scene.requiredElements")}</FieldLabel>
-        <TextArea
+        <MultilineListField
           disabled={!canEditScript}
-          onChange={(value) => onUpdateShot(activeShot.id, { requiredElements: splitElements(value) })}
-          value={activeShot.requiredElements.join("\n")}
+          onCommit={(next) => onUpdateShot(activeShot.id, { requiredElements: next })}
+          value={activeShot.requiredElements}
         />
       </div>
       <div className="grid gap-2">
