@@ -105,6 +105,11 @@ export async function getSceneDetailData(sceneId: string) {
           title: nextScene.title
         }
       : null,
+    siblingScenes: projectScenes.map((sibling) => ({
+      id: String(sibling._id),
+      sceneNumber: sibling.sceneNumber,
+      title: sibling.title
+    })),
     shots: shots.map((shot) => ({
       id: String(shot._id),
       shotNumber: shot.shotNumber,

@@ -220,6 +220,9 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      // Close the upload screen and return to the scene (or project) that started the upload.
+      const target = sceneId ? `/scenes/${sceneId}` : projectId ? `/projects/${projectId}` : "/projects";
+      router.push(target);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : t("upload.unexpectedError"));
     } finally {
@@ -228,11 +231,14 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
   }
 
   function handleCancel() {
-    if (window.history.length > 1) {
-      router.back();
+    if (sceneId) {
+      router.push(`/scenes/${sceneId}`);
       return;
     }
-
+    if (projectId) {
+      router.push(`/projects/${projectId}`);
+      return;
+    }
     router.push("/projects");
   }
 

@@ -34,6 +34,7 @@ export default async function SceneDetailPage({
       initialShotId={shotId}
       nextScene={data.nextScene}
       previousScene={data.previousScene}
+      siblingScenes={data.siblingScenes}
       projectMembers={data.projectMembers}
       scene={data.scene}
       shots={data.shots}

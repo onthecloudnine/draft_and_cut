@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   memo,
   useCallback,
@@ -140,6 +141,7 @@ type SceneDetailWorkspaceProps = {
   initialShotId?: string;
   previousScene?: SceneSiblingData | null;
   nextScene?: SceneSiblingData | null;
+  siblingScenes?: SceneSiblingData[];
 };
 
 type TopView = "timeline" | "table";
@@ -294,7 +296,8 @@ export function SceneDetailWorkspace({
   canManageResources,
   initialShotId,
   previousScene = null,
-  nextScene = null
+  nextScene = null,
+  siblingScenes = []
 }: SceneDetailWorkspaceProps) {
   const { optionLabel, t } = useI18n();
 
@@ -1046,6 +1049,7 @@ export function SceneDetailWorkspace({
         onDeleteVideo={deleteActiveVideo}
         previousScene={previousScene}
         scene={scene}
+        siblingScenes={siblingScenes}
         t={t}
       />
 
@@ -1187,6 +1191,7 @@ function SceneHeader({
   onDeleteVideo,
   previousScene,
   scene,
+  siblingScenes,
   t
 }: {
   autosaveStatus: AutosaveStatus;
@@ -1198,8 +1203,10 @@ function SceneHeader({
   onDeleteVideo: () => void;
   previousScene: SceneSiblingData | null;
   scene: SceneData;
+  siblingScenes: SceneSiblingData[];
   t: (path: string, replacements?: Record<string, string | number>) => string;
 }) {
+  const router = useRouter();
   return (
     <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3 sm:px-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1229,6 +1236,23 @@ function SceneHeader({
               <span>←</span>
               <span>{t("scene.previousScene", { sceneNumber: previousScene.sceneNumber })}</span>
             </Link>
+          ) : null}
+          {siblingScenes.length > 1 ? (
+            <select
+              aria-label={t("scene.sceneSelector")}
+              className="h-8 max-w-[220px] rounded-md border border-zinc-800 bg-zinc-900 px-2 text-xs font-medium text-zinc-200 hover:bg-zinc-800 focus:outline-none"
+              onChange={(event) => {
+                const nextId = event.target.value;
+                if (nextId && nextId !== scene.id) router.push(`/scenes/${nextId}`);
+              }}
+              value={scene.id}
+            >
+              {siblingScenes.map((sibling) => (
+                <option key={sibling.id} value={sibling.id}>
+                  {t("scene.scene")} {sibling.sceneNumber} · {sibling.title}
+                </option>
+              ))}
+            </select>
           ) : null}
           {nextScene ? (
             <Link

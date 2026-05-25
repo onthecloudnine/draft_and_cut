@@ -133,6 +133,7 @@
     "scriptShortcutHint": "Press G to open or close the literary script overlay",
     "shotsTimeline": "Scene shots",
     "shotsCount": "shots",
+    "sceneSelector": "Go to scene",
     "toolSelect": "Select",
     "toolBlade": "Blade",
     "toolBladeHint": "Click on a shot to split it at the click point.",
