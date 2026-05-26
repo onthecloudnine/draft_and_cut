@@ -12,6 +12,9 @@ export default async function ProjectDetailPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
+  if (!projectId || !/^[a-f0-9]{24}$/i.test(projectId)) {
+    notFound();
+  }
   const user = await requireUser();
   const role = await assertProjectPermission(user.id, projectId, "project:read");
   await connectDb();

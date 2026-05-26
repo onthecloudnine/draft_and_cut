@@ -273,7 +273,18 @@
     "actions": "Acciones",
     "open": "Abrir",
     "edit": "Editar",
-    "empty": "Aun no hay proyectos."
+    "empty": "Aun no hay proyectos.",
+    "sourceLabel": "Origen de las escenas",
+    "sourceScript": "Tengo guion literario",
+    "sourceScriptHint": "Sube un archivo .txt o .md. Se detectaran las escenas automaticamente.",
+    "sourceManual": "Sin guion (cantidad manual)",
+    "sourceManualHint": "Define cuantas escenas vacias quieres crear.",
+    "scriptFile": "Archivo del guion",
+    "scriptFileHint": "Solo .txt o .md. Para PDF, convierte el archivo a texto primero.",
+    "scriptFileLoaded": "Guion cargado ({size} KB)",
+    "sceneCount": "Cantidad de escenas",
+    "createdWithScenes": "Proyecto creado con {count} escenas.",
+    "scriptReadError": "No se pudo leer el guion."
   },
   "project": {
     "projectsTitle": "Proyectos",

@@ -273,7 +273,18 @@
     "actions": "Actions",
     "open": "Open",
     "edit": "Edit",
-    "empty": "No projects yet."
+    "empty": "No projects yet.",
+    "sourceLabel": "Scenes source",
+    "sourceScript": "I have a literary script",
+    "sourceScriptHint": "Upload a .txt or .md file. Scenes will be detected automatically.",
+    "sourceManual": "No script (manual count)",
+    "sourceManualHint": "Set how many empty scenes to create.",
+    "scriptFile": "Script file",
+    "scriptFileHint": "Only .txt or .md. For PDF, convert to text first.",
+    "scriptFileLoaded": "Script loaded ({size} KB)",
+    "sceneCount": "Number of scenes",
+    "createdWithScenes": "Project created with {count} scenes.",
+    "scriptReadError": "Could not read the script."
   },
   "project": {
     "projectsTitle": "Projects",

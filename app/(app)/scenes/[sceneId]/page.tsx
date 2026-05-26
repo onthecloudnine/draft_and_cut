@@ -12,6 +12,9 @@ export default async function SceneDetailPage({
   searchParams: Promise<{ shotId?: string }>;
 }) {
   const { sceneId } = await params;
+  if (!sceneId || !/^[a-f0-9]{24}$/i.test(sceneId)) {
+    notFound();
+  }
   const { shotId } = await searchParams;
   const user = await requireUser();
 

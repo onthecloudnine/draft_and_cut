@@ -36,7 +36,9 @@ export async function GET(
       return jsonError("Project not found", 404);
     }
 
-    return NextResponse.json({ project: serializeDocument(project) });
+    return NextResponse.json({
+      project: { ...serializeDocument(project), id: String(project._id) }
+    });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Unexpected error", 400);
   }
@@ -75,7 +77,9 @@ export async function PATCH(
       return jsonError("Project not found", 404);
     }
 
-    return NextResponse.json({ project: serializeDocument(project) });
+    return NextResponse.json({
+      project: { ...serializeDocument(project), id: String(project._id) }
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid project payload", 400);

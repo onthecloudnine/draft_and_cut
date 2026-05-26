@@ -1,5 +1,6 @@
 import { connectDb } from "@/lib/db/mongoose";
 import { ProjectMembership } from "@/models/ProjectMembership";
+import { User } from "@/models/User";
 import type { Permission, UserRole } from "@/types/domain";
 
 const rolePermissions: Record<string, Permission[]> = {
@@ -33,10 +34,16 @@ export function roleHasPermission(role: UserRole, permission: Permission) {
 }
 
 export async function getProjectRole(userId: string, projectId: string): Promise<UserRole | null> {
+  if (!projectId || !/^[a-f0-9]{24}$/i.test(projectId)) return null;
   await connectDb();
 
-  const membership = await ProjectMembership.findOne({ userId, projectId }).lean();
-  return membership?.role ?? null;
+  const [membership, user] = await Promise.all([
+    ProjectMembership.findOne({ userId, projectId }).lean(),
+    User.findById(userId).select("accountRole").lean()
+  ]);
+  if (membership?.role) return membership.role;
+  if (user?.accountRole === "admin") return "admin";
+  return null;
 }
 
 export async function assertProjectPermission(

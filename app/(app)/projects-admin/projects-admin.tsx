@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useI18n } from "@/lib/i18n/client";
 
 type ProjectAdminItem = {
@@ -30,6 +30,8 @@ const emptyForm: FormState = {
   fpsDefault: 24
 };
 
+type SourceMode = "script" | "manual";
+
 export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdminItem[] }) {
   const { t } = useI18n();
   const [projects, setProjects] = useState(initialProjects);
@@ -37,12 +39,35 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [sourceMode, setSourceMode] = useState<SourceMode>("manual");
+  const [sceneCount, setSceneCount] = useState(0);
+  const [scriptText, setScriptText] = useState("");
+  const [scriptFileName, setScriptFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isEditing = Boolean(form.id);
 
   function resetForm() {
     setForm(emptyForm);
     setError("");
     setStatus("");
+    setSourceMode("manual");
+    setSceneCount(0);
+    setScriptText("");
+    setScriptFileName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleScriptFile(file: File) {
+    setError("");
+    try {
+      const text = await file.text();
+      setScriptText(text);
+      setScriptFileName(file.name);
+    } catch {
+      setScriptText("");
+      setScriptFileName("");
+      setError(t("projectsAdmin.scriptReadError"));
+    }
   }
 
   function editProject(project: ProjectAdminItem) {
@@ -66,15 +91,23 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
     try {
       const url = isEditing ? `/api/projects/${form.id}` : "/api/projects";
       const method = isEditing ? "PATCH" : "POST";
+      const body: Record<string, unknown> = {
+        slug: form.slug.trim(),
+        title: form.title.trim(),
+        description: form.description.trim(),
+        fpsDefault: Number(form.fpsDefault)
+      };
+      if (!isEditing) {
+        if (sourceMode === "script" && scriptText.trim()) {
+          body.scriptText = scriptText;
+        } else if (sourceMode === "manual" && sceneCount > 0) {
+          body.sceneCount = sceneCount;
+        }
+      }
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: form.slug.trim(),
-          title: form.title.trim(),
-          description: form.description.trim(),
-          fpsDefault: Number(form.fpsDefault)
-        })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -82,16 +115,25 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
         throw new Error(payload.error ?? t("projectsAdmin.saveError"));
       }
 
-      const payload = (await response.json()) as { project: { id: string } };
-      const projectId = payload.project.id ?? form.id;
+      const payload = (await response.json()) as {
+        project: { id?: string; _id?: string };
+        createdSceneCount?: number;
+      };
+      const projectId = payload.project.id ?? payload.project._id ?? form.id;
+      if (!projectId) {
+        throw new Error(t("projectsAdmin.saveError"));
+      }
+      const createdSceneCount = payload.createdSceneCount ?? 0;
 
       const updatedItem: ProjectAdminItem = {
-        id: projectId!,
+        id: projectId,
         slug: form.slug.trim(),
         title: form.title.trim(),
         description: form.description.trim(),
         fpsDefault: Number(form.fpsDefault),
-        sceneCount: isEditing ? projects.find((item) => item.id === form.id)?.sceneCount ?? 0 : 0
+        sceneCount: isEditing
+          ? projects.find((item) => item.id === form.id)?.sceneCount ?? 0
+          : createdSceneCount
       };
 
       setProjects((current) => {
@@ -103,7 +145,13 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
         );
       });
 
-      setStatus(isEditing ? t("projectsAdmin.updated") : t("projectsAdmin.created"));
+      if (isEditing) {
+        setStatus(t("projectsAdmin.updated"));
+      } else if (createdSceneCount > 0) {
+        setStatus(t("projectsAdmin.createdWithScenes", { count: createdSceneCount }));
+      } else {
+        setStatus(t("projectsAdmin.created"));
+      }
       resetForm();
     } catch (saveError) {
       setError(
@@ -190,6 +238,81 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
               value={form.fpsDefault}
             />
           </label>
+
+          {!isEditing ? (
+            <div className="grid gap-3 rounded-md border border-neutral-800 bg-black/40 p-3">
+              <p className="text-sm font-medium text-slate-300">{t("projectsAdmin.sourceLabel")}</p>
+              <div className="grid gap-2">
+                <label className="flex items-start gap-2 text-sm text-slate-300">
+                  <input
+                    checked={sourceMode === "script"}
+                    className="mt-0.5"
+                    name="source-mode"
+                    onChange={() => setSourceMode("script")}
+                    type="radio"
+                  />
+                  <span>
+                    <span className="block font-medium">{t("projectsAdmin.sourceScript")}</span>
+                    <span className="block text-xs text-slate-500">
+                      {t("projectsAdmin.sourceScriptHint")}
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-slate-300">
+                  <input
+                    checked={sourceMode === "manual"}
+                    className="mt-0.5"
+                    name="source-mode"
+                    onChange={() => setSourceMode("manual")}
+                    type="radio"
+                  />
+                  <span>
+                    <span className="block font-medium">{t("projectsAdmin.sourceManual")}</span>
+                    <span className="block text-xs text-slate-500">
+                      {t("projectsAdmin.sourceManualHint")}
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {sourceMode === "script" ? (
+                <label className="grid gap-2 text-sm font-medium text-slate-300">
+                  {t("projectsAdmin.scriptFile")}
+                  <input
+                    accept=".txt,.md,text/plain,text/markdown"
+                    className="block w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-sm file:text-slate-100 hover:file:bg-neutral-700"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void handleScriptFile(file);
+                    }}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                  <span className="text-xs text-slate-500">{t("projectsAdmin.scriptFileHint")}</span>
+                  {scriptFileName ? (
+                    <span className="text-xs text-emerald-300">
+                      {scriptFileName} ·{" "}
+                      {t("projectsAdmin.scriptFileLoaded", {
+                        size: (new Blob([scriptText]).size / 1024).toFixed(1)
+                      })}
+                    </span>
+                  ) : null}
+                </label>
+              ) : (
+                <label className="grid gap-2 text-sm font-medium text-slate-300">
+                  {t("projectsAdmin.sceneCount")}
+                  <input
+                    className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+                    max={500}
+                    min={0}
+                    onChange={(event) => setSceneCount(Number(event.target.value))}
+                    type="number"
+                    value={sceneCount}
+                  />
+                </label>
+              )}
+            </div>
+          ) : null}
 
           {error ? (
             <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{error}</p>

@@ -3,6 +3,7 @@ import { Project } from "@/models/Project";
 import { ProjectMembership } from "@/models/ProjectMembership";
 import { Scene } from "@/models/Scene";
 import { Shot } from "@/models/Shot";
+import { User } from "@/models/User";
 import { VideoVersion } from "@/models/VideoVersion";
 import { Comment } from "@/models/Comment";
 import { maybeGetSignedObjectUrl } from "@/lib/s3/signed-url";
@@ -34,9 +35,17 @@ export async function getAllProjectsForAdmin() {
 export async function getProjectsForUser(userId: string) {
   await connectDb();
 
-  const memberships = await ProjectMembership.find({ userId }).lean();
-  const projectIds = memberships.map((membership) => membership.projectId);
-  const projects = await Project.find({ _id: { $in: projectIds } }).sort({ title: 1 }).lean();
+  const [user, memberships] = await Promise.all([
+    User.findById(userId).select("accountRole").lean(),
+    ProjectMembership.find({ userId }).lean()
+  ]);
+  const isGlobalAdmin = user?.accountRole === "admin";
+
+  const projects = isGlobalAdmin
+    ? await Project.find({}).sort({ title: 1 }).lean()
+    : await Project.find({ _id: { $in: memberships.map((m) => m.projectId) } })
+        .sort({ title: 1 })
+        .lean();
 
   return projects.map((project) => {
     const membership = memberships.find(
@@ -49,7 +58,7 @@ export async function getProjectsForUser(userId: string) {
       title: project.title,
       description: project.description,
       fpsDefault: project.fpsDefault,
-      role: membership?.role ?? "read_only"
+      role: membership?.role ?? (isGlobalAdmin ? "admin" : "read_only")
     };
   });
 }
