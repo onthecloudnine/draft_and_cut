@@ -763,6 +763,36 @@ export function SceneDetailWorkspace({
     requestAutosave();
   }
 
+  function addShotFromSelection(startFrame: number, endFrame: number) {
+    if (!canEditScript) return;
+    if (endFrame <= startFrame) {
+      setError(t("scene.markRangeInvalid"));
+      return;
+    }
+    recordHistory({ immediate: true });
+    const currentShots = stateRef.current.shots;
+    const reference = currentShots[currentShots.length - 1] ?? null;
+    const newShot: ShotData = {
+      id: `new-${crypto.randomUUID()}`,
+      shotNumber: nextShotNumberAfter(reference?.shotNumber, currentShots),
+      shotType: "",
+      status: "animatic",
+      description: "",
+      action: "",
+      camera: "",
+      sound: "",
+      requiredElements: [],
+      productionNotes: "",
+      startFrame: Math.round(startFrame),
+      endFrame: Math.round(endFrame),
+      durationFrames: Math.round(endFrame - startFrame)
+    };
+    setShots((current) => [...current, newShot]);
+    setActiveShotId(newShot.id);
+    setSidebarTab("shot");
+    requestAutosave();
+  }
+
   function removeShot(shotId: string) {
     if (!canEditScript) return;
     if (!window.confirm(t("scene.removeShotConfirm"))) return;
@@ -1086,6 +1116,7 @@ export function SceneDetailWorkspace({
             onRemoveAssetTag={removeAssetTag}
             onRemoveHumanResource={removeHumanResource}
             onRemoveShot={removeShot}
+            onAddShotFromSelection={addShotFromSelection}
             onRedo={redo}
             onSelectShot={setActiveShotId}
             onSelectVideo={setSelectedVideoId}
@@ -1434,6 +1465,7 @@ type TimelineViewProps = {
   onRemoveAssetTag: (id: string) => void;
   onRemoveHumanResource: (id: string) => void;
   onRemoveShot: (id: string) => void;
+  onAddShotFromSelection: (startFrame: number, endFrame: number) => void;
   onRedo: () => void;
   onSelectShot: (id: string) => void;
   onSelectVideo: (id: string) => void;
@@ -1477,6 +1509,7 @@ function TimelineView(props: TimelineViewProps) {
     onOpenMerge,
     canRedo,
     canUndo,
+    onAddShotFromSelection,
     onRedo,
     onSelectShot,
     onSelectVideo,
@@ -1566,9 +1599,75 @@ function TimelineView(props: TimelineViewProps) {
     }
   }, [playbackSeconds, isPlaying, shots, fps, activeShot?.id, onSelectShot]);
 
+  const playBackwardRafRef = useRef<number | null>(null);
+  const playBackwardLastRef = useRef<number>(0);
+
+  const stopBackwardPlay = useCallback(() => {
+    if (playBackwardRafRef.current !== null) {
+      cancelAnimationFrame(playBackwardRafRef.current);
+      playBackwardRafRef.current = null;
+    }
+  }, []);
+
+  const playForward = useCallback(() => {
+    stopBackwardPlay();
+    const video = videoRef.current;
+    if (!video) return;
+    video.play().catch(() => {
+      /* autoplay may be blocked */
+    });
+  }, [stopBackwardPlay]);
+
+  const playBackward = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.paused) video.pause();
+    if (playBackwardRafRef.current !== null) return;
+    playBackwardLastRef.current = performance.now();
+    const tick = () => {
+      const v = videoRef.current;
+      if (!v) {
+        playBackwardRafRef.current = null;
+        return;
+      }
+      const now = performance.now();
+      const delta = (now - playBackwardLastRef.current) / 1000;
+      playBackwardLastRef.current = now;
+      const next = v.currentTime - delta;
+      if (next <= 0) {
+        try {
+          v.currentTime = 0;
+        } catch {
+          /* ignore */
+        }
+        playBackwardRafRef.current = null;
+        return;
+      }
+      try {
+        v.currentTime = next;
+      } catch {
+        /* ignore */
+      }
+      playBackwardRafRef.current = requestAnimationFrame(tick);
+    };
+    playBackwardRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const stopAllPlay = useCallback(() => {
+    stopBackwardPlay();
+    const video = videoRef.current;
+    if (video && !video.paused) video.pause();
+  }, [stopBackwardPlay]);
+
+  useEffect(() => () => stopBackwardPlay(), [stopBackwardPlay]);
+
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+    if (playBackwardRafRef.current !== null) {
+      stopBackwardPlay();
+      return;
+    }
     if (video.paused) {
       video.play().catch(() => {
         /* autoplay may be blocked */
@@ -1576,7 +1675,7 @@ function TimelineView(props: TimelineViewProps) {
     } else {
       video.pause();
     }
-  }, []);
+  }, [stopBackwardPlay]);
 
   const seekTo = useCallback((seconds: number) => {
     const video = videoRef.current;
@@ -1617,6 +1716,32 @@ function TimelineView(props: TimelineViewProps) {
   const [resizingShotId, setResizingShotId] = useState<string | null>(null);
   const handleResizeStart = useCallback((shotId: string) => setResizingShotId(shotId), []);
   const handleResizeEnd = useCallback(() => setResizingShotId(null), []);
+
+  const [markInFrame, setMarkInFrame] = useState<number | null>(null);
+  const [markOutFrame, setMarkOutFrame] = useState<number | null>(null);
+
+  const markInAtPlayhead = useCallback(() => {
+    setMarkInFrame(Math.round(playbackSeconds * fps));
+  }, [playbackSeconds, fps]);
+
+  const markOutAtPlayhead = useCallback(() => {
+    setMarkOutFrame(Math.round(playbackSeconds * fps));
+  }, [playbackSeconds, fps]);
+
+  const clearMarks = useCallback(() => {
+    setMarkInFrame(null);
+    setMarkOutFrame(null);
+  }, []);
+
+  const insertSelectionAsShot = useCallback(() => {
+    if (markInFrame == null || markOutFrame == null) return;
+    if (markOutFrame <= markInFrame) return;
+    onAddShotFromSelection(markInFrame, markOutFrame);
+    setMarkInFrame(null);
+    setMarkOutFrame(null);
+  }, [markInFrame, markOutFrame, onAddShotFromSelection]);
+
+  const canInsertSelection = markInFrame != null && markOutFrame != null && markOutFrame > markInFrame;
 
   const handleResizeRightEdge = useCallback(
     (shotId: string, newEndFrame: number) => {
@@ -1766,6 +1891,31 @@ function TimelineView(props: TimelineViewProps) {
           if (event.shiftKey) goNextShot();
           else stepFrame(1);
           break;
+        case "j":
+        case "J":
+          event.preventDefault();
+          playBackward();
+          break;
+        case "k":
+        case "K":
+          event.preventDefault();
+          stopAllPlay();
+          break;
+        case "l":
+        case "L":
+          event.preventDefault();
+          playForward();
+          break;
+        case "i":
+        case "I":
+          event.preventDefault();
+          markInAtPlayhead();
+          break;
+        case "o":
+        case "O":
+          event.preventDefault();
+          markOutAtPlayhead();
+          break;
         case "m":
         case "M":
           event.preventDefault();
@@ -1782,7 +1932,19 @@ function TimelineView(props: TimelineViewProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [togglePlayback, stepFrame, goPrevShot, goNextShot, toggleMute, toggleFullscreen]);
+  }, [
+    togglePlayback,
+    stepFrame,
+    goPrevShot,
+    goNextShot,
+    toggleMute,
+    toggleFullscreen,
+    playBackward,
+    playForward,
+    stopAllPlay,
+    markInAtPlayhead,
+    markOutAtPlayhead
+  ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1845,11 +2007,18 @@ function TimelineView(props: TimelineViewProps) {
           {activeVideo?.url ? (
             <VideoTransport
               activeShot={activeShot}
+              canInsertSelection={canInsertSelection}
               duration={duration}
               fps={fps}
               isFullscreen={isFullscreen}
               isMuted={isMuted}
               isPlaying={isPlaying}
+              markInFrame={markInFrame}
+              markOutFrame={markOutFrame}
+              onClearMarks={clearMarks}
+              onInsertSelection={insertSelectionAsShot}
+              onMarkIn={markInAtPlayhead}
+              onMarkOut={markOutAtPlayhead}
               onNextShot={goNextShot}
               onPrevShot={goPrevShot}
               onSeek={seekTo}
@@ -2082,11 +2251,18 @@ function TimelineView(props: TimelineViewProps) {
 
 function VideoTransport({
   activeShot,
+  canInsertSelection,
   duration,
   fps,
   isFullscreen,
   isMuted,
   isPlaying,
+  markInFrame,
+  markOutFrame,
+  onClearMarks,
+  onInsertSelection,
+  onMarkIn,
+  onMarkOut,
   onNextShot,
   onPrevShot,
   onSeek,
@@ -2099,11 +2275,18 @@ function VideoTransport({
   t
 }: {
   activeShot: ShotData | null;
+  canInsertSelection: boolean;
   duration: number;
   fps: number;
   isFullscreen: boolean;
   isMuted: boolean;
   isPlaying: boolean;
+  markInFrame: number | null;
+  markOutFrame: number | null;
+  onClearMarks: () => void;
+  onInsertSelection: () => void;
+  onMarkIn: () => void;
+  onMarkOut: () => void;
   onNextShot: () => void;
   onPrevShot: () => void;
   onSeek: (seconds: number) => void;
@@ -2196,6 +2379,34 @@ function VideoTransport({
           </TransportButton>
         </div>
 
+        <div className="flex shrink-0 items-center gap-1">
+          <TransportButton label={t("scene.markIn")} onClick={onMarkIn}>
+            <span className="text-[11px] font-semibold tracking-wider">I</span>
+          </TransportButton>
+          <TransportButton label={t("scene.markOut")} onClick={onMarkOut}>
+            <span className="text-[11px] font-semibold tracking-wider">O</span>
+          </TransportButton>
+          <TransportButton
+            disabled={!canInsertSelection}
+            label={t("scene.insertSelection")}
+            onClick={onInsertSelection}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M12 4v12" />
+              <path d="M7 11l5 5 5-5" />
+              <path d="M5 20h14" />
+            </svg>
+          </TransportButton>
+          {markInFrame != null || markOutFrame != null ? (
+            <TransportButton label={t("scene.clearMarks")} onClick={onClearMarks}>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </TransportButton>
+          ) : null}
+        </div>
+
         <div className="flex shrink-0 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] tabular-nums">
           <span className="font-semibold text-zinc-100">
             {framesToTimecode(Math.round(playbackSeconds * fps), fps)}
@@ -2226,6 +2437,32 @@ function VideoTransport({
               aria-hidden
               className="absolute top-0 h-full bg-red-600/25"
               style={{ left: `${activeRange.left * 100}%`, width: `${activeRange.width * 100}%` }}
+            />
+          ) : null}
+          {safeDuration > 0 && markInFrame != null && markOutFrame != null && markOutFrame > markInFrame ? (
+            <div
+              aria-hidden
+              className="absolute top-0 h-full bg-amber-400/25"
+              style={{
+                left: `${Math.max(0, Math.min(1, markInFrame / fps / safeDuration)) * 100}%`,
+                width: `${
+                  Math.max(0, Math.min(1, (markOutFrame - markInFrame) / fps / safeDuration)) * 100
+                }%`
+              }}
+            />
+          ) : null}
+          {safeDuration > 0 && markInFrame != null ? (
+            <div
+              aria-hidden
+              className="absolute inset-y-0 w-px bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"
+              style={{ left: `${Math.max(0, Math.min(1, markInFrame / fps / safeDuration)) * 100}%` }}
+            />
+          ) : null}
+          {safeDuration > 0 && markOutFrame != null ? (
+            <div
+              aria-hidden
+              className="absolute inset-y-0 w-px bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"
+              style={{ left: `${Math.max(0, Math.min(1, markOutFrame / fps / safeDuration)) * 100}%` }}
             />
           ) : null}
           {safeDuration > 0

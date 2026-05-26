@@ -2,18 +2,32 @@ import { connectDb } from "@/lib/db/mongoose";
 import { ProjectMembership } from "@/models/ProjectMembership";
 import { Project } from "@/models/Project";
 import { Scene } from "@/models/Scene";
+import { User } from "@/models/User";
 import { roleHasPermission } from "@/lib/auth/permissions";
 
 export async function getUploadOptions(userId: string) {
   await connectDb();
 
-  const memberships = await ProjectMembership.find({ userId }).lean();
-  const uploadProjectIds = memberships
-    .filter((membership) => roleHasPermission(membership.role, "video:upload"))
-    .map((membership) => membership.projectId);
+  const [user, memberships] = await Promise.all([
+    User.findById(userId).select("accountRole").lean(),
+    ProjectMembership.find({ userId }).lean()
+  ]);
+  const isGlobalAdmin = user?.accountRole === "admin";
 
-  const projects = await Project.find({ _id: { $in: uploadProjectIds } }).sort({ title: 1 }).lean();
-  const scenes = await Scene.find({ projectId: { $in: uploadProjectIds } })
+  const projects = isGlobalAdmin
+    ? await Project.find({}).sort({ title: 1 }).lean()
+    : await Project.find({
+        _id: {
+          $in: memberships
+            .filter((membership) => roleHasPermission(membership.role, "video:upload"))
+            .map((membership) => membership.projectId)
+        }
+      })
+        .sort({ title: 1 })
+        .lean();
+
+  const projectIds = projects.map((project) => project._id);
+  const scenes = await Scene.find({ projectId: { $in: projectIds } })
     .sort({ sceneNumber: 1 })
     .lean();
   return {
