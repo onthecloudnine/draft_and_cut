@@ -170,6 +170,12 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <StatPill label={t("project.scenes")} value={totalScenes} />
             <StatPill label={t("project.videos")} value={scenesWithVideo} />
+            <Link
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 font-medium text-zinc-200 hover:bg-zinc-800"
+              href={`/projects/${project.id}/board`}
+            >
+              {t("board.openBoard")}
+            </Link>
             <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-400">
               {optionLabel("userRoles", userRole)}
             </span>
