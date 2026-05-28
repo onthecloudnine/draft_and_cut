@@ -1,3 +1,0 @@
-shot,start_seconds,end_seconds,start_tc,end_tc,duration_seconds,detection_score
-1,0.000,5.833,00:00:00.000,00:00:05.833,5.833,0.00
-2,5.833,17.875,00:00:05.833,00:00:17.875,12.042,38.41

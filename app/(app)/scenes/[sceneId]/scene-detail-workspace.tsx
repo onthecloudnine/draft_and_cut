@@ -321,6 +321,7 @@ export function SceneDetailWorkspace({
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [mergeRequest, setMergeRequest] = useState<MergeRequest | null>(null);
   const [addShotRequest, setAddShotRequest] = useState<AddShotRequest | null>(null);
+  const [isDeleteSceneOpen, setIsDeleteSceneOpen] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [isScriptOverlayOpen, setIsScriptOverlayOpen] = useState(false);
   const [error, setError] = useState("");
@@ -1071,11 +1072,13 @@ export function SceneDetailWorkspace({
     <div className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
       <SceneHeader
         autosaveStatus={autosaveStatus}
+        canDeleteScene={canEditScript}
         lastSavedAt={lastSavedAt}
         activeVideo={activeVideo}
         canManageVideos={canManageVideos}
         isDeletingVideo={isDeletingVideo}
         nextScene={nextScene}
+        onDeleteScene={() => setIsDeleteSceneOpen(true)}
         onDeleteVideo={deleteActiveVideo}
         previousScene={previousScene}
         scene={scene}
@@ -1199,6 +1202,17 @@ export function SceneDetailWorkspace({
         />
       ) : null}
 
+      {isDeleteSceneOpen ? (
+        <DeleteSceneModal
+          onCancel={() => setIsDeleteSceneOpen(false)}
+          projectId={scene.projectId}
+          sceneId={scene.id}
+          sceneNumber={scene.sceneNumber}
+          sceneTitle={scene.title}
+          t={t}
+        />
+      ) : null}
+
       {isScriptOverlayOpen ? (
         <ScriptOverlay
           canEdit={canEditScript}
@@ -1215,10 +1229,12 @@ export function SceneDetailWorkspace({
 function SceneHeader({
   autosaveStatus,
   activeVideo,
+  canDeleteScene,
   canManageVideos,
   isDeletingVideo,
   lastSavedAt,
   nextScene,
+  onDeleteScene,
   onDeleteVideo,
   previousScene,
   scene,
@@ -1227,10 +1243,12 @@ function SceneHeader({
 }: {
   autosaveStatus: AutosaveStatus;
   activeVideo: VideoData | null;
+  canDeleteScene: boolean;
   canManageVideos: boolean;
   isDeletingVideo: boolean;
   lastSavedAt: number | null;
   nextScene: SceneSiblingData | null;
+  onDeleteScene: () => void;
   onDeleteVideo: () => void;
   previousScene: SceneSiblingData | null;
   scene: SceneData;
@@ -1315,6 +1333,16 @@ function SceneHeader({
               type="button"
             >
               {isDeletingVideo ? t("scene.deletingVideo") : t("scene.deleteVideo")}
+            </button>
+          ) : null}
+          {canDeleteScene ? (
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-md border border-red-900/70 px-3 text-xs font-medium text-red-300 hover:bg-red-950/40"
+              onClick={onDeleteScene}
+              title={t("scene.deleteScene")}
+              type="button"
+            >
+              {t("scene.deleteScene")}
             </button>
           ) : null}
         </div>
@@ -4150,6 +4178,159 @@ function AddShotModal({
           >
             {t("scene.addShotInsert")}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteSceneModal({
+  onCancel,
+  projectId,
+  sceneId,
+  sceneNumber,
+  sceneTitle,
+  t
+}: {
+  onCancel: () => void;
+  projectId: string;
+  sceneId: string;
+  sceneNumber: string;
+  sceneTitle: string;
+  t: (path: string, replacements?: Record<string, string | number>) => string;
+}) {
+  const router = useRouter();
+  const [confirmation, setConfirmation] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [label, setLabel] = useState("");
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const phraseMatches = confirmation.trim().toLowerCase() === "acepto borrar";
+
+  async function startDelete() {
+    if (!phraseMatches || isDeleting) return;
+    setIsDeleting(true);
+    setError("");
+    setProgress(0);
+    setLabel("");
+    try {
+      const response = await fetch(`/api/scenes/${sceneId}/with-content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation })
+      });
+      if (!response.ok || !response.body) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? t("scene.deleteSceneError"));
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done: readerDone, value } = await reader.read();
+        if (readerDone) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const msg = JSON.parse(trimmed) as {
+              phase: string;
+              progress?: number;
+              label?: string;
+              error?: string;
+            };
+            if (msg.phase === "error") {
+              throw new Error(msg.error ?? t("scene.deleteSceneError"));
+            }
+            if (typeof msg.progress === "number") setProgress(msg.progress);
+            if (msg.label) setLabel(msg.label);
+            if (msg.phase === "done") {
+              setDone(true);
+              setLabel(t("scene.deleteSceneSuccess"));
+            }
+          } catch (parseError) {
+            if (parseError instanceof Error && parseError.message) throw parseError;
+          }
+        }
+      }
+      // After stream closes successfully, navigate back to project
+      setTimeout(() => router.push(`/projects/${projectId}`), 800);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("scene.deleteSceneError"));
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-lg border border-red-900/60 bg-zinc-950 shadow-2xl">
+        <div className="border-b border-zinc-800 px-5 py-4">
+          <h2 className="text-base font-semibold text-red-300">{t("scene.deleteSceneTitle")}</h2>
+          <p className="mt-1 text-xs text-zinc-400">{t("scene.deleteSceneHelp")}</p>
+          <p className="mt-2 text-[11px] text-zinc-500">
+            {t("scene.scene")} {sceneNumber} · {sceneTitle}
+          </p>
+        </div>
+
+        {!isDeleting && !done ? (
+          <div className="grid gap-3 px-5 py-4">
+            <label className="grid gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                {t("scene.deleteSceneConfirmLabel")}
+              </span>
+              <input
+                autoFocus
+                className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                onChange={(event) => setConfirmation(event.target.value)}
+                placeholder={t("scene.deleteSceneConfirmPlaceholder")}
+                value={confirmation}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="grid gap-2 px-5 py-4">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className={`h-full transition-all duration-200 ${done ? "bg-emerald-500" : "bg-red-500"}`}
+                style={{ width: `${Math.max(2, Math.min(100, progress))}%` }}
+              />
+            </div>
+            <p className="text-xs tabular-nums text-zinc-300">
+              {Math.round(progress)}% · {label || "..."}
+            </p>
+          </div>
+        )}
+
+        {error ? (
+          <p className="mx-5 mb-2 rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+          <button
+            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            disabled={isDeleting && !done && !error}
+            onClick={onCancel}
+            type="button"
+          >
+            {t("scene.cancel")}
+          </button>
+          {!done ? (
+            <button
+              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!phraseMatches || isDeleting}
+              onClick={startDelete}
+              type="button"
+            >
+              {t("scene.deleteSceneStart")}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
