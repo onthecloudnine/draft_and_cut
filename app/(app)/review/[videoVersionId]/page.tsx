@@ -35,15 +35,15 @@ export default async function ReviewPage({
 
   return (
     <div className="grid gap-2">
-      <div className="border-b border-neutral-800 bg-black px-5 py-4 sm:px-7">
-        <Link className="text-sm font-medium text-red-300 hover:text-red-200" href={`/scenes/${data.video.sceneId}`}>
+      <div className="border-b border-line bg-surface px-5 py-4 sm:px-7">
+        <Link className="text-sm font-medium text-danger-fg hover:text-danger-fg" href={`/scenes/${data.video.sceneId}`}>
           {t("review.backToScene")}
         </Link>
-        <h1 className="mt-3 text-2xl font-semibold text-slate-50">
+        <h1 className="mt-3 text-2xl font-semibold text-fg-strong">
           {data.scene ? `${t("scene.scene")} ${data.scene.sceneNumber}` : t("review.titleFallback")} /{" "}
           {optionLabel(dictionary, "productionStages", data.video.stage)} v{data.video.versionNumber}
         </h1>
-        <p className="mt-2 text-sm text-slate-400">{data.video.fileName}</p>
+        <p className="mt-2 text-sm text-muted">{data.video.fileName}</p>
       </div>
       <ReviewWorkspace data={data} />
     </div>

@@ -14,11 +14,11 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <label className="hidden items-center gap-2 text-xs font-medium text-zinc-400 sm:flex">
+    <label className="hidden items-center gap-2 text-xs font-medium text-muted sm:flex">
       <span className="sr-only md:not-sr-only">{t("app.language")}</span>
       <select
         aria-label={t("app.language")}
-        className="h-8 rounded-md border border-zinc-800 bg-zinc-900 px-2 text-xs text-zinc-100 focus:border-red-600/60 focus:outline-none focus:ring-2 focus:ring-red-600/30"
+        className="h-8 rounded-md border border-line bg-surface px-2 text-xs text-fg focus:border-red-600/60 focus:outline-none focus:ring-2 focus:ring-red-600/30"
         onChange={(event) => changeLocale(event.target.value as Locale)}
         value={locale}
       >

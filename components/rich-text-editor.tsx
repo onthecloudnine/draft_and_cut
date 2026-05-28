@@ -39,7 +39,7 @@ export function RichTextEditor({ editable = true, onChange, placeholder, value }
     editorProps: {
       attributes: {
         class:
-          "prose-editor min-h-[200px] max-w-none focus:outline-none text-[15px] leading-7 text-zinc-100"
+          "prose-editor min-h-[200px] max-w-none focus:outline-none text-[15px] leading-7 text-fg"
       }
     },
     onUpdate: ({ editor: instance }) => {
@@ -61,7 +61,7 @@ export function RichTextEditor({ editable = true, onChange, placeholder, value }
   }, [editor, value]);
 
   if (!editor) {
-    return <div className="min-h-[200px] text-sm text-zinc-500">Cargando editor...</div>;
+    return <div className="min-h-[200px] text-sm text-muted">Cargando editor...</div>;
   }
 
   return (
@@ -74,7 +74,7 @@ export function RichTextEditor({ editable = true, onChange, placeholder, value }
 
 function RichTextToolbar({ editor }: { editor: Editor }) {
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 rounded-md border border-zinc-800 bg-zinc-900/95 p-1 backdrop-blur">
+    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 rounded-md border border-line bg-surface/95 p-1 backdrop-blur">
       <ToolbarButton
         active={editor.isActive("heading", { level: 1 })}
         label="H1"
@@ -202,7 +202,7 @@ function ToolbarButton({
       aria-label={label}
       className={[
         "flex h-8 w-8 items-center justify-center rounded transition disabled:cursor-not-allowed disabled:opacity-30",
-        active ? "bg-red-600/20 text-red-300" : "text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+        active ? "bg-red-600/20 text-danger-fg" : "text-muted-strong hover:bg-elevated hover:text-fg-strong"
       ].join(" ")}
       disabled={disabled}
       onClick={onClick}
@@ -215,5 +215,5 @@ function ToolbarButton({
 }
 
 function ToolbarDivider() {
-  return <span className="mx-1 h-5 w-px bg-zinc-800" aria-hidden />;
+  return <span className="mx-1 h-5 w-px bg-elevated" aria-hidden />;
 }

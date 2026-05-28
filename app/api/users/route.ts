@@ -34,6 +34,7 @@ function serializeUser(user: SerializableUser) {
     accountRole: user.accountRole ?? "user",
     isActive: user.isActive,
     projectCount: 0,
+    memberships: [],
     createdAt: user.createdAt?.toISOString(),
     updatedAt: user.updatedAt?.toISOString()
   };

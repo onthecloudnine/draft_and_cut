@@ -164,26 +164,26 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
 
   return (
     <div className="h-full overflow-y-auto p-5 sm:p-7">
-      <section className="border-b border-neutral-800 pb-5">
-        <h1 className="text-2xl font-semibold text-slate-50">{t("projectsAdmin.title")}</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{t("projectsAdmin.subtitle")}</p>
+      <section className="border-b border-line pb-5">
+        <h1 className="text-2xl font-semibold text-fg-strong">{t("projectsAdmin.title")}</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{t("projectsAdmin.subtitle")}</p>
       </section>
 
       <section className="grid gap-5 py-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <form
-          className="grid content-start gap-4 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30"
+          className="grid content-start gap-4 rounded-lg border border-line bg-surface p-5 shadow-lg shadow-black/30"
           onSubmit={saveProject}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="font-semibold text-slate-50">
+              <h2 className="font-semibold text-fg-strong">
                 {isEditing ? t("projectsAdmin.editProject") : t("projectsAdmin.createProject")}
               </h2>
-              <p className="mt-1 text-sm text-slate-400">{t("projectsAdmin.formHint")}</p>
+              <p className="mt-1 text-sm text-muted">{t("projectsAdmin.formHint")}</p>
             </div>
             {isEditing ? (
               <button
-                className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-neutral-800"
+                className="rounded-md border border-line-strong px-3 py-2 text-sm font-medium text-muted-strong hover:bg-elevated"
                 onClick={resetForm}
                 type="button"
               >
@@ -192,42 +192,42 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
             ) : null}
           </div>
 
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("projectsAdmin.slug")}
             <input
-              className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-10 rounded-md border border-line-strong bg-background px-3 text-fg"
               onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
               pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
               placeholder="ej: uky-lola"
               required
               value={form.slug}
             />
-            <span className="text-xs text-slate-500">{t("projectsAdmin.slugHint")}</span>
+            <span className="text-xs text-muted">{t("projectsAdmin.slugHint")}</span>
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("projectsAdmin.titleLabel")}
             <input
-              className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-10 rounded-md border border-line-strong bg-background px-3 text-fg"
               onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
               required
               value={form.title}
             />
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("projectsAdmin.description")}
             <textarea
-              className="min-h-24 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100"
+              className="min-h-24 rounded-md border border-line-strong bg-background px-3 py-2 text-fg"
               onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
               value={form.description}
             />
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("projectsAdmin.fpsDefault")}
             <input
-              className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-10 rounded-md border border-line-strong bg-background px-3 text-fg"
               max={240}
               min={1}
               onChange={(event) =>
@@ -240,10 +240,10 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
           </label>
 
           {!isEditing ? (
-            <div className="grid gap-3 rounded-md border border-neutral-800 bg-black/40 p-3">
-              <p className="text-sm font-medium text-slate-300">{t("projectsAdmin.sourceLabel")}</p>
+            <div className="grid gap-3 rounded-md border border-line bg-elevated p-3">
+              <p className="text-sm font-medium text-muted-strong">{t("projectsAdmin.sourceLabel")}</p>
               <div className="grid gap-2">
-                <label className="flex items-start gap-2 text-sm text-slate-300">
+                <label className="flex items-start gap-2 text-sm text-muted-strong">
                   <input
                     checked={sourceMode === "script"}
                     className="mt-0.5"
@@ -253,12 +253,12 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
                   />
                   <span>
                     <span className="block font-medium">{t("projectsAdmin.sourceScript")}</span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-muted">
                       {t("projectsAdmin.sourceScriptHint")}
                     </span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 text-sm text-slate-300">
+                <label className="flex items-start gap-2 text-sm text-muted-strong">
                   <input
                     checked={sourceMode === "manual"}
                     className="mt-0.5"
@@ -268,7 +268,7 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
                   />
                   <span>
                     <span className="block font-medium">{t("projectsAdmin.sourceManual")}</span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-muted">
                       {t("projectsAdmin.sourceManualHint")}
                     </span>
                   </span>
@@ -276,11 +276,11 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
               </div>
 
               {sourceMode === "script" ? (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
+                <label className="grid gap-2 text-sm font-medium text-muted-strong">
                   {t("projectsAdmin.scriptFile")}
                   <input
                     accept=".txt,.md,text/plain,text/markdown"
-                    className="block w-full text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-sm file:text-slate-100 hover:file:bg-neutral-700"
+                    className="block w-full text-sm text-muted-strong file:mr-3 file:rounded-md file:border-0 file:bg-elevated file:px-3 file:py-2 file:text-sm file:text-fg hover:file:bg-line-strong"
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (file) void handleScriptFile(file);
@@ -288,9 +288,9 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
                     ref={fileInputRef}
                     type="file"
                   />
-                  <span className="text-xs text-slate-500">{t("projectsAdmin.scriptFileHint")}</span>
+                  <span className="text-xs text-muted">{t("projectsAdmin.scriptFileHint")}</span>
                   {scriptFileName ? (
-                    <span className="text-xs text-emerald-300">
+                    <span className="text-xs text-success-fg">
                       {scriptFileName} ·{" "}
                       {t("projectsAdmin.scriptFileLoaded", {
                         size: (new Blob([scriptText]).size / 1024).toFixed(1)
@@ -299,10 +299,10 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
                   ) : null}
                 </label>
               ) : (
-                <label className="grid gap-2 text-sm font-medium text-slate-300">
+                <label className="grid gap-2 text-sm font-medium text-muted-strong">
                   {t("projectsAdmin.sceneCount")}
                   <input
-                    className="h-10 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+                    className="h-10 rounded-md border border-line-strong bg-background px-3 text-fg"
                     max={500}
                     min={0}
                     onChange={(event) => setSceneCount(Number(event.target.value))}
@@ -315,10 +315,10 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
           ) : null}
 
           {error ? (
-            <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{error}</p>
+            <p className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger-fg">{error}</p>
           ) : null}
           {status ? (
-            <p className="rounded-md border border-emerald-900/60 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+            <p className="rounded-md border border-success bg-success-soft p-3 text-sm text-success-fg">
               {status}
             </p>
           ) : null}
@@ -336,15 +336,15 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
           </button>
         </form>
 
-        <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg shadow-black/30">
-          <div className="border-b border-neutral-800 px-5 py-4">
-            <h2 className="font-semibold text-slate-50">{t("projectsAdmin.list")}</h2>
-            <p className="mt-1 text-sm text-slate-400">
+        <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-lg shadow-black/30">
+          <div className="border-b border-line px-5 py-4">
+            <h2 className="font-semibold text-fg-strong">{t("projectsAdmin.list")}</h2>
+            <p className="mt-1 text-sm text-muted">
               {t("projectsAdmin.listCount", { count: projects.length })}
             </p>
           </div>
           <table className="w-full text-left text-sm">
-            <thead className="bg-black/40 text-xs uppercase text-slate-500">
+            <thead className="bg-elevated text-xs uppercase text-muted">
               <tr>
                 <th className="px-5 py-3 font-semibold">{t("projectsAdmin.titleLabel")}</th>
                 <th className="px-5 py-3 font-semibold">{t("projectsAdmin.slug")}</th>
@@ -353,23 +353,23 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
                 <th className="px-5 py-3 text-right font-semibold">{t("projectsAdmin.actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-800">
+            <tbody className="divide-y divide-line">
               {projects.map((project) => (
                 <tr key={project.id}>
-                  <td className="px-5 py-3 text-slate-100">{project.title}</td>
-                  <td className="px-5 py-3 text-slate-400">{project.slug}</td>
-                  <td className="px-5 py-3 text-slate-400">{project.fpsDefault}</td>
-                  <td className="px-5 py-3 text-slate-400">{project.sceneCount}</td>
+                  <td className="px-5 py-3 text-fg">{project.title}</td>
+                  <td className="px-5 py-3 text-muted">{project.slug}</td>
+                  <td className="px-5 py-3 text-muted">{project.fpsDefault}</td>
+                  <td className="px-5 py-3 text-muted">{project.sceneCount}</td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-2">
                       <Link
-                        className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-neutral-800"
+                        className="rounded-md border border-line-strong px-3 py-1.5 text-xs font-medium text-fg hover:bg-elevated"
                         href={`/projects/${project.id}`}
                       >
                         {t("projectsAdmin.open")}
                       </Link>
                       <button
-                        className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-neutral-800"
+                        className="rounded-md border border-line-strong px-3 py-1.5 text-xs font-medium text-fg hover:bg-elevated"
                         onClick={() => editProject(project)}
                         type="button"
                       >
@@ -382,7 +382,7 @@ export function ProjectsAdmin({ initialProjects }: { initialProjects: ProjectAdm
             </tbody>
           </table>
           {projects.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">{t("projectsAdmin.empty")}</div>
+            <div className="p-8 text-center text-sm text-muted">{t("projectsAdmin.empty")}</div>
           ) : null}
         </div>
       </section>

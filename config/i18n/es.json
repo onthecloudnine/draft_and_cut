@@ -7,6 +7,8 @@
     "projectsAdmin": "Administrar proyectos",
     "logout": "Salir",
     "language": "Idioma",
+    "themeLight": "Tema claro",
+    "themeDark": "Tema oscuro",
     "administration": "Administracion",
     "openMenu": "Abrir menu",
     "closeMenu": "Cerrar menu",
@@ -299,7 +301,18 @@
     "noJoinRequests": "No hay solicitudes pendientes.",
     "reviewJoinRequestError": "No se pudo revisar la solicitud.",
     "joinRequestApproved": "Solicitud aprobada.",
-    "joinRequestRejected": "Solicitud rechazada."
+    "joinRequestRejected": "Solicitud rechazada.",
+    "noMemberships": "Sin proyectos asignados.",
+    "assign": "Asignar",
+    "assigning": "Asignando...",
+    "assignProjectLabel": "Proyecto a asignar",
+    "assignProjectSuccess": "Proyecto asignado.",
+    "assignProjectError": "No se pudo asignar el proyecto.",
+    "removeMembership": "Quitar proyecto",
+    "removeMembershipSuccess": "Acceso quitado.",
+    "removeMembershipError": "No se pudo quitar el acceso.",
+    "membershipRoleUpdated": "Rol actualizado.",
+    "allProjectsAssigned": "Todos los proyectos ya estan asignados."
   },
   "projectsAdmin": {
     "title": "Administrar proyectos",

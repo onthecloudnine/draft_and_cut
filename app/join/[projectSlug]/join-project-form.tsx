@@ -55,40 +55,40 @@ export function JoinProjectForm({ projectSlug, projectTitle }: { projectSlug: st
   }
 
   return (
-    <main className="min-h-screen bg-black px-4 py-10 text-slate-100">
-      <section className="mx-auto grid w-full max-w-xl gap-6 rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-2xl shadow-black/30">
+    <main className="min-h-screen bg-background px-4 py-10 text-fg">
+      <section className="mx-auto grid w-full max-w-xl gap-6 rounded-lg border border-line bg-surface p-6 shadow-2xl shadow-black/30">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-red-300">{t("app.brand")}</p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-50">{t("join.title")}</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
+          <p className="text-sm font-medium uppercase tracking-wide text-danger-fg">{t("app.brand")}</p>
+          <h1 className="mt-2 text-2xl font-semibold text-fg-strong">{t("join.title")}</h1>
+          <p className="mt-2 text-sm leading-6 text-muted">
             {t("join.subtitle", { projectTitle })}
           </p>
         </div>
 
         <form className="grid gap-4" onSubmit={submitRequest}>
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("users.name")}
             <input
-              className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
               onChange={(event) => setName(event.target.value)}
               required
               value={name}
             />
           </label>
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("users.email")}
             <input
-              className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
               onChange={(event) => setEmail(event.target.value)}
               required
               type="email"
               value={email}
             />
           </label>
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("users.password")}
             <input
-              className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
               minLength={8}
               onChange={(event) => setPassword(event.target.value)}
               required
@@ -96,10 +96,10 @@ export function JoinProjectForm({ projectSlug, projectTitle }: { projectSlug: st
               value={password}
             />
           </label>
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("join.requestedRole")}
             <select
-              className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+              className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
               onChange={(event) => setRequestedRole(event.target.value as UserRole)}
               value={requestedRole}
             >
@@ -110,17 +110,17 @@ export function JoinProjectForm({ projectSlug, projectTitle }: { projectSlug: st
               ))}
             </select>
           </label>
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
+          <label className="grid gap-2 text-sm font-medium text-muted-strong">
             {t("join.message")}
             <textarea
-              className="min-h-24 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100"
+              className="min-h-24 rounded-md border border-line-strong bg-background px-3 py-2 text-fg"
               onChange={(event) => setMessage(event.target.value)}
               value={message}
             />
           </label>
 
-          {error ? <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{error}</p> : null}
-          {status ? <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{status}</p> : null}
+          {error ? <p className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger-fg">{error}</p> : null}
+          {status ? <p className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger-fg">{status}</p> : null}
 
           <button
             className="h-11 rounded-md bg-red-900 px-4 font-medium text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -131,7 +131,7 @@ export function JoinProjectForm({ projectSlug, projectTitle }: { projectSlug: st
           </button>
         </form>
 
-        <Link className="text-sm font-medium text-red-300 hover:text-red-200" href="/login">
+        <Link className="text-sm font-medium text-danger-fg hover:text-danger-fg" href="/login">
           {t("join.login")}
         </Link>
       </section>

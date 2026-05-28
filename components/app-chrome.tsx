@@ -13,11 +13,14 @@ import {
   ExpandIcon,
   LogoutIcon,
   MenuIcon,
+  MoonIcon,
   ProjectsAdminIcon,
+  SunIcon,
   UploadIcon,
   UsersIcon
 } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/client";
+import { useTheme } from "@/components/theme-provider";
 
 type NavItem = {
   href: string;
@@ -88,7 +91,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
   const sidebarWidth = collapsed ? "lg:w-14" : "lg:w-60";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    <div className="flex h-screen overflow-hidden bg-background text-fg">
       {mobileOpen ? (
         <button
           aria-label={t("app.closeMenu")}
@@ -100,7 +103,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
 
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-zinc-800 bg-zinc-900 transition-[width] duration-200",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-line bg-surface transition-[width] duration-200",
           "lg:static lg:translate-x-0",
           sidebarWidth,
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -108,13 +111,13 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
       >
         <div
           className={[
-            "relative flex h-16 items-center border-b border-zinc-800",
+            "relative flex h-16 items-center border-b border-line",
             collapsed ? "justify-center px-2" : "justify-between px-3"
           ].join(" ")}
         >
           <Link
             className={[
-              "flex items-center text-zinc-50",
+              "flex items-center text-fg-strong",
               collapsed ? "justify-center" : "gap-2.5 px-1"
             ].join(" ")}
             href="/projects"
@@ -127,7 +130,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
           </Link>
           <button
             aria-label={t("app.closeMenu")}
-            className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 lg:hidden"
+            className="rounded-md p-1.5 text-muted hover:bg-elevated hover:text-fg lg:hidden"
             onClick={() => setMobileOpen(false)}
             type="button"
           >
@@ -136,7 +139,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
 
           <button
             aria-label={collapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
-            className="absolute -right-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 shadow-md transition hover:border-red-500/60 hover:bg-zinc-800 hover:text-zinc-100 lg:flex"
+            className="absolute -right-3 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-line-strong bg-surface text-muted shadow-md transition hover:border-accent/60 hover:bg-elevated hover:text-fg lg:flex"
             onClick={() => setCollapsed((value) => !value)}
             title={collapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
             type="button"
@@ -155,9 +158,9 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
 
           {adminNav.length > 0 ? (
             <>
-              <div className={collapsed ? "mx-1 my-2 border-t border-zinc-800" : "mx-1 my-3 border-t border-zinc-800"} />
+              <div className={collapsed ? "mx-1 my-2 border-t border-line" : "mx-1 my-3 border-t border-line"} />
               {!collapsed ? (
-                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
                   {t("app.administration")}
                 </p>
               ) : null}
@@ -166,7 +169,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
           ) : null}
         </nav>
 
-        <div className={["flex flex-col gap-1 border-t border-zinc-800", collapsed ? "p-1.5" : "p-2"].join(" ")}>
+        <div className={["flex flex-col gap-1 border-t border-line", collapsed ? "p-1.5" : "p-2"].join(" ")}>
           {userName ? (
             <div
               className={[
@@ -175,26 +178,27 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
               ].join(" ")}
               title={collapsed ? userName : undefined}
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-600/15 text-xs font-semibold text-red-400">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
                 {getInitials(userName)}
               </span>
               {!collapsed ? (
-                <span className="min-w-0 flex-1 truncate text-zinc-200">{userName}</span>
+                <span className="min-w-0 flex-1 truncate text-fg">{userName}</span>
               ) : null}
               {collapsed ? (
-                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-medium text-zinc-100 opacity-0 shadow-lg transition group-hover/user:opacity-100">
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-line-strong bg-surface px-2 py-1 text-xs font-medium text-fg opacity-0 shadow-lg transition group-hover/user:opacity-100">
                   {userName}
                 </span>
               ) : null}
             </div>
           ) : null}
 
+          <SidebarThemeToggle collapsed={collapsed} t={t} />
           <SidebarLanguageSwitcher collapsed={collapsed} t={t} />
 
           <form action={logoutAction}>
             <button
               className={[
-                "group/logout relative flex w-full items-center rounded-md text-sm font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-50",
+                "group/logout relative flex w-full items-center rounded-md text-sm font-medium text-muted transition hover:bg-elevated hover:text-fg-strong",
                 collapsed ? "h-10 justify-center" : "gap-3 px-3 py-2"
               ].join(" ")}
               type="submit"
@@ -202,7 +206,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
               <LogoutIcon className="h-5 w-5 shrink-0" />
               {!collapsed ? <span>{t("app.logout")}</span> : null}
               {collapsed ? (
-                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-medium text-zinc-100 opacity-0 shadow-lg transition group-hover/logout:opacity-100">
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-line-strong bg-surface px-2 py-1 text-xs font-medium text-fg opacity-0 shadow-lg transition group-hover/logout:opacity-100">
                   {t("app.logout")}
                 </span>
               ) : null}
@@ -212,10 +216,10 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-950/80 px-4 backdrop-blur lg:hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line bg-background/80 px-4 backdrop-blur lg:hidden">
           <button
             aria-label={t("app.openMenu")}
-            className="rounded-md p-2 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+            className="rounded-md p-2 text-fg hover:bg-elevated hover:text-fg-strong"
             onClick={() => setMobileOpen(true)}
             type="button"
           >
@@ -253,18 +257,18 @@ function NavSection({
                 "group/nav relative flex items-center rounded-md text-sm font-medium transition",
                 collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2",
                 active
-                  ? "bg-red-600/15 text-red-300"
-                  : "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100"
+                  ? "bg-accent-soft text-accent"
+                  : "text-muted hover:bg-elevated hover:text-fg"
               ].join(" ")}
               href={item.href}
             >
               {active && !collapsed ? (
-                <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-red-500" aria-hidden />
+                <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-accent" aria-hidden />
               ) : null}
               <Icon className="h-5 w-5 shrink-0" />
               {!collapsed ? <span className="truncate">{label}</span> : null}
               {collapsed ? (
-                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-medium text-zinc-100 opacity-0 shadow-lg transition group-hover/nav:opacity-100">
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-line-strong bg-surface px-2 py-1 text-xs font-medium text-fg opacity-0 shadow-lg transition group-hover/nav:opacity-100">
                   {label}
                 </span>
               ) : null}
@@ -280,6 +284,48 @@ function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   if (parts.length === 0) return "?";
   return parts.map((part) => part.charAt(0).toUpperCase()).join("");
+}
+
+function SidebarThemeToggle({
+  collapsed,
+  t
+}: {
+  collapsed: boolean;
+  t: (path: string) => string;
+}) {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+  const label = isDark ? t("app.themeLight") : t("app.themeDark");
+
+  if (collapsed) {
+    return (
+      <div className="group/theme relative flex h-10 items-center justify-center">
+        <button
+          aria-label={label}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-elevated hover:text-fg"
+          onClick={toggleTheme}
+          type="button"
+        >
+          {isDark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+        </button>
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-line-strong bg-surface px-2 py-1 text-xs font-medium text-fg opacity-0 shadow-lg transition group-hover/theme:opacity-100">
+          {label}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      aria-label={label}
+      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:bg-elevated hover:text-fg-strong"
+      onClick={toggleTheme}
+      type="button"
+    >
+      {isDark ? <SunIcon className="h-5 w-5 shrink-0" /> : <MoonIcon className="h-5 w-5 shrink-0" />}
+      <span className="truncate">{label}</span>
+    </button>
+  );
 }
 
 function SidebarLanguageSwitcher({
@@ -302,7 +348,7 @@ function SidebarLanguageSwitcher({
       <div className="group/lang relative flex h-10 items-center justify-center">
         <button
           aria-label={t("app.language")}
-          className="flex h-7 w-9 items-center justify-center rounded-md border border-zinc-800 bg-zinc-950 text-[10px] font-semibold text-zinc-300 hover:bg-zinc-800"
+          className="flex h-7 w-9 items-center justify-center rounded-md border border-line bg-background text-[10px] font-semibold text-fg hover:bg-elevated"
           onClick={() => {
             const idx = locales.indexOf(locale);
             const next = locales[(idx + 1) % locales.length];
@@ -312,7 +358,7 @@ function SidebarLanguageSwitcher({
         >
           {locale.toUpperCase()}
         </button>
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-medium text-zinc-100 opacity-0 shadow-lg transition group-hover/lang:opacity-100">
+        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-line-strong bg-surface px-2 py-1 text-xs font-medium text-fg opacity-0 shadow-lg transition group-hover/lang:opacity-100">
           {t("app.language")}: {locale.toUpperCase()}
         </span>
       </div>
@@ -320,11 +366,11 @@ function SidebarLanguageSwitcher({
   }
 
   return (
-    <label className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-400">
+    <label className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-muted">
       <span className="flex-1">{t("app.language")}</span>
       <select
         aria-label={t("app.language")}
-        className="h-7 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-[11px] font-semibold text-zinc-200 focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30"
+        className="h-7 rounded-md border border-line bg-background px-2 text-[11px] font-semibold text-fg focus:border-accent/60 focus:outline-none focus:ring-1 focus:ring-accent/30"
         onChange={(event) => changeLocale(event.target.value as Locale)}
         value={locale}
       >

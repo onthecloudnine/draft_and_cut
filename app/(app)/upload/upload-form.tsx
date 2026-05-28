@@ -243,12 +243,12 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
   }
 
   return (
-    <form className="grid gap-6 rounded-lg border border-neutral-800 bg-neutral-900 p-5 shadow-lg shadow-black/30" onSubmit={handleSubmit}>
+    <form className="grid gap-6 rounded-lg border border-line bg-surface p-5 shadow-lg shadow-black/30" onSubmit={handleSubmit}>
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium text-slate-300">
+        <label className="grid gap-2 text-sm font-medium text-muted-strong">
           {t("upload.project")}
           <select
-            className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+            className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
             onChange={(event) => {
               setProjectId(event.target.value);
               setSceneId("");
@@ -262,10 +262,10 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
             ))}
           </select>
         </label>
-        <label className="grid gap-2 text-sm font-medium text-slate-300">
+        <label className="grid gap-2 text-sm font-medium text-muted-strong">
           {t("upload.scene")}
           <select
-            className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+            className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
             onChange={(event) => {
               setSceneId(event.target.value);
             }}
@@ -279,10 +279,10 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
             ))}
           </select>
         </label>
-        <label className="grid gap-2 text-sm font-medium text-slate-300">
+        <label className="grid gap-2 text-sm font-medium text-muted-strong">
           {t("upload.stage")}
           <select
-            className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-100"
+            className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
             onChange={(event) => setStage(event.target.value as ProductionStage)}
             value={stage}
           >
@@ -296,7 +296,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
       </div>
 
       <button
-        className="rounded-lg border-2 border-dashed border-neutral-700 bg-black px-6 py-10 text-center transition hover:border-red-800 hover:bg-neutral-900"
+        className="rounded-lg border-2 border-dashed border-line-strong bg-background px-6 py-10 text-center transition hover:border-accent hover:bg-surface"
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
@@ -308,10 +308,10 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
         }}
         type="button"
       >
-        <span className="block font-medium text-slate-100">
+        <span className="block font-medium text-fg">
           {file ? file.name : t("upload.dropVideo")}
         </span>
-        <span className="mt-2 block text-sm text-slate-400">{t("upload.format")}</span>
+        <span className="mt-2 block text-sm text-muted">{t("upload.format")}</span>
       </button>
       <input
         accept="video/mp4"
@@ -327,42 +327,42 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
       />
 
       {metadata ? (
-        <div className="grid gap-3 rounded-md bg-black p-4 text-sm sm:grid-cols-4">
+        <div className="grid gap-3 rounded-md bg-elevated p-4 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-slate-500">{t("upload.duration")}</p>
-            <p className="font-medium text-slate-100">{metadata.duration}s</p>
+            <p className="text-muted">{t("upload.duration")}</p>
+            <p className="font-medium text-fg">{metadata.duration}s</p>
           </div>
           <div>
-            <p className="text-slate-500">FPS</p>
-            <p className="font-medium text-slate-100">{selectedProject?.fpsDefault ?? "-"}</p>
+            <p className="text-muted">FPS</p>
+            <p className="font-medium text-fg">{selectedProject?.fpsDefault ?? "-"}</p>
           </div>
           <div>
-            <p className="text-slate-500">{t("upload.resolution")}</p>
-            <p className="font-medium text-slate-100">{metadata.resolution}</p>
+            <p className="text-muted">{t("upload.resolution")}</p>
+            <p className="font-medium text-fg">{metadata.resolution}</p>
           </div>
           <div>
-            <p className="text-slate-500">{t("upload.size")}</p>
-            <p className="font-medium text-slate-100">{metadata.fileSizeMb} MB</p>
+            <p className="text-muted">{t("upload.size")}</p>
+            <p className="font-medium text-fg">{metadata.fileSizeMb} MB</p>
           </div>
         </div>
       ) : null}
 
-      <label className="grid gap-2 text-sm font-medium text-slate-300">
+      <label className="grid gap-2 text-sm font-medium text-muted-strong">
         {t("upload.deliveryNotes")}
         <textarea
-          className="min-h-28 rounded-md border border-neutral-700 bg-black px-3 py-2 text-slate-100"
+          className="min-h-28 rounded-md border border-line-strong bg-background px-3 py-2 text-fg"
           onChange={(event) => setNotes(event.target.value)}
           placeholder={t("upload.deliveryPlaceholder")}
           value={notes}
         />
       </label>
 
-      {error ? <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{error}</p> : null}
-      {status ? <p className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">{status}</p> : null}
+      {error ? <p className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger-fg">{error}</p> : null}
+      {status ? <p className="rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger-fg">{status}</p> : null}
 
       <div className="flex justify-end gap-3">
         <button
-          className="h-11 rounded-md border border-neutral-700 px-5 text-sm font-medium text-slate-200 hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 rounded-md border border-line-strong px-5 text-sm font-medium text-fg hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isUploading}
           onClick={handleCancel}
           type="button"

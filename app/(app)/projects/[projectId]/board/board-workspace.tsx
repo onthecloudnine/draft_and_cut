@@ -235,28 +235,28 @@ export function BoardWorkspace({ canManage, project, snapshot }: Props) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
-      <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3 sm:px-7">
+    <div className="flex h-full min-h-0 flex-col bg-background text-fg">
+      <header className="shrink-0 border-b border-line bg-background/80 px-5 py-3 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <Link
-              className="text-xs font-medium text-zinc-400 hover:text-zinc-200"
+              className="text-xs font-medium text-muted hover:text-fg"
               href={`/projects/${project.id}`}
             >
               ← {t("scene.backToProject")}
             </Link>
-            <div className="hidden h-6 w-px bg-zinc-800 sm:block" />
+            <div className="hidden h-6 w-px bg-elevated sm:block" />
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg">
                 {t("board.kanbanLabel")}
               </p>
-              <h1 className="text-base font-semibold text-zinc-50 sm:text-lg">{project.title}</h1>
+              <h1 className="text-base font-semibold text-fg-strong sm:text-lg">{project.title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {canManage ? (
               <button
-                className="inline-flex h-8 items-center rounded-md border border-zinc-800 bg-zinc-900 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-800"
+                className="inline-flex h-8 items-center rounded-md border border-line bg-surface px-3 text-xs font-medium text-fg hover:bg-elevated"
                 onClick={() => setIsLabelManagerOpen(true)}
                 type="button"
               >
@@ -277,7 +277,7 @@ export function BoardWorkspace({ canManage, project, snapshot }: Props) {
       </header>
 
       {error ? (
-        <div className="mx-5 mt-3 rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+        <div className="mx-5 mt-3 rounded-md border border-danger bg-danger-soft px-3 py-2 text-xs text-danger-fg">
           {error}
         </div>
       ) : null}
@@ -314,7 +314,7 @@ export function BoardWorkspace({ canManage, project, snapshot }: Props) {
           />
         ))}
         {columns.length === 0 ? (
-          <p className="m-auto text-sm text-zinc-500">{t("board.empty")}</p>
+          <p className="m-auto text-sm text-muted">{t("board.empty")}</p>
         ) : null}
       </div>
 
@@ -435,7 +435,7 @@ function ColumnView({
 
   return (
     <div
-      className={`flex w-72 shrink-0 flex-col rounded-lg border border-zinc-800 bg-zinc-900 transition ${
+      className={`flex w-72 shrink-0 flex-col rounded-lg border border-line bg-surface transition ${
         isColumnDragging ? "opacity-50" : ""
       }`}
       onDragOver={(event) => {
@@ -455,7 +455,7 @@ function ColumnView({
       }}
     >
       <div
-        className={`flex items-center gap-2 border-b border-zinc-800 px-3 py-2 ${
+        className={`flex items-center gap-2 border-b border-line px-3 py-2 ${
           canManage ? "cursor-grab active:cursor-grabbing" : ""
         }`}
         draggable={canManage && !editingName}
@@ -472,7 +472,7 @@ function ColumnView({
         {editingName && canManage ? (
           <input
             autoFocus
-            className="flex-1 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 focus:border-red-600/60 focus:outline-none"
+            className="flex-1 rounded border border-line-strong bg-background px-2 py-1 text-xs text-fg focus:border-red-600/60 focus:outline-none"
             onBlur={() => {
               const next = nameDraft.trim();
               if (next && next !== column.name) onRenameColumn(next);
@@ -490,7 +490,7 @@ function ColumnView({
           />
         ) : (
           <button
-            className="flex-1 truncate text-left text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-zinc-100 disabled:cursor-default"
+            className="flex-1 truncate text-left text-xs font-semibold uppercase tracking-wider text-muted-strong hover:text-fg disabled:cursor-default"
             disabled={!canManage}
             onClick={() => {
               setNameDraft(column.name);
@@ -501,27 +501,27 @@ function ColumnView({
             {column.name}
           </button>
         )}
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-400">
+        <span className="rounded bg-elevated px-1.5 py-0.5 text-[10px] tabular-nums text-muted">
           {cards.length}
         </span>
         {canManage ? (
           <details className="relative">
-            <summary className="cursor-pointer list-none rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200">
+            <summary className="cursor-pointer list-none rounded p-1 text-muted hover:bg-elevated hover:text-fg">
               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 16 16">
                 <circle cx="3" cy="8" r="1.5" />
                 <circle cx="8" cy="8" r="1.5" />
                 <circle cx="13" cy="8" r="1.5" />
               </svg>
             </summary>
-            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-md border border-zinc-800 bg-zinc-950 p-2 shadow-xl">
-              <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-md border border-line bg-background p-2 shadow-xl">
+              <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
                 {t("board.color")}
               </p>
               <div className="flex flex-wrap gap-1 pb-2">
                 {["#64748b", "#3b82f6", "#a855f7", "#22c55e", "#f97316", "#ef4444", "#eab308"].map(
                   (color) => (
                     <button
-                      className="h-5 w-5 rounded-full border border-zinc-700"
+                      className="h-5 w-5 rounded-full border border-line-strong"
                       key={color}
                       onClick={() => onSetColumnColor(color)}
                       style={{ background: color }}
@@ -531,7 +531,7 @@ function ColumnView({
                 )}
               </div>
               <button
-                className="w-full rounded px-2 py-1 text-left text-xs text-red-300 hover:bg-red-950/40"
+                className="w-full rounded px-2 py-1 text-left text-xs text-danger-fg hover:bg-danger-soft"
                 onClick={onDeleteColumn}
                 type="button"
               >
@@ -545,7 +545,7 @@ function ColumnView({
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
         {cards.map((card) => (
           <div
-            className={`group rounded-md border border-zinc-800 bg-zinc-950 p-2.5 text-sm shadow-sm transition hover:border-zinc-700 ${
+            className={`group rounded-md border border-line bg-background p-2.5 text-sm shadow-sm transition hover:border-line-strong ${
               draggedCardId === card.id ? "opacity-40" : ""
             }`}
             draggable={canManage}
@@ -576,13 +576,13 @@ function ColumnView({
                 })}
               </div>
             ) : null}
-            <p className="font-medium text-zinc-100">{card.title}</p>
+            <p className="font-medium text-fg">{card.title}</p>
             {card.description ? (
-              <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{card.description}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-muted">{card.description}</p>
             ) : null}
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted">
               {card.checklist.length > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded bg-zinc-800 px-1.5 py-0.5">
+                <span className="inline-flex items-center gap-1 rounded bg-elevated px-1.5 py-0.5">
                   <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
                     <path d="M9 11l3 3 8-8" />
                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
@@ -596,15 +596,15 @@ function ColumnView({
                 <span
                   className={
                     new Date(card.dueDate) < new Date()
-                      ? "rounded bg-red-950/60 px-1.5 py-0.5 text-red-300"
-                      : "rounded bg-zinc-800 px-1.5 py-0.5"
+                      ? "rounded bg-danger-soft px-1.5 py-0.5 text-danger-fg"
+                      : "rounded bg-elevated px-1.5 py-0.5"
                   }
                 >
                   {new Date(card.dueDate).toLocaleDateString()}
                 </span>
               ) : null}
               {card.assigneeName ? (
-                <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-zinc-800 py-0.5 pl-0.5 pr-2 text-zinc-200">
+                <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-elevated py-0.5 pl-0.5 pr-2 text-fg">
                   <Avatar name={card.assigneeName} size="xs" />
                   <span className="text-[11px] font-medium">{card.assigneeName}</span>
                 </span>
@@ -613,10 +613,10 @@ function ColumnView({
           </div>
         ))}
         {isCreatingCard ? (
-          <div className="rounded-md border border-zinc-700 bg-zinc-950 p-2">
+          <div className="rounded-md border border-line-strong bg-background p-2">
             <textarea
               autoFocus
-              className="w-full resize-none rounded border border-zinc-800 bg-zinc-900 p-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              className="w-full resize-none rounded border border-line bg-surface p-2 text-sm text-fg focus:border-red-600/60 focus:outline-none"
               onChange={(event) => setNewCardTitle(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -647,7 +647,7 @@ function ColumnView({
                 {t("board.add")}
               </button>
               <button
-                className="rounded px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200"
+                className="rounded px-2 py-1 text-xs text-muted hover:text-fg"
                 onClick={() => {
                   setNewCardTitle("");
                   onCancelCreateCard();
@@ -660,7 +660,7 @@ function ColumnView({
           </div>
         ) : (
           <button
-            className="rounded-md border border-dashed border-zinc-800 px-2 py-2 text-xs text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+            className="rounded-md border border-dashed border-line px-2 py-2 text-xs text-muted hover:border-line-strong hover:text-muted-strong"
             onClick={onStartCreateCard}
             type="button"
           >
@@ -799,10 +799,10 @@ function CardEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="grid max-h-[90vh] min-h-0 w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-800 px-5 py-4">
+      <div className="grid max-h-[90vh] min-h-0 w-full max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-lg border border-line bg-background shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
           <input
-            className="flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-base font-semibold text-zinc-50 focus:border-red-600/60 focus:bg-zinc-900 focus:outline-none"
+            className="flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-base font-semibold text-fg-strong focus:border-red-600/60 focus:bg-surface focus:outline-none"
             onBlur={() => {
               const next = title.trim();
               if (next && next !== card.title) onChange({ title: next });
@@ -811,7 +811,7 @@ function CardEditModal({
             value={title}
           />
           <button
-            className="rounded text-xl text-zinc-500 hover:text-zinc-200"
+            className="rounded text-xl text-muted hover:text-fg"
             onClick={onClose}
             type="button"
           >
@@ -821,11 +821,11 @@ function CardEditModal({
 
         <div className="grid min-w-0 gap-4 overflow-y-auto overflow-x-hidden p-5">
           <div className="grid gap-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("board.description")}
             </p>
             <textarea
-              className="min-h-24 resize-y rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              className="min-h-24 resize-y rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-fg focus:border-red-600/60 focus:outline-none"
               onBlur={() => {
                 if (description !== card.description) onChange({ description });
               }}
@@ -836,13 +836,13 @@ function CardEditModal({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid min-w-0 gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {t("board.assignee")}
               </span>
-              <div className="flex min-w-0 items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2">
+              <div className="flex min-w-0 items-center gap-2 rounded-md border border-line bg-surface p-2">
                 <Avatar name={memberLabel(assignee)} />
                 <select
-                  className="min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-1 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                  className="min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-1 text-sm text-fg focus:border-red-600/60 focus:outline-none"
                   onChange={(event) => onChange({ assigneeUserId: event.target.value || null })}
                   value={card.assigneeUserId ?? ""}
                 >
@@ -856,11 +856,11 @@ function CardEditModal({
               </div>
             </div>
             <label className="grid min-w-0 gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {t("board.dueDate")}
               </span>
               <input
-                className="w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm text-zinc-100"
+                className="w-full min-w-0 rounded-md border border-line bg-surface px-2 py-2 text-sm text-fg"
                 onChange={(event) =>
                   onChange({
                     dueDate: event.target.value
@@ -875,12 +875,12 @@ function CardEditModal({
           </div>
 
           <div className="grid min-w-0 gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("board.linkTo")}
             </span>
-            <div className="grid min-w-0 gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-2 rounded-md border border-line bg-surface p-2 sm:grid-cols-2">
               <select
-                className="w-full min-w-0 truncate rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm text-zinc-100"
+                className="w-full min-w-0 truncate rounded-md border border-line bg-background px-2 py-2 text-sm text-fg"
                 onChange={(event) =>
                   onChange({ sceneId: event.target.value || null, shotId: null })
                 }
@@ -894,7 +894,7 @@ function CardEditModal({
                 ))}
               </select>
               <select
-                className="w-full min-w-0 truncate rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm text-zinc-100 disabled:opacity-50"
+                className="w-full min-w-0 truncate rounded-md border border-line bg-background px-2 py-2 text-sm text-fg disabled:opacity-50"
                 disabled={!card.sceneId || filteredShots.length === 0}
                 onChange={(event) => onChange({ shotId: event.target.value || null })}
                 value={card.shotId ?? ""}
@@ -917,12 +917,12 @@ function CardEditModal({
           </div>
 
           <div className="grid gap-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("board.labels")}
             </p>
             <div className="flex flex-wrap gap-1">
               {labels.length === 0 ? (
-                <p className="text-xs text-zinc-500">{t("board.noLabels")}</p>
+                <p className="text-xs text-muted">{t("board.noLabels")}</p>
               ) : null}
               {labels.map((label) => {
                 const active = card.labelIds.includes(label.id);
@@ -951,17 +951,17 @@ function CardEditModal({
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {t("board.checklist")}
               </p>
               {checklistTotal > 0 ? (
-                <span className="text-[11px] tabular-nums text-zinc-500">
+                <span className="text-[11px] tabular-nums text-muted">
                   {checklistDone}/{checklistTotal} · {checklistPct}%
                 </span>
               ) : null}
             </div>
             {checklistTotal > 0 ? (
-              <div className="h-1 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-elevated">
                 <div
                   className="h-full bg-emerald-500 transition-all"
                   style={{ width: `${checklistPct}%` }}
@@ -971,7 +971,7 @@ function CardEditModal({
             <ul className="grid gap-1">
               {checklistItems.map((item) => (
                 <li
-                  className="group flex items-center gap-2 rounded-md border border-transparent px-2 py-1 hover:border-zinc-800 hover:bg-zinc-900"
+                  className="group flex items-center gap-2 rounded-md border border-transparent px-2 py-1 hover:border-line hover:bg-surface"
                   key={item.id}
                 >
                   <input
@@ -983,8 +983,8 @@ function CardEditModal({
                     type="checkbox"
                   />
                   <input
-                    className={`flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm focus:border-red-600/60 focus:bg-zinc-950 focus:outline-none ${
-                      item.done ? "text-zinc-500 line-through" : "text-zinc-100"
+                    className={`flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm focus:border-red-600/60 focus:bg-background focus:outline-none ${
+                      item.done ? "text-muted line-through" : "text-fg"
                     }`}
                     defaultValue={item.text}
                     onBlur={(event) => {
@@ -994,7 +994,7 @@ function CardEditModal({
                     }}
                   />
                   <button
-                    className="rounded p-1 text-zinc-600 opacity-0 hover:text-red-300 group-hover:opacity-100"
+                    className="rounded p-1 text-muted opacity-0 hover:text-danger-fg group-hover:opacity-100"
                     onClick={() => removeChecklistItem(item.id)}
                     type="button"
                   >
@@ -1005,7 +1005,7 @@ function CardEditModal({
             </ul>
             <div className="flex gap-2">
               <input
-                className="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                className="flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg focus:border-red-600/60 focus:outline-none"
                 onChange={(event) => setNewChecklistItem(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -1017,7 +1017,7 @@ function CardEditModal({
                 value={newChecklistItem}
               />
               <button
-                className="rounded-md bg-zinc-800 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
+                className="rounded-md bg-elevated px-3 text-xs font-medium text-fg hover:bg-line-strong disabled:opacity-50"
                 disabled={!newChecklistItem.trim()}
                 onClick={addChecklistItem}
                 type="button"
@@ -1028,29 +1028,29 @@ function CardEditModal({
           </div>
 
           <div className="grid gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("board.comments")} ({comments.length})
             </p>
             <ul className="grid gap-2">
               {comments.map((comment) => (
                 <li
-                  className="group flex min-w-0 gap-2 rounded-md border border-zinc-800 bg-zinc-900 p-2"
+                  className="group flex min-w-0 gap-2 rounded-md border border-line bg-surface p-2"
                   key={comment.id}
                 >
                   <Avatar name={comment.authorName} />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs">
-                      <span className="font-semibold text-zinc-200">{comment.authorName}</span>
-                      <span className="ml-2 text-[10px] text-zinc-500">
+                      <span className="font-semibold text-fg">{comment.authorName}</span>
+                      <span className="ml-2 text-[10px] text-muted">
                         {new Date(comment.createdAt).toLocaleString()}
                       </span>
                     </p>
-                    <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-zinc-200 [overflow-wrap:anywhere]">
+                    <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-fg [overflow-wrap:anywhere]">
                       {comment.text}
                     </p>
                   </div>
                   <button
-                    className="rounded p-1 text-zinc-600 opacity-0 hover:text-red-300 group-hover:opacity-100"
+                    className="rounded p-1 text-muted opacity-0 hover:text-danger-fg group-hover:opacity-100"
                     onClick={() => void deleteComment(comment.id)}
                     type="button"
                   >
@@ -1059,12 +1059,12 @@ function CardEditModal({
                 </li>
               ))}
               {comments.length === 0 ? (
-                <li className="text-xs text-zinc-500">{t("board.noComments")}</li>
+                <li className="text-xs text-muted">{t("board.noComments")}</li>
               ) : null}
             </ul>
             <div className="grid gap-1">
               <textarea
-                className="min-h-16 resize-y rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                className="min-h-16 resize-y rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg focus:border-red-600/60 focus:outline-none"
                 onChange={(event) => setCommentDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -1089,10 +1089,10 @@ function CardEditModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-5 py-3">
+        <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">
           {canManage ? (
             <button
-              className="rounded-md border border-red-900/60 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-950/40"
+              className="rounded-md border border-danger px-3 py-1.5 text-xs font-medium text-danger-fg hover:bg-danger-soft"
               onClick={onDelete}
               type="button"
             >
@@ -1129,24 +1129,24 @@ function AddColumnModal({
   const [color, setColor] = useState(colorPresets[0]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
-        <div className="border-b border-zinc-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-zinc-50">{t("board.addColumn")}</h2>
+      <div className="w-full max-w-sm rounded-lg border border-line bg-background shadow-2xl">
+        <div className="border-b border-line px-5 py-3">
+          <h2 className="text-sm font-semibold text-fg-strong">{t("board.addColumn")}</h2>
         </div>
         <div className="grid gap-3 px-5 py-4">
           <label className="grid gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("board.name")}
             </span>
             <input
               autoFocus
-              className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-fg focus:border-red-600/60 focus:outline-none"
               onChange={(event) => setName(event.target.value)}
               value={name}
             />
           </label>
           <div className="grid gap-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("board.color")}
             </p>
             <div className="flex gap-2">
@@ -1164,9 +1164,9 @@ function AddColumnModal({
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <button
-            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs text-muted-strong hover:bg-elevated"
             onClick={onCancel}
             type="button"
           >
@@ -1205,9 +1205,9 @@ function LabelManagerModal({
   const [color, setColor] = useState(colorPresets[0]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
-        <div className="border-b border-zinc-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-zinc-50">{t("board.manageLabels")}</h2>
+      <div className="w-full max-w-md rounded-lg border border-line bg-background shadow-2xl">
+        <div className="border-b border-line px-5 py-3">
+          <h2 className="text-sm font-semibold text-fg-strong">{t("board.manageLabels")}</h2>
         </div>
         <div className="grid gap-3 px-5 py-4">
           <div className="flex flex-wrap gap-2">
@@ -1228,12 +1228,12 @@ function LabelManagerModal({
               </span>
             ))}
             {labels.length === 0 ? (
-              <p className="text-xs text-zinc-500">{t("board.noLabels")}</p>
+              <p className="text-xs text-muted">{t("board.noLabels")}</p>
             ) : null}
           </div>
           <div className="grid gap-2">
             <input
-              className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-fg focus:border-red-600/60 focus:outline-none"
               onChange={(event) => setName(event.target.value)}
               placeholder={t("board.newLabelName")}
               value={name}
@@ -1264,9 +1264,9 @@ function LabelManagerModal({
             </button>
           </div>
         </div>
-        <div className="flex justify-end border-t border-zinc-800 px-5 py-3">
+        <div className="flex justify-end border-t border-line px-5 py-3">
           <button
-            className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-700"
+            className="rounded-md bg-elevated px-3 py-1.5 text-xs font-semibold text-fg hover:bg-line-strong"
             onClick={onClose}
             type="button"
           >

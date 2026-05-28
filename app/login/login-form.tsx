@@ -11,11 +11,11 @@ export function LoginForm() {
   return (
     <form action={action} className="grid gap-4">
       <div className="grid gap-2">
-        <label className="text-sm font-medium text-slate-300" htmlFor="email">
+        <label className="text-sm font-medium text-muted-strong" htmlFor="email">
           {t("login.email")}
         </label>
         <input
-          className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-50 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
+          className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg-strong outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
           id="email"
           name="email"
           type="email"
@@ -24,11 +24,11 @@ export function LoginForm() {
         />
       </div>
       <div className="grid gap-2">
-        <label className="text-sm font-medium text-slate-300" htmlFor="password">
+        <label className="text-sm font-medium text-muted-strong" htmlFor="password">
           {t("login.password")}
         </label>
         <input
-          className="h-11 rounded-md border border-neutral-700 bg-black px-3 text-slate-50 outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
+          className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg-strong outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/20"
           id="password"
           name="password"
           type="password"
@@ -36,7 +36,7 @@ export function LoginForm() {
           required
         />
       </div>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
       <button
         className="h-11 rounded-md bg-red-900 px-4 font-medium text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isPending}

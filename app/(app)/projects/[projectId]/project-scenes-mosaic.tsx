@@ -160,23 +160,23 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
   const scenesWithVideo = useMemo(() => scenes.filter((scene) => scene.latestVideo?.url).length, [scenes]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
-      <section className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3 sm:px-7">
+    <div className="flex h-full min-h-0 flex-col bg-background text-fg">
+      <section className="shrink-0 border-b border-line bg-background/80 px-5 py-3 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400">{project.slug}</p>
-            <h1 className="mt-0.5 truncate text-lg font-semibold text-zinc-50">{project.title}</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg">{project.slug}</p>
+            <h1 className="mt-0.5 truncate text-lg font-semibold text-fg-strong">{project.title}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <StatPill label={t("project.scenes")} value={totalScenes} />
             <StatPill label={t("project.videos")} value={scenesWithVideo} />
             <Link
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 font-medium text-zinc-200 hover:bg-zinc-800"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-surface px-2.5 font-medium text-fg hover:bg-elevated"
               href={`/projects/${project.id}/board`}
             >
               {t("board.openBoard")}
             </Link>
-            <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-400">
+            <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-muted">
               {optionLabel("userRoles", userRole)}
             </span>
           </div>
@@ -207,14 +207,14 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
             )}
           </div>
           {selectedScene ? (
-            <div className="shrink-0 border-t border-zinc-900 bg-zinc-950/80 px-4 py-2 text-xs text-zinc-400 sm:px-6">
+            <div className="shrink-0 border-t border-line bg-background/80 px-4 py-2 text-xs text-muted sm:px-6">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-semibold text-zinc-200">
+                <span className="font-semibold text-fg">
                   {t("project.scene")} {selectedScene.sceneNumber}
                 </span>
-                {selectedScene.title ? <span className="truncate text-zinc-400">{selectedScene.title}</span> : null}
+                {selectedScene.title ? <span className="truncate text-muted">{selectedScene.title}</span> : null}
                 {currentVideo ? (
-                  <span className="text-zinc-500">
+                  <span className="text-muted">
                     · {optionLabel("productionStages", currentVideo.stage)} v{currentVideo.versionNumber}
                   </span>
                 ) : null}
@@ -223,7 +223,7 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
           ) : null}
         </div>
 
-        <aside className="flex w-full shrink-0 flex-col border-zinc-800 bg-zinc-900 lg:w-[340px] lg:border-l xl:w-[380px]">
+        <aside className="flex w-full shrink-0 flex-col border-line bg-surface lg:w-[340px] lg:border-l xl:w-[380px]">
           {selectedScene ? (
             <SceneInfoPanel
               key={selectedScene.id}
@@ -232,19 +232,19 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
               t={t}
             />
           ) : (
-            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-zinc-500">
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted">
               {t("project.emptyScenes")}
             </div>
           )}
         </aside>
       </section>
 
-      <section className="shrink-0 border-t border-zinc-800 bg-zinc-950">
+      <section className="shrink-0 border-t border-line bg-background">
         <div className="flex items-center justify-between px-5 pb-1 pt-3 sm:px-7">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             {t("project.timelineTitle")}
           </p>
-          <p className="text-[11px] text-zinc-600">
+          <p className="text-[11px] text-muted">
             {t("project.timelineCount", { count: totalScenes })}
           </p>
         </div>
@@ -269,12 +269,12 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                     "group relative flex w-44 flex-col overflow-hidden rounded-md border text-left transition",
                     isActive
                       ? "border-red-500/80 ring-2 ring-red-500/40"
-                      : "border-zinc-800 hover:border-zinc-600"
+                      : "border-line hover:border-line-strong"
                   ].join(" ")}
                   onClick={() => handleSelect(scene.id, { play: true })}
                   type="button"
                 >
-                  <div className="relative aspect-video w-full bg-zinc-900">
+                  <div className="relative aspect-video w-full bg-surface">
                     {thumb ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -284,11 +284,11 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                         src={thumb}
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-zinc-600">
+                      <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-wider text-muted">
                         {t("project.noVideos")}
                       </div>
                     )}
-                    <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-100">
+                    <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-fg">
                       {scene.sceneNumber}
                     </span>
                     {scene.latestVideo ? (
@@ -297,9 +297,9 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                       </span>
                     ) : null}
                   </div>
-                  <div className="flex min-w-0 flex-col gap-0.5 bg-zinc-900 px-2 py-1.5">
-                    <p className="truncate text-[12px] font-medium text-zinc-100">{scene.title || "—"}</p>
-                    <p className="truncate text-[10px] text-zinc-500">
+                  <div className="flex min-w-0 flex-col gap-0.5 bg-surface px-2 py-1.5">
+                    <p className="truncate text-[12px] font-medium text-fg">{scene.title || "—"}</p>
+                    <p className="truncate text-[10px] text-muted">
                       {optionLabel("sceneStatuses", scene.status)}
                       {scene.openComments > 0 ? ` · ${scene.openComments} ${t("project.open")}` : ""}
                     </p>
@@ -309,7 +309,7 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
             );
           })}
           {scenes.length === 0 ? (
-            <li className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+            <li className="flex h-24 w-full items-center justify-center text-sm text-muted">
               {t("project.emptyScenes")}
             </li>
           ) : null}
@@ -321,24 +321,24 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
 
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-zinc-400">
-      <span className="font-semibold text-zinc-100">{value}</span>
-      <span className="text-zinc-500">{label}</span>
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-muted">
+      <span className="font-semibold text-fg">{value}</span>
+      <span className="text-muted">{label}</span>
     </span>
   );
 }
 
 function EmptyPlayer({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="flex max-w-md flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/60 px-8 py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-zinc-500">
+    <div className="flex max-w-md flex-col items-center justify-center rounded-md border border-dashed border-line bg-background/60 px-8 py-12 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface text-muted">
         <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
           <path d="M5 5h11l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" strokeLinejoin="round" />
           <path d="M10 11l5 3-5 3z" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
       </div>
-      <p className="text-sm font-semibold text-zinc-200">{title}</p>
-      <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>
+      <p className="text-sm font-semibold text-fg">{title}</p>
+      <p className="mt-1 text-xs text-muted">{subtitle}</p>
     </div>
   );
 }
@@ -354,19 +354,19 @@ function SceneInfoPanel({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-zinc-800 px-4 py-4 sm:px-5">
+      <div className="shrink-0 border-b border-line px-4 py-4 sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("project.scene")} {scene.sceneNumber}
             </p>
-            <h2 className="mt-1 text-base font-semibold text-zinc-50">{scene.title || "—"}</h2>
+            <h2 className="mt-1 text-base font-semibold text-fg-strong">{scene.title || "—"}</h2>
           </div>
-          <span className="shrink-0 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-[11px] font-medium text-zinc-300">
+          <span className="shrink-0 rounded-md border border-line bg-background px-2 py-1 text-[11px] font-medium text-muted-strong">
             {optionLabel("sceneStatuses", scene.status)}
           </span>
         </div>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-muted">
           {scene.location || t("project.noLocation")} · {scene.timeOfDay || t("project.noTime")}
         </p>
       </div>
@@ -379,15 +379,15 @@ function SceneInfoPanel({
         </div>
 
         {scene.description ? (
-          <p className="mt-4 whitespace-pre-line text-sm leading-6 text-zinc-300">{scene.description}</p>
+          <p className="mt-4 whitespace-pre-line text-sm leading-6 text-muted-strong">{scene.description}</p>
         ) : null}
 
         {scene.latestVideo ? (
-          <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs">
-            <p className="font-semibold uppercase tracking-wider text-zinc-500">
+          <div className="mt-4 rounded-md border border-line bg-background p-3 text-xs">
+            <p className="font-semibold uppercase tracking-wider text-muted">
               {t("scene.loadedVideo")}
             </p>
-            <p className="mt-1 text-zinc-200">
+            <p className="mt-1 text-fg">
               {t("project.latestVideo", {
                 stage: optionLabel("productionStages", scene.latestVideo.stage),
                 versionNumber: scene.latestVideo.versionNumber,
@@ -398,23 +398,23 @@ function SceneInfoPanel({
         ) : null}
 
         <div className="mt-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             {t("scene.shots")}
           </p>
           <ul className="mt-2 grid gap-1.5">
             {scene.shots.map((shot) => (
               <li key={shot.id}>
                 <Link
-                  className="block rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-900"
+                  className="block rounded-md border border-line bg-background px-2.5 py-2 text-xs text-muted-strong transition hover:border-line-strong hover:bg-surface"
                   href={`/scenes/${scene.id}?shotId=${shot.id}`}
                 >
-                  <span className="font-semibold text-zinc-100">Shot {shot.shotNumber}</span>
-                  {shot.shotType ? <span className="text-zinc-500"> · {shot.shotType}</span> : null}
+                  <span className="font-semibold text-fg">Shot {shot.shotNumber}</span>
+                  {shot.shotType ? <span className="text-muted"> · {shot.shotType}</span> : null}
                 </Link>
               </li>
             ))}
             {scene.shots.length === 0 ? (
-              <li className="rounded-md bg-zinc-950 px-2.5 py-2 text-xs text-zinc-500">
+              <li className="rounded-md bg-background px-2.5 py-2 text-xs text-muted">
                 {t("project.emptyShots")}
               </li>
             ) : null}
@@ -422,7 +422,7 @@ function SceneInfoPanel({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-zinc-800 p-3 sm:p-4">
+      <div className="shrink-0 border-t border-line p-3 sm:p-4">
         <Link
           className="flex w-full items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
           href={`/scenes/${scene.id}`}
@@ -436,9 +436,9 @@ function SceneInfoPanel({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2">
-      <p className="text-sm font-semibold text-zinc-100">{value}</p>
-      <p className="mt-0.5 text-zinc-500">{label}</p>
+    <div className="rounded-md border border-line bg-background px-2 py-2">
+      <p className="text-sm font-semibold text-fg">{value}</p>
+      <p className="mt-0.5 text-muted">{label}</p>
     </div>
   );
 }

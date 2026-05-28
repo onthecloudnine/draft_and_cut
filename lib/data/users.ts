@@ -5,6 +5,13 @@ import { ProjectMembership } from "@/models/ProjectMembership";
 import { User } from "@/models/User";
 import type { AccountRole, UserRole } from "@/types/domain";
 
+export type UserMembershipItem = {
+  projectId: string;
+  projectSlug: string;
+  projectTitle: string;
+  role: UserRole;
+};
+
 export type UserAdminListItem = {
   id: string;
   name: string;
@@ -12,6 +19,7 @@ export type UserAdminListItem = {
   accountRole: AccountRole;
   isActive: boolean;
   projectCount: number;
+  memberships: UserMembershipItem[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -43,13 +51,26 @@ export async function getUsersForAdmin(): Promise<{
 
   const [users, memberships, joinRequests, projects] = await Promise.all([
     User.find({}).sort({ name: 1, email: 1 }).lean(),
-    ProjectMembership.aggregate<{ _id: string; count: number }>([
-      { $group: { _id: "$userId", count: { $sum: 1 } } }
-    ]),
+    ProjectMembership.find({}).lean(),
     ProjectJoinRequest.find({ status: "pending" }).sort({ createdAt: 1 }).lean(),
     Project.find({}).select("slug title").sort({ title: 1 }).lean()
   ]);
-  const projectCountByUserId = new Map(memberships.map((membership) => [String(membership._id), membership.count]));
+  const projectInfoById = new Map(projects.map((project) => [String(project._id), project]));
+  const membershipsByUserId = new Map<string, UserMembershipItem[]>();
+  for (const membership of memberships) {
+    const userKey = String(membership.userId);
+    const projectKey = String(membership.projectId);
+    const project = projectInfoById.get(projectKey);
+    if (!project) continue;
+    const list = membershipsByUserId.get(userKey) ?? [];
+    list.push({
+      projectId: projectKey,
+      projectSlug: project.slug,
+      projectTitle: project.title,
+      role: membership.role as UserRole
+    });
+    membershipsByUserId.set(userKey, list);
+  }
   const requestUserIds = joinRequests.map((request) => request.userId);
   const requestProjectIds = joinRequests.map((request) => request.projectId);
   const [requestUsers, requestProjects] = await Promise.all([
@@ -60,16 +81,22 @@ export async function getUsersForAdmin(): Promise<{
   const projectById = new Map(requestProjects.map((project) => [String(project._id), project]));
 
   return {
-    users: users.map((user) => ({
-      id: String(user._id),
-      name: user.name,
-      email: user.email,
-      accountRole: user.accountRole ?? "user",
-      isActive: user.isActive,
-      projectCount: projectCountByUserId.get(String(user._id)) ?? 0,
-      createdAt: user.createdAt?.toISOString(),
-      updatedAt: user.updatedAt?.toISOString()
-    })),
+    users: users.map((user) => {
+      const userMemberships = membershipsByUserId.get(String(user._id)) ?? [];
+      return {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        accountRole: user.accountRole ?? "user",
+        isActive: user.isActive,
+        projectCount: userMemberships.length,
+        memberships: userMemberships.sort((left, right) =>
+          left.projectTitle.localeCompare(right.projectTitle, undefined, { sensitivity: "base" })
+        ),
+        createdAt: user.createdAt?.toISOString(),
+        updatedAt: user.updatedAt?.toISOString()
+      };
+    }),
     joinRequests: joinRequests
       .map((request): ProjectJoinRequestAdminItem | null => {
         const requestUser = userById.get(String(request.userId));

@@ -16,8 +16,8 @@ export default async function UploadPage({
   return (
     <div className="grid gap-6 p-5 sm:p-7">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-50">{t("upload.pageTitle")}</h1>
-        <p className="mt-2 text-sm text-slate-400">{t("upload.pageSubtitle")}</p>
+        <h1 className="text-2xl font-semibold text-fg-strong">{t("upload.pageTitle")}</h1>
+        <p className="mt-2 text-sm text-muted">{t("upload.pageSubtitle")}</p>
       </div>
       <UploadForm initialProjectId={projectId} initialSceneId={sceneId} options={options} />
     </div>

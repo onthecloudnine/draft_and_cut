@@ -194,10 +194,10 @@ export function MobileSceneDetail({
   };
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-800 px-3 py-2">
+    <div className="relative flex h-full min-h-0 flex-col bg-background text-fg">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-3 py-2">
         <Link
-          className="rounded-md p-1.5 text-zinc-300 hover:bg-zinc-800"
+          className="rounded-md p-1.5 text-muted-strong hover:bg-elevated"
           href={`/projects/${scene.projectId}`}
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} viewBox="0 0 24 24">
@@ -205,16 +205,16 @@ export function MobileSceneDetail({
           </svg>
         </Link>
         <div className="min-w-0 flex-1 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-danger-fg">
             {t("scene.scene")} {scene.sceneNumber}
           </p>
-          <p className="truncate text-xs font-medium text-zinc-100">{scene.title}</p>
+          <p className="truncate text-xs font-medium text-fg">{scene.title}</p>
         </div>
         <div className="flex items-center gap-1">
           {previousScene ? (
             <Link
               aria-label={t("scene.previousScene", { sceneNumber: previousScene.sceneNumber })}
-              className="rounded-md p-1.5 text-zinc-300 hover:bg-zinc-800"
+              className="rounded-md p-1.5 text-muted-strong hover:bg-elevated"
               href={`/scenes/${previousScene.id}`}
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
@@ -225,7 +225,7 @@ export function MobileSceneDetail({
           {nextScene ? (
             <Link
               aria-label={t("scene.nextScene", { sceneNumber: nextScene.sceneNumber })}
-              className="rounded-md p-1.5 text-zinc-300 hover:bg-zinc-800"
+              className="rounded-md p-1.5 text-muted-strong hover:bg-elevated"
               href={`/scenes/${nextScene.id}`}
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
@@ -256,7 +256,7 @@ export function MobileSceneDetail({
             src={activeVideo.url}
           />
         ) : (
-          <p className="px-6 text-center text-sm text-zinc-500">{t("scene.noPreviewBody")}</p>
+          <p className="px-6 text-center text-sm text-white/70">{t("scene.noPreviewBody")}</p>
         )}
       </div>
 
@@ -271,7 +271,7 @@ export function MobileSceneDetail({
         playbackSeconds={playbackSeconds}
       />
 
-      <div className="shrink-0 border-y border-zinc-800 bg-zinc-950">
+      <div className="shrink-0 border-y border-line bg-background">
         <ul className="flex items-stretch gap-1.5 overflow-x-auto px-3 py-2">
           {shots.map((shot) => {
             const isActive = shot.id === activeShot?.id;
@@ -285,8 +285,8 @@ export function MobileSceneDetail({
                   className={[
                     "flex h-14 w-14 flex-col items-center justify-center rounded-md border text-[10px] font-semibold transition",
                     isActive
-                      ? "border-red-500/80 bg-red-600/15 text-red-200 ring-2 ring-red-500/40"
-                      : "border-zinc-800 bg-zinc-900 text-zinc-400"
+                      ? "border-red-500/80 bg-red-600/15 text-danger-fg ring-2 ring-red-500/40"
+                      : "border-line bg-surface text-muted"
                   ].join(" ")}
                   onClick={() => {
                     setActiveShotId(shot.id);
@@ -295,7 +295,7 @@ export function MobileSceneDetail({
                   type="button"
                 >
                   <span>{shot.shotNumber}</span>
-                  <span className="mt-0.5 text-[9px] text-zinc-500">
+                  <span className="mt-0.5 text-[9px] text-muted">
                     {framesToTimecode(shot.startFrame, fps)}
                   </span>
                 </button>
@@ -365,11 +365,11 @@ function CompactTransport({
   };
 
   return (
-    <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-3 py-2">
+    <div className="shrink-0 border-b border-line bg-background px-3 py-2">
       <div className="flex items-center gap-2">
         <button
           aria-label="prev"
-          className="flex h-9 w-9 items-center justify-center rounded-md bg-zinc-900 text-zinc-200 active:bg-zinc-800"
+          className="flex h-9 w-9 items-center justify-center rounded-md bg-surface text-fg active:bg-elevated"
           onClick={onPrev}
           type="button"
         >
@@ -395,7 +395,7 @@ function CompactTransport({
         </button>
         <button
           aria-label="next"
-          className="flex h-9 w-9 items-center justify-center rounded-md bg-zinc-900 text-zinc-200 active:bg-zinc-800"
+          className="flex h-9 w-9 items-center justify-center rounded-md bg-surface text-fg active:bg-elevated"
           onClick={onNext}
           type="button"
         >
@@ -403,17 +403,17 @@ function CompactTransport({
             <path d="M16 5h2v14h-2zM4 5l11 7-11 7z" />
           </svg>
         </button>
-        <div className="flex shrink-0 items-center gap-1 rounded-md bg-zinc-900 px-2 py-1 text-[10px] tabular-nums text-zinc-300">
-          <span className="font-semibold text-zinc-100">
+        <div className="flex shrink-0 items-center gap-1 rounded-md bg-surface px-2 py-1 text-[10px] tabular-nums text-muted-strong">
+          <span className="font-semibold text-fg">
             {framesToTimecode(Math.round(playbackSeconds * fps), fps)}
           </span>
-          <span className="text-zinc-600">/</span>
+          <span className="text-muted">/</span>
           <span>{framesToTimecode(Math.round(safeDuration * fps), fps)}</span>
         </div>
       </div>
       <div
         ref={trackRef}
-        className="mt-2 h-2 cursor-pointer touch-none select-none rounded-full bg-zinc-800"
+        className="mt-2 h-2 cursor-pointer touch-none select-none rounded-full bg-elevated"
         onPointerDown={(event) => {
           event.currentTarget.setPointerCapture(event.pointerId);
           setIsScrubbing(true);
@@ -519,7 +519,7 @@ function BottomSheet({
   return (
     <aside
       ref={sheetRef}
-      className="fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-xl border-t border-zinc-800 bg-zinc-900 shadow-[0_-8px_24px_rgba(0,0,0,0.4)]"
+      className="fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-xl border-t border-line bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.4)]"
       style={{
         height: `${effectiveHeight}px`,
         transition: dragOffset === null ? "height 220ms cubic-bezier(0.22, 0.61, 0.36, 1)" : "none"
@@ -531,9 +531,9 @@ function BottomSheet({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <span className="h-1.5 w-12 rounded-full bg-zinc-700" />
+        <span className="h-1.5 w-12 rounded-full bg-line-strong" />
         <button
-          className="-mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
+          className="-mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted"
           onClick={() => onChangeState(sheetState === "peek" ? "half" : sheetState === "half" ? "full" : "peek")}
           type="button"
         >
@@ -545,14 +545,14 @@ function BottomSheet({
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center overflow-x-auto border-b border-zinc-800 px-2">
+      <div className="flex shrink-0 items-center overflow-x-auto border-b border-line px-2">
         {tabs.map((tab) => {
           const active = tab.key === sheetTab;
           return (
             <button
               className={[
                 "relative shrink-0 px-3 py-2.5 text-[12px] font-medium transition",
-                active ? "text-zinc-50" : "text-zinc-500"
+                active ? "text-fg-strong" : "text-muted"
               ].join(" ")}
               key={tab.key}
               onClick={() => {
@@ -592,8 +592,8 @@ function BottomSheet({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{label}</p>
-      <div className="text-sm leading-6 text-zinc-100">{children}</div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">{label}</p>
+      <div className="text-sm leading-6 text-fg">{children}</div>
     </div>
   );
 }
@@ -610,15 +610,15 @@ function ShotPanel({
   t: (path: string) => string;
 }) {
   if (!activeShot) {
-    return <p className="text-sm text-zinc-500">{t("scene.emptyShots")}</p>;
+    return <p className="text-sm text-muted">{t("scene.emptyShots")}</p>;
   }
   return (
     <div className="grid gap-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold text-zinc-50">
+        <h2 className="text-base font-semibold text-fg-strong">
           {t("scene.tabShot")} {activeShot.shotNumber}
         </h2>
-        <span className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] font-medium uppercase text-zinc-300">
+        <span className="rounded-md border border-line bg-background px-2 py-0.5 text-[10px] font-medium uppercase text-muted-strong">
           {optionLabel("shotStatuses", activeShot.status)}
         </span>
       </div>
@@ -636,7 +636,7 @@ function ShotPanel({
         <Field label={t("scene.requiredElements")}>
           <ul className="grid gap-1">
             {activeShot.requiredElements.map((item, idx) => (
-              <li className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200" key={idx}>
+              <li className="rounded-md border border-line bg-background px-2 py-1 text-xs text-fg" key={idx}>
                 {item}
               </li>
             ))}
@@ -662,8 +662,8 @@ function ScenePanel({
   return (
     <div className="grid gap-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-base font-semibold text-zinc-50">{scene.title}</h2>
-        <span className="shrink-0 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] font-medium uppercase text-zinc-300">
+        <h2 className="text-base font-semibold text-fg-strong">{scene.title}</h2>
+        <span className="shrink-0 rounded-md border border-line bg-background px-2 py-0.5 text-[10px] font-medium uppercase text-muted-strong">
           {optionLabel("sceneStatuses", scene.status)}
         </span>
       </div>
@@ -688,9 +688,9 @@ function ScriptPanel({
   return (
     <div className="grid gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-zinc-50">{t("scene.literaryScript")}</h2>
+        <h2 className="text-base font-semibold text-fg-strong">{t("scene.literaryScript")}</h2>
         <button
-          className="rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-[11px] font-medium text-zinc-300"
+          className="rounded-md border border-line bg-background px-2.5 py-1 text-[11px] font-medium text-muted-strong"
           onClick={onOpenScript}
           type="button"
         >
@@ -698,15 +698,15 @@ function ScriptPanel({
         </button>
       </div>
       {scene.literaryHeading ? (
-        <p className="text-xs uppercase tracking-wider text-zinc-500">{scene.literaryHeading}</p>
+        <p className="text-xs uppercase tracking-wider text-muted">{scene.literaryHeading}</p>
       ) : null}
       {scene.literaryScript ? (
         <div
-          className="prose-editor text-[14px] leading-6 text-zinc-200"
+          className="prose-editor text-[14px] leading-6 text-fg"
           dangerouslySetInnerHTML={{ __html: plainTextToHtml(scene.literaryScript) }}
         />
       ) : (
-        <p className="text-sm italic text-zinc-500">{t("scene.missingLiteraryScript")}</p>
+        <p className="text-sm italic text-muted">{t("scene.missingLiteraryScript")}</p>
       )}
     </div>
   );
@@ -722,22 +722,22 @@ function TeamPanel({
   t: (path: string) => string;
 }) {
   if (humanResources.length === 0) {
-    return <p className="text-sm text-zinc-500">{t("scene.noResponsibles")}</p>;
+    return <p className="text-sm text-muted">{t("scene.noResponsibles")}</p>;
   }
   return (
     <ul className="grid gap-2">
       {humanResources.map((resource) => (
-        <li className="rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs" key={resource.id}>
-          <p className="text-sm font-semibold text-zinc-50">{resource.name}</p>
-          <p className="mt-0.5 text-zinc-500">{resource.email}</p>
-          <p className="mt-1 text-[10px] font-medium uppercase text-red-400">{resource.role}</p>
+        <li className="rounded-md border border-line bg-background p-3 text-xs" key={resource.id}>
+          <p className="text-sm font-semibold text-fg-strong">{resource.name}</p>
+          <p className="mt-0.5 text-muted">{resource.email}</p>
+          <p className="mt-1 text-[10px] font-medium uppercase text-danger-fg">{resource.role}</p>
           {resource.stages.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1">
               {productionStages
                 .filter((stage) => resource.stages.includes(stage))
                 .map((stage) => (
                   <span
-                    className="rounded-full border border-red-600 bg-red-600/15 px-1.5 py-0.5 text-[9px] font-medium text-zinc-100"
+                    className="rounded-full border border-red-600 bg-red-600/15 px-1.5 py-0.5 text-[9px] font-medium text-fg"
                     key={stage}
                   >
                     {optionLabel("productionStages", stage)}
@@ -759,27 +759,27 @@ function FilesPanel({
   t: (path: string, replacements?: Record<string, string | number>) => string;
 }) {
   if (attachments.length === 0) {
-    return <p className="text-sm text-zinc-500">{t("scene.noAttachments")}</p>;
+    return <p className="text-sm text-muted">{t("scene.noAttachments")}</p>;
   }
   return (
     <ul className="grid gap-2">
       {attachments.map((attachment) => (
-        <li className="rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs" key={attachment.id}>
+        <li className="rounded-md border border-line bg-background p-3 text-xs" key={attachment.id}>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-zinc-50">{attachment.title}</p>
-              <p className="mt-0.5 text-zinc-500">
+              <p className="text-sm font-semibold text-fg-strong">{attachment.title}</p>
+              <p className="mt-0.5 text-muted">
                 {formatDate(attachment.attachmentDate)} · {attachment.uploadedByName}
               </p>
             </div>
-            <span className="shrink-0 rounded-md bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300">
+            <span className="shrink-0 rounded-md bg-elevated px-1.5 py-0.5 text-[10px] text-muted-strong">
               {attachment.fileSizeMb} MB
             </span>
           </div>
-          {attachment.description ? <p className="mt-1.5 text-zinc-400">{attachment.description}</p> : null}
+          {attachment.description ? <p className="mt-1.5 text-muted">{attachment.description}</p> : null}
           {attachment.url ? (
             <a
-              className="mt-2 inline-flex text-[11px] font-medium text-red-300"
+              className="mt-2 inline-flex text-[11px] font-medium text-danger-fg"
               href={attachment.url}
               rel="noreferrer"
               target="_blank"
@@ -795,9 +795,9 @@ function FilesPanel({
 
 function Tile({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2">
-      <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">{label}</p>
-      <p className="mt-0.5 text-xs tabular-nums text-zinc-100">{children}</p>
+    <div className="rounded-md border border-line bg-background px-2 py-2">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted">{label}</p>
+      <p className="mt-0.5 text-xs tabular-nums text-fg">{children}</p>
     </div>
   );
 }
@@ -817,21 +817,21 @@ function ScriptViewer({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl bg-zinc-950 sm:max-w-2xl sm:rounded-lg"
+        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl bg-background sm:max-w-2xl sm:rounded-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg">
               {t("scene.scene")} {scene.sceneNumber} · {t("scene.literaryScript")}
             </p>
             {scene.literaryHeading ? (
-              <h2 className="mt-1 truncate text-sm font-semibold text-zinc-50">{scene.literaryHeading}</h2>
+              <h2 className="mt-1 truncate text-sm font-semibold text-fg-strong">{scene.literaryHeading}</h2>
             ) : null}
           </div>
           <button
             aria-label={t("scene.cancel")}
-            className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800"
+            className="shrink-0 rounded-md p-1.5 text-muted hover:bg-elevated"
             onClick={onClose}
             type="button"
           >
@@ -848,7 +848,7 @@ function ScriptViewer({
               dangerouslySetInnerHTML={{ __html: plainTextToHtml(scene.literaryScript) }}
             />
           ) : (
-            <p className="text-sm italic text-zinc-500">{t("scene.missingLiteraryScript")}</p>
+            <p className="text-sm italic text-muted">{t("scene.missingLiteraryScript")}</p>
           )}
         </div>
       </div>

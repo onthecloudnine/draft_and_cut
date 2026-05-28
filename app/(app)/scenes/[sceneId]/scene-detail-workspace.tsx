@@ -18,7 +18,7 @@ import { plainTextToHtml } from "@/components/rich-text-editor";
 
 const RichTextEditor = dynamic(
   () => import("@/components/rich-text-editor").then((mod) => ({ default: mod.RichTextEditor })),
-  { ssr: false, loading: () => <div className="min-h-[200px] text-sm text-zinc-500">Cargando editor...</div> }
+  { ssr: false, loading: () => <div className="min-h-[200px] text-sm text-muted">Cargando editor...</div> }
 );
 import {
   assetTagCategories,
@@ -1069,7 +1069,7 @@ export function SceneDetailWorkspace({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-zinc-950 text-zinc-100">
+    <div className="flex h-full min-h-0 flex-col bg-background text-fg">
       <SceneHeader
         autosaveStatus={autosaveStatus}
         canDeleteScene={canEditScript}
@@ -1167,11 +1167,11 @@ export function SceneDetailWorkspace({
       </div>
 
       {error ? (
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md border border-red-600/60 bg-red-950/90 px-4 py-2 text-sm text-red-100 shadow-lg">
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md border border-red-600/60 bg-danger-soft px-4 py-2 text-sm text-danger-fg shadow-lg">
           <div className="flex items-center gap-3">
             <span>{error}</span>
             <button
-              className="text-red-200 hover:text-white"
+              className="text-danger-fg hover:text-white"
               onClick={() => setError("")}
               type="button"
             >
@@ -1257,28 +1257,28 @@ function SceneHeader({
 }) {
   const router = useRouter();
   return (
-    <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3 sm:px-7">
+    <header className="shrink-0 border-b border-line bg-background/80 px-5 py-3 sm:px-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <Link
-            className="text-xs font-medium text-zinc-400 hover:text-zinc-200"
+            className="text-xs font-medium text-muted hover:text-fg"
             href={`/projects/${scene.projectId}`}
           >
             ← {t("scene.backToProject")}
           </Link>
-          <div className="hidden h-6 w-px bg-zinc-800 sm:block" />
+          <div className="hidden h-6 w-px bg-elevated sm:block" />
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg">
               {t("scene.scene")} {scene.sceneNumber}
             </p>
-            <h1 className="text-base font-semibold text-zinc-50 sm:text-lg">{scene.title}</h1>
+            <h1 className="text-base font-semibold text-fg-strong sm:text-lg">{scene.title}</h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <AutosaveBadge lastSavedAt={lastSavedAt} status={autosaveStatus} t={t} />
           {previousScene ? (
             <Link
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-muted-strong hover:bg-elevated"
               href={`/scenes/${previousScene.id}`}
               title={previousScene.title}
             >
@@ -1289,7 +1289,7 @@ function SceneHeader({
           {siblingScenes.length > 1 ? (
             <select
               aria-label={t("scene.sceneSelector")}
-              className="h-8 max-w-[220px] rounded-md border border-zinc-800 bg-zinc-900 px-2 text-xs font-medium text-zinc-200 hover:bg-zinc-800 focus:outline-none"
+              className="h-8 max-w-[220px] rounded-md border border-line bg-surface px-2 text-xs font-medium text-fg hover:bg-elevated focus:outline-none"
               onChange={(event) => {
                 const nextId = event.target.value;
                 if (nextId && nextId !== scene.id) router.push(`/scenes/${nextId}`);
@@ -1305,7 +1305,7 @@ function SceneHeader({
           ) : null}
           {nextScene ? (
             <Link
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-line bg-surface px-2.5 text-xs font-medium text-muted-strong hover:bg-elevated"
               href={`/scenes/${nextScene.id}`}
               title={nextScene.title}
             >
@@ -1314,7 +1314,7 @@ function SceneHeader({
             </Link>
           ) : null}
           <a
-            className="inline-flex h-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-800"
+            className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-surface px-3 text-xs font-medium text-fg hover:bg-elevated"
             href={`/api/scenes/${scene.id}/assets/download`}
           >
             {t("scene.downloadAssetsZip")}
@@ -1327,7 +1327,7 @@ function SceneHeader({
           </Link>
           {canManageVideos && activeVideo ? (
             <button
-              className="inline-flex h-8 items-center justify-center rounded-md border border-red-900/70 px-3 text-xs font-medium text-red-200 hover:bg-red-950/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-danger px-3 text-xs font-medium text-danger-fg hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isDeletingVideo}
               onClick={onDeleteVideo}
               type="button"
@@ -1337,7 +1337,7 @@ function SceneHeader({
           ) : null}
           {canDeleteScene ? (
             <button
-              className="inline-flex h-8 items-center justify-center rounded-md border border-red-900/70 px-3 text-xs font-medium text-red-300 hover:bg-red-950/40"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-danger px-3 text-xs font-medium text-danger-fg hover:bg-danger-soft"
               onClick={onDeleteScene}
               title={t("scene.deleteScene")}
               type="button"
@@ -1372,14 +1372,14 @@ function AutosaveBadge({
   const relative = lastSavedAt ? formatLastSaved(lastSavedAt, now, locale) : "";
 
   const map: Record<AutosaveStatus, { label: string; cls: string } | null> = {
-    idle: relative ? { label: `${t("scene.autosaveSaved")} · ${relative}`, cls: "text-zinc-400" } : null,
-    saving: { label: t("scene.autosaveSaving"), cls: "text-amber-400" },
+    idle: relative ? { label: `${t("scene.autosaveSaved")} · ${relative}`, cls: "text-muted" } : null,
+    saving: { label: t("scene.autosaveSaving"), cls: "text-warning-fg" },
     saved: relative
-      ? { label: `${t("scene.autosaveSaved")} · ${relative}`, cls: "text-emerald-400" }
-      : { label: t("scene.autosaveSaved"), cls: "text-emerald-400" },
+      ? { label: `${t("scene.autosaveSaved")} · ${relative}`, cls: "text-success-fg" }
+      : { label: t("scene.autosaveSaved"), cls: "text-success-fg" },
     error: relative
-      ? { label: `${t("scene.autosaveError")} · ${relative}`, cls: "text-red-400" }
-      : { label: t("scene.autosaveError"), cls: "text-red-400" }
+      ? { label: `${t("scene.autosaveError")} · ${relative}`, cls: "text-danger-fg" }
+      : { label: t("scene.autosaveError"), cls: "text-danger-fg" }
   };
   const data = map[status];
   if (!data) return null;
@@ -1438,7 +1438,7 @@ function TopTabs({
     { key: "table", label: t("scene.viewTable") }
   ];
   return (
-    <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-5 sm:px-7">
+    <div className="shrink-0 border-b border-line bg-background px-5 sm:px-7">
       <div className="flex gap-1">
         {tabs.map((tab) => {
           const active = tab.key === value;
@@ -1446,7 +1446,7 @@ function TopTabs({
             <button
               className={[
                 "relative px-3 py-2.5 text-sm font-medium transition",
-                active ? "text-zinc-50" : "text-zinc-500 hover:text-zinc-200"
+                active ? "text-fg-strong" : "text-muted hover:text-fg"
               ].join(" ")}
               key={tab.key}
               onClick={() => onChange(tab.key)}
@@ -1977,23 +1977,23 @@ function TimelineView(props: TimelineViewProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <section className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="flex min-h-0 flex-1 flex-col bg-black" ref={playerContainerRef}>
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-900 px-4 py-2 text-xs text-zinc-400 sm:px-6">
+        <div className="flex min-h-0 flex-1 flex-col bg-background" ref={playerContainerRef}>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2 text-xs text-muted sm:px-6">
             <div className="min-w-0">
               {activeVideo ? (
                 <span>
-                  <span className="font-semibold text-zinc-200">
+                  <span className="font-semibold text-fg">
                     {optionLabel("productionStages", activeVideo.stage)} v{activeVideo.versionNumber}
                   </span>
-                  <span className="text-zinc-500"> · {activeVideo.resolution}</span>
+                  <span className="text-muted"> · {activeVideo.resolution}</span>
                 </span>
               ) : (
-                <span className="text-zinc-500">{t("scene.noVideoSelection")}</span>
+                <span className="text-muted">{t("scene.noVideoSelection")}</span>
               )}
             </div>
             {availableVideos.length > 1 ? (
               <select
-                className="h-8 rounded-md border border-zinc-800 bg-zinc-900 px-2 text-xs text-zinc-100"
+                className="h-8 rounded-md border border-line bg-surface px-2 text-xs text-fg"
                 onChange={(event) => onSelectVideo(event.target.value)}
                 value={activeVideo?.id ?? ""}
               >
@@ -2006,7 +2006,7 @@ function TimelineView(props: TimelineViewProps) {
               </select>
             ) : null}
           </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center p-3 sm:p-5">
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-5">
             {activeVideo?.url ? (
               <video
                 ref={videoRef}
@@ -2061,7 +2061,7 @@ function TimelineView(props: TimelineViewProps) {
           ) : null}
         </div>
 
-        <aside className="flex w-full shrink-0 flex-col border-zinc-800 bg-zinc-900 lg:w-[380px] lg:border-l xl:w-[420px]">
+        <aside className="flex w-full shrink-0 flex-col border-line bg-surface lg:w-[380px] lg:border-l xl:w-[420px]">
           <SidebarTabs activeShot={activeShot} onChange={setSidebarTab} t={t} value={sidebarTab} />
           <div className="min-h-0 flex-1 overflow-y-auto">
             {sidebarTab === "scene" ? <SceneTab {...props} /> : null}
@@ -2074,17 +2074,17 @@ function TimelineView(props: TimelineViewProps) {
         </aside>
       </section>
 
-      <section className="shrink-0 border-t border-zinc-800 bg-zinc-950">
+      <section className="shrink-0 border-t border-line bg-background">
         <div className="flex items-center justify-between gap-3 px-5 pb-1 pt-3 sm:px-7">
           <div className="flex items-center gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("scene.shotsTimeline")}
             </p>
             {canEditScript ? (
-              <div className="inline-flex overflow-hidden rounded-md border border-zinc-800">
+              <div className="inline-flex overflow-hidden rounded-md border border-line">
                 <button
                   aria-label={t("scene.undo")}
-                  className="inline-flex h-7 w-8 items-center justify-center bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-zinc-900 disabled:hover:text-zinc-400"
+                  className="inline-flex h-7 w-8 items-center justify-center bg-surface text-muted hover:bg-elevated hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface disabled:hover:text-muted"
                   disabled={!canUndo}
                   onClick={onUndo}
                   title={t("scene.undo")}
@@ -2097,7 +2097,7 @@ function TimelineView(props: TimelineViewProps) {
                 </button>
                 <button
                   aria-label={t("scene.redo")}
-                  className="inline-flex h-7 w-8 items-center justify-center border-l border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-zinc-900 disabled:hover:text-zinc-400"
+                  className="inline-flex h-7 w-8 items-center justify-center border-l border-line bg-surface text-muted hover:bg-elevated hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface disabled:hover:text-muted"
                   disabled={!canRedo}
                   onClick={onRedo}
                   title={t("scene.redo")}
@@ -2111,14 +2111,14 @@ function TimelineView(props: TimelineViewProps) {
               </div>
             ) : null}
             {canEditScript ? (
-              <div className="inline-flex overflow-hidden rounded-md border border-zinc-800">
+              <div className="inline-flex overflow-hidden rounded-md border border-line">
                 <button
                   aria-label={t("scene.toolSelect")}
                   className={[
                     "inline-flex h-7 w-8 items-center justify-center text-xs",
                     timelineTool === "select"
                       ? "bg-red-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      : "bg-surface text-muted hover:bg-elevated hover:text-fg"
                   ].join(" ")}
                   onClick={() => onSetTimelineTool("select")}
                   title={t("scene.toolSelect")}
@@ -2131,10 +2131,10 @@ function TimelineView(props: TimelineViewProps) {
                 <button
                   aria-label={t("scene.toolBlade")}
                   className={[
-                    "inline-flex h-7 w-8 items-center justify-center border-l border-zinc-800 text-xs",
+                    "inline-flex h-7 w-8 items-center justify-center border-l border-line text-xs",
                     timelineTool === "blade"
                       ? "bg-red-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      : "bg-surface text-muted hover:bg-elevated hover:text-fg"
                   ].join(" ")}
                   onClick={() => onSetTimelineTool("blade")}
                   title={t("scene.toolBlade")}
@@ -2151,14 +2151,14 @@ function TimelineView(props: TimelineViewProps) {
               </div>
             ) : null}
             {timelineTool === "blade" ? (
-              <span className="text-[11px] text-amber-400">{t("scene.toolBladeHint")}</span>
+              <span className="text-[11px] text-warning-fg">{t("scene.toolBladeHint")}</span>
             ) : null}
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+          <div className="flex items-center gap-3 text-[11px] text-muted">
             <span>{shots.length} {t("scene.shotsCount")}</span>
             {canEditScript ? (
               <button
-                className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-zinc-300 hover:bg-zinc-800"
+                className="rounded-md border border-line bg-surface px-2 py-1 text-[11px] font-medium text-muted-strong hover:bg-elevated"
                 onClick={() => onAddShotAfter(activeShot ?? shots[shots.length - 1] ?? null)}
                 type="button"
               >
@@ -2220,7 +2220,7 @@ function TimelineView(props: TimelineViewProps) {
               );
             })}
             {shots.length === 0 ? (
-              <li className="flex h-24 w-full items-center justify-center px-5 text-sm text-zinc-500">
+              <li className="flex h-24 w-full items-center justify-center px-5 text-sm text-muted">
                 {t("scene.emptyShots")}
               </li>
             ) : null}
@@ -2359,7 +2359,7 @@ function VideoTransport({
   };
 
   return (
-    <div className="shrink-0 border-t border-zinc-900 bg-zinc-950 px-3 py-2 sm:px-5">
+    <div className="shrink-0 border-t border-line bg-background px-3 py-2 sm:px-5">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
           <TransportButton
@@ -2435,16 +2435,16 @@ function VideoTransport({
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] tabular-nums">
-          <span className="font-semibold text-zinc-100">
+        <div className="flex shrink-0 items-center gap-1 rounded-md border border-line bg-surface px-2 py-1 text-[11px] tabular-nums">
+          <span className="font-semibold text-fg">
             {framesToTimecode(Math.round(playbackSeconds * fps), fps)}
           </span>
-          <span className="text-zinc-600">/</span>
-          <span className="text-zinc-400">{framesToTimecode(Math.round(safeDuration * fps), fps)}</span>
+          <span className="text-muted">/</span>
+          <span className="text-muted">{framesToTimecode(Math.round(safeDuration * fps), fps)}</span>
         </div>
 
         <div
-          className="relative h-2 flex-1 cursor-pointer touch-none select-none rounded-full bg-zinc-800"
+          className="relative h-2 flex-1 cursor-pointer touch-none select-none rounded-full bg-elevated"
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
             setIsScrubbing(true);
@@ -2501,7 +2501,7 @@ function VideoTransport({
                 return (
                   <div
                     aria-hidden
-                    className="absolute top-1/2 h-3 w-px -translate-y-1/2 bg-zinc-600"
+                    className="absolute top-1/2 h-3 w-px -translate-y-1/2 bg-line-strong"
                     key={shot.id}
                     style={{ left: `${left}%` }}
                   />
@@ -2585,7 +2585,7 @@ function TransportButton({
         "flex h-9 w-9 items-center justify-center rounded-md transition disabled:cursor-not-allowed disabled:opacity-40",
         primary
           ? "bg-red-600 text-white hover:bg-red-500"
-          : "border border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800"
+          : "border border-line bg-surface text-fg hover:border-line-strong hover:bg-elevated"
       ].join(" ")}
       disabled={disabled}
       onClick={onClick}
@@ -2756,14 +2756,14 @@ const ShotThumbnail = memo(function ShotThumbnail({
         "group relative flex shrink-0 flex-col overflow-hidden rounded-md border transition",
         isActive
           ? "border-red-500/80 ring-2 ring-red-500/40"
-          : "border-zinc-800 hover:border-zinc-600",
+          : "border-line hover:border-line-strong",
         isResizing ? "ring-2 ring-amber-400/50" : ""
       ].join(" ")}
       style={{ width: `${widthPx}px` }}
     >
       <div
         className={[
-          "relative flex h-20 w-full select-none items-end overflow-hidden bg-zinc-900 p-2 touch-none",
+          "relative flex h-20 w-full select-none items-end overflow-hidden bg-surface p-2 touch-none",
           tool === "blade" && hasRange
             ? "cursor-crosshair"
             : isActive && hasRange
@@ -2776,10 +2776,10 @@ const ShotThumbnail = memo(function ShotThumbnail({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-200">
+        <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           {framesToTimecode(shot.startFrame, scene.fpsDefault)}
         </span>
-        <p className="pointer-events-none relative z-10 text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
+        <p className="pointer-events-none relative z-10 text-[11px] font-semibold uppercase tracking-wider text-muted-strong">
           {shot.shotNumber}
         </p>
         {tool === "blade" && bladePreview ? (
@@ -2790,7 +2790,7 @@ const ShotThumbnail = memo(function ShotThumbnail({
               style={{ left: `${bladePreview.xPct}%` }}
             />
             <span
-              className="pointer-events-none absolute z-30 -translate-x-1/2 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950 shadow"
+              className="pointer-events-none absolute z-30 -translate-x-1/2 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-fg-strong shadow"
               style={{ left: `${bladePreview.xPct}%`, top: "2px" }}
             >
               {framesToTimecode(Math.round(bladePreview.frame), scene.fpsDefault)}
@@ -2799,14 +2799,14 @@ const ShotThumbnail = memo(function ShotThumbnail({
         ) : null}
       </div>
       <button
-        className="flex min-h-12 flex-col gap-0.5 bg-zinc-900 px-2 py-1.5 text-left hover:bg-zinc-800"
+        className="flex min-h-12 flex-col gap-0.5 bg-surface px-2 py-1.5 text-left hover:bg-elevated"
         onClick={handleSelect}
         type="button"
       >
-        <p className="truncate text-[11px] font-medium text-zinc-100">{shot.shotType || "—"}</p>
-        <p className="truncate text-[10px] text-zinc-500">
+        <p className="truncate text-[11px] font-medium text-fg">{shot.shotType || "—"}</p>
+        <p className="truncate text-[10px] text-muted">
           {optionLabel("shotStatuses", shot.status)}
-          <span className="text-zinc-600"> · {formatDurationSeconds(shot.durationFrames, scene.fpsDefault)}</span>
+          <span className="text-muted"> · {formatDurationSeconds(shot.durationFrames, scene.fpsDefault)}</span>
         </p>
       </button>
       {canResize ? (
@@ -2826,7 +2826,7 @@ const ShotThumbnail = memo(function ShotThumbnail({
             aria-hidden
             className={[
               "h-8 w-0.5 rounded-full transition",
-              isResizing ? "bg-amber-300" : "bg-zinc-700 group-hover:bg-amber-400/70"
+              isResizing ? "bg-amber-300" : "bg-line-strong group-hover:bg-amber-400/70"
             ].join(" ")}
           />
         </div>
@@ -2886,7 +2886,7 @@ function MergeGap({
     <div className="group relative flex w-4 items-center justify-center">
       <button
         aria-label={t("scene.mergeShots")}
-        className="invisible flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 hover:border-red-500 hover:bg-red-600/20 hover:text-red-300"
+        className="invisible flex h-7 w-7 items-center justify-center rounded-full border border-line-strong bg-surface text-muted-strong opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 hover:border-red-500 hover:bg-red-600/20 hover:text-danger-fg"
         onClick={() => onMerge(left, right)}
         title={t("scene.mergeShots")}
         type="button"
@@ -2903,15 +2903,15 @@ function MergeGap({
 
 function NoVideoPlaceholder({ t }: { t: (path: string) => string }) {
   return (
-    <div className="flex max-w-md flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/60 px-8 py-12 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-zinc-500">
+    <div className="flex max-w-md flex-col items-center justify-center rounded-md border border-dashed border-line bg-background/60 px-8 py-12 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface text-muted">
         <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
           <path d="M5 5h11l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" strokeLinejoin="round" />
           <path d="M10 11l5 3-5 3z" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
       </div>
-      <p className="text-sm font-semibold text-zinc-200">{t("scene.noPreviewTitle")}</p>
-      <p className="mt-1 text-xs text-zinc-500">{t("scene.noPreviewBody")}</p>
+      <p className="text-sm font-semibold text-fg">{t("scene.noPreviewTitle")}</p>
+      <p className="mt-1 text-xs text-muted">{t("scene.noPreviewBody")}</p>
     </div>
   );
 }
@@ -2936,14 +2936,14 @@ function SidebarTabs({
     { key: "files", label: t("scene.tabFiles") }
   ];
   return (
-    <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-zinc-800 px-2">
+    <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-line px-2">
       {tabs.map((tab) => {
         const active = tab.key === value;
         return (
           <button
             className={[
               "relative shrink-0 px-3 py-2.5 text-[12px] font-medium transition",
-              active ? "text-zinc-50" : "text-zinc-500 hover:text-zinc-200"
+              active ? "text-fg-strong" : "text-muted hover:text-fg"
             ].join(" ")}
             key={tab.key}
             onClick={() => onChange(tab.key)}
@@ -2961,7 +2961,7 @@ function SidebarTabs({
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{children}</span>;
+  return <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</span>;
 }
 
 function TextInput({
@@ -2979,7 +2979,7 @@ function TextInput({
 }) {
   return (
     <input
-      className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-2.5 text-sm text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
@@ -3014,7 +3014,7 @@ function TextArea({
   return (
     <textarea
       ref={ref}
-      className="w-full min-w-0 resize-none overflow-hidden rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-2 text-sm leading-5 text-zinc-100 focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full min-w-0 resize-none overflow-hidden rounded-md border border-line bg-background px-2.5 py-2 text-sm leading-5 text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onBlur={onBlur}
       onChange={(event) => onChange(event.target.value)}
@@ -3074,7 +3074,7 @@ function SceneTab(props: TimelineViewProps) {
         <div className="grid min-w-0 gap-2">
           <FieldLabel>{t("scene.status")}</FieldLabel>
           <select
-            className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100 disabled:opacity-60"
+            className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-2 text-sm text-fg disabled:opacity-60"
             disabled={!canEditScript}
             onChange={(event) => onUpdateScene({ status: event.target.value })}
             value={scene.status}
@@ -3125,7 +3125,7 @@ function SceneTab(props: TimelineViewProps) {
         <div className="grid grid-cols-2 gap-1.5">
           {sceneSoundOptions.map((option) => (
             <label
-              className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-300"
+              className="flex items-center gap-2 rounded-md border border-line bg-background px-2 py-1.5 text-xs text-muted-strong"
               key={option}
             >
               <input
@@ -3160,7 +3160,7 @@ function ScriptTab(props: TimelineViewProps) {
         <div className="flex items-center justify-between gap-2">
           <FieldLabel>{t("scene.literaryScript")}</FieldLabel>
           <button
-            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-900"
+            className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-2 py-1 text-[10px] font-medium text-muted-strong hover:bg-surface"
             onClick={onOpenScriptOverlay}
             title={t("scene.scriptShortcutHint")}
             type="button"
@@ -3172,7 +3172,7 @@ function ScriptTab(props: TimelineViewProps) {
               <path d="M3 21l7-7" />
             </svg>
             {t("scene.openInOverlay")}
-            <kbd className="rounded border border-zinc-700 bg-zinc-900 px-1 text-[9px] font-mono text-zinc-400">G</kbd>
+            <kbd className="rounded border border-line-strong bg-surface px-1 text-[9px] font-mono text-muted">G</kbd>
           </button>
         </div>
         <TextArea
@@ -3191,7 +3191,7 @@ function ShotTab(props: TimelineViewProps) {
 
   if (!activeShot) {
     return (
-      <div className="p-5 text-sm text-zinc-500">{t("scene.emptyShots")}</div>
+      <div className="p-5 text-sm text-muted">{t("scene.emptyShots")}</div>
     );
   }
 
@@ -3200,11 +3200,11 @@ function ShotTab(props: TimelineViewProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <FieldLabel>{t("scene.number")}</FieldLabel>
-          <p className="mt-1 text-lg font-semibold text-zinc-50">{activeShot.shotNumber}</p>
+          <p className="mt-1 text-lg font-semibold text-fg-strong">{activeShot.shotNumber}</p>
         </div>
         {canEditScript ? (
           <button
-            className="rounded-md border border-red-900/70 px-2.5 py-1.5 text-[11px] font-medium text-red-200 hover:bg-red-950/30"
+            className="rounded-md border border-danger px-2.5 py-1.5 text-[11px] font-medium text-danger-fg hover:bg-danger-soft"
             onClick={() => onRemoveShot(activeShot.id)}
             type="button"
           >
@@ -3235,7 +3235,7 @@ function ShotTab(props: TimelineViewProps) {
       <div className="grid gap-2">
         <FieldLabel>{t("scene.status")}</FieldLabel>
         <select
-          className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-950 px-2 text-sm text-zinc-100 disabled:opacity-60"
+          className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-2 text-sm text-fg disabled:opacity-60"
           disabled={!canEditScript}
           onChange={(event) => onUpdateShot(activeShot.id, { status: event.target.value as ShotStatus })}
           value={activeShot.status}
@@ -3248,8 +3248,8 @@ function ShotTab(props: TimelineViewProps) {
         </select>
       </div>
 
-      <fieldset className="grid min-w-0 gap-2 rounded-md border border-zinc-800 bg-zinc-950 p-3">
-        <legend className="px-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+      <fieldset className="grid min-w-0 gap-2 rounded-md border border-line bg-background p-3">
+        <legend className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
           {t("scene.time")} · {scene.fpsDefault} fps
         </legend>
         <div className="grid min-w-0 grid-cols-3 gap-2">
@@ -3348,9 +3348,9 @@ function TimecodeField({
   }, [value, fps]);
   return (
     <label className="grid min-w-0 gap-1">
-      <span className="truncate text-[10px] font-medium uppercase tracking-wider text-zinc-500">{label}</span>
+      <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted">{label}</span>
       <input
-        className="h-9 w-full min-w-0 rounded-md border border-zinc-800 bg-zinc-950 px-1.5 text-center text-[11px] tabular-nums text-zinc-100 focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:opacity-60"
+        className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-1.5 text-center text-[11px] tabular-nums text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:opacity-60"
         disabled={disabled}
         onBlur={() => {
           const parsed = parseTimecode(draft, fps);
@@ -3389,17 +3389,17 @@ function TeamTab(props: TimelineViewProps) {
   return (
     <div className="grid gap-4 p-4 sm:p-5">
       {canManageResources ? (
-        <form className="grid gap-3 rounded-md border border-zinc-800 bg-zinc-950 p-3" onSubmit={onAddHumanResource}>
+        <form className="grid gap-3 rounded-md border border-line bg-background p-3" onSubmit={onAddHumanResource}>
           <FieldLabel>{t("scene.responsible")}</FieldLabel>
           {availableResourceMembers.length === 0 ? (
-            <p className="text-xs text-zinc-500">{t("scene.noAvailableMembers")}</p>
+            <p className="text-xs text-muted">{t("scene.noAvailableMembers")}</p>
           ) : (
-            <div className="grid max-h-44 gap-1 overflow-y-auto rounded-md border border-zinc-800 bg-zinc-950 p-1">
+            <div className="grid max-h-44 gap-1 overflow-y-auto rounded-md border border-line bg-background p-1">
               {availableResourceMembers.map((member) => {
                 const checked = selectedResourceUserIds.includes(member.id);
                 return (
                   <label
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-zinc-900"
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-surface"
                     key={member.id}
                   >
                     <input
@@ -3415,8 +3415,8 @@ function TeamTab(props: TimelineViewProps) {
                       }
                       type="checkbox"
                     />
-                    <span className="flex-1 truncate text-xs text-zinc-200">{member.name}</span>
-                    <span className="text-[10px] uppercase text-zinc-500">{member.role}</span>
+                    <span className="flex-1 truncate text-xs text-fg">{member.name}</span>
+                    <span className="text-[10px] uppercase text-muted">{member.role}</span>
                   </label>
                 );
               })}
@@ -3430,8 +3430,8 @@ function TeamTab(props: TimelineViewProps) {
                 <button
                   className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
                     selected
-                      ? "border-red-600 bg-red-600/15 text-zinc-50"
-                      : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:bg-zinc-900"
+                      ? "border-red-600 bg-red-600/15 text-fg-strong"
+                      : "border-line bg-background text-muted hover:bg-surface"
                   }`}
                   key={stage}
                   onClick={() =>
@@ -3460,16 +3460,16 @@ function TeamTab(props: TimelineViewProps) {
 
       <div className="grid gap-2">
         {humanResources.map((resource) => (
-          <article className="rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs" key={resource.id}>
+          <article className="rounded-md border border-line bg-background p-3 text-xs" key={resource.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-semibold text-zinc-50">{resource.name}</p>
-                <p className="mt-0.5 text-zinc-500">{resource.email}</p>
-                <p className="mt-1 text-[10px] font-medium uppercase text-red-400">{resource.role}</p>
+                <p className="font-semibold text-fg-strong">{resource.name}</p>
+                <p className="mt-0.5 text-muted">{resource.email}</p>
+                <p className="mt-1 text-[10px] font-medium uppercase text-danger-fg">{resource.role}</p>
               </div>
               {canManageResources ? (
                 <button
-                  className="rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-medium text-zinc-300 hover:bg-zinc-900"
+                  className="rounded-md border border-line-strong px-2 py-1 text-[10px] font-medium text-muted-strong hover:bg-surface"
                   onClick={() => void onRemoveHumanResource(resource.id)}
                   type="button"
                 >
@@ -3484,8 +3484,8 @@ function TeamTab(props: TimelineViewProps) {
                   <button
                     className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition ${
                       active
-                        ? "border-red-600 bg-red-600/15 text-zinc-50"
-                        : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:bg-zinc-900"
+                        ? "border-red-600 bg-red-600/15 text-fg-strong"
+                        : "border-line bg-background text-muted hover:bg-surface"
                     }`}
                     disabled={!canManageResources}
                     key={stage}
@@ -3505,7 +3505,7 @@ function TeamTab(props: TimelineViewProps) {
           </article>
         ))}
         {humanResources.length === 0 ? (
-          <p className="rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-500">
+          <p className="rounded-md border border-line bg-background p-3 text-xs text-muted">
             {t("scene.noResponsibles")}
           </p>
         ) : null}
@@ -3538,7 +3538,7 @@ function ElementsTab(props: TimelineViewProps) {
             {canEditScript ? (
               <form className="flex gap-2" onSubmit={(event) => void onAddAssetTag(event, category)}>
                 <input
-                  className="h-9 min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 text-sm text-zinc-100"
+                  className="h-9 min-w-0 flex-1 rounded-md border border-line bg-background px-2.5 text-sm text-fg"
                   list={datalistId}
                   onChange={(event) => onTagInputChange(category, event.target.value)}
                   placeholder={t("scene.writeOrSelect")}
@@ -3561,13 +3561,13 @@ function ElementsTab(props: TimelineViewProps) {
             <div className="flex flex-wrap gap-1.5">
               {categoryTags.map((tag) => (
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-2 py-1 text-xs text-fg"
                   key={tag.id}
                 >
                   {tag.name}
                   {canEditScript ? (
                     <button
-                      className="text-[10px] font-semibold text-zinc-500 hover:text-red-300"
+                      className="text-[10px] font-semibold text-muted hover:text-danger-fg"
                       onClick={() => void onRemoveAssetTag(tag.id)}
                       type="button"
                     >
@@ -3577,7 +3577,7 @@ function ElementsTab(props: TimelineViewProps) {
                 </span>
               ))}
               {categoryTags.length === 0 ? (
-                <p className="text-xs text-zinc-500">{t("scene.noTags")}</p>
+                <p className="text-xs text-muted">{t("scene.noTags")}</p>
               ) : null}
             </div>
           </div>
@@ -3605,7 +3605,7 @@ function FilesTab(props: TimelineViewProps) {
   } = props;
   return (
     <div className="grid gap-4 p-4 sm:p-5">
-      <form className="grid gap-3 rounded-md border border-zinc-800 bg-zinc-950 p-3" onSubmit={onUploadAttachment}>
+      <form className="grid gap-3 rounded-md border border-line bg-background p-3" onSubmit={onUploadAttachment}>
         <FieldLabel>{t("scene.title")}</FieldLabel>
         <TextInput onChange={setAttachmentTitle} value={attachmentTitle} />
         <FieldLabel>{t("scene.attachmentDate")}</FieldLabel>
@@ -3613,7 +3613,7 @@ function FilesTab(props: TimelineViewProps) {
         <FieldLabel>{t("scene.description")}</FieldLabel>
         <TextArea onChange={setAttachmentDescription} value={attachmentDescription} />
         <button
-          className="rounded-md border border-dashed border-zinc-700 bg-zinc-950 px-3 py-3 text-xs text-zinc-300 hover:border-red-700 hover:bg-zinc-900"
+          className="rounded-md border border-dashed border-line-strong bg-background px-3 py-3 text-xs text-muted-strong hover:border-red-700 hover:bg-surface"
           onClick={() => fileInputRef.current?.click()}
           type="button"
         >
@@ -3635,24 +3635,24 @@ function FilesTab(props: TimelineViewProps) {
       </form>
       <div className="grid gap-2">
         {attachments.map((attachment) => (
-          <article className="rounded-md border border-zinc-800 bg-zinc-950 p-3 text-xs" key={attachment.id}>
+          <article className="rounded-md border border-line bg-background p-3 text-xs" key={attachment.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-semibold text-zinc-50">{attachment.title}</p>
-                <p className="mt-0.5 text-zinc-500">
+                <p className="font-semibold text-fg-strong">{attachment.title}</p>
+                <p className="mt-0.5 text-muted">
                   {formatDate(attachment.attachmentDate)} · {attachment.uploadedByName}
                 </p>
               </div>
-              <span className="rounded-md bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300">
+              <span className="rounded-md bg-elevated px-1.5 py-0.5 text-[10px] text-muted-strong">
                 {attachment.fileSizeMb} MB
               </span>
             </div>
             {attachment.description ? (
-              <p className="mt-1.5 text-zinc-400">{attachment.description}</p>
+              <p className="mt-1.5 text-muted">{attachment.description}</p>
             ) : null}
             {attachment.url ? (
               <a
-                className="mt-2 inline-flex text-[11px] font-medium text-red-300 hover:text-red-200"
+                className="mt-2 inline-flex text-[11px] font-medium text-danger-fg hover:text-danger-fg"
                 href={attachment.url}
                 rel="noreferrer"
                 target="_blank"
@@ -3660,12 +3660,12 @@ function FilesTab(props: TimelineViewProps) {
                 {t("scene.openFile", { fileName: attachment.fileName })}
               </a>
             ) : (
-              <p className="mt-2 text-[11px] text-zinc-500">{attachment.fileName}</p>
+              <p className="mt-2 text-[11px] text-muted">{attachment.fileName}</p>
             )}
           </article>
         ))}
         {attachments.length === 0 ? (
-          <p className="text-xs text-zinc-500">{t("scene.noAttachments")}</p>
+          <p className="text-xs text-muted">{t("scene.noAttachments")}</p>
         ) : null}
       </div>
     </div>
@@ -3694,12 +3694,12 @@ function TableView({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-3 sm:px-7">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
           {t("scene.tableSubtitle", { count: shots.length })}
         </p>
         {canEditScript ? (
           <button
-            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:bg-zinc-800"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg hover:bg-elevated"
             onClick={() => onAddShotAfter(shots[shots.length - 1] ?? null)}
             type="button"
           >
@@ -3709,7 +3709,7 @@ function TableView({
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 sm:px-7">
         <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-xs">
-          <thead className="sticky top-0 z-10 bg-zinc-950">
+          <thead className="sticky top-0 z-10 bg-background">
             <tr>
               {[
                 t("scene.number"),
@@ -3727,7 +3727,7 @@ function TableView({
                 ""
               ].map((label, idx) => (
                 <th
-                  className="border-b border-zinc-800 bg-zinc-900/80 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+                  className="border-b border-line bg-surface/80 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted"
                   key={idx}
                 >
                   {label}
@@ -3737,7 +3737,7 @@ function TableView({
           </thead>
           <tbody>
             {shots.map((shot) => (
-              <tr className="hover:bg-zinc-900/30" key={shot.id}>
+              <tr className="hover:bg-surface/30" key={shot.id}>
                 <Cell>
                   <CellInput
                     disabled={!canEditScript}
@@ -3756,7 +3756,7 @@ function TableView({
                 </Cell>
                 <Cell>
                   <select
-                    className="h-7 w-32 rounded border border-zinc-800 bg-zinc-950 px-1 text-xs text-zinc-100 disabled:opacity-60"
+                    className="h-7 w-32 rounded border border-line bg-background px-1 text-xs text-fg disabled:opacity-60"
                     disabled={!canEditScript}
                     onChange={(event) => onUpdateShot(shot.id, { status: event.target.value as ShotStatus })}
                     value={shot.status}
@@ -3838,7 +3838,7 @@ function TableView({
                   {canEditScript ? (
                     <div className="flex gap-1">
                       <button
-                        className="rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-800"
+                        className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted-strong hover:bg-elevated"
                         onClick={() => onAddShotAfter(shot)}
                         title={t("scene.addShot")}
                         type="button"
@@ -3846,7 +3846,7 @@ function TableView({
                         +
                       </button>
                       <button
-                        className="rounded border border-red-900/70 px-1.5 py-0.5 text-[10px] text-red-200 hover:bg-red-950/30"
+                        className="rounded border border-danger px-1.5 py-0.5 text-[10px] text-danger-fg hover:bg-danger-soft"
                         onClick={() => onRemoveShot(shot.id)}
                         title={t("scene.remove")}
                         type="button"
@@ -3860,7 +3860,7 @@ function TableView({
             ))}
             {shots.length === 0 ? (
               <tr>
-                <td className="border-b border-zinc-800 px-3 py-6 text-center text-zinc-500" colSpan={13}>
+                <td className="border-b border-line px-3 py-6 text-center text-muted" colSpan={13}>
                   {t("scene.emptyShots")}
                 </td>
               </tr>
@@ -3873,7 +3873,7 @@ function TableView({
 }
 
 function Cell({ children }: { children: React.ReactNode }) {
-  return <td className="border-b border-zinc-900 bg-zinc-950/40 px-2 py-1.5 align-top">{children}</td>;
+  return <td className="border-b border-line bg-background/40 px-2 py-1.5 align-top">{children}</td>;
 }
 
 function CellInput({
@@ -3891,7 +3891,7 @@ function CellInput({
   useEffect(() => setDraft(value), [value]);
   return (
     <input
-      className={`h-7 ${width} rounded border border-transparent bg-transparent px-1 text-xs text-zinc-100 focus:border-zinc-700 focus:bg-zinc-950 focus:outline-none disabled:opacity-60`}
+      className={`h-7 ${width} rounded border border-transparent bg-transparent px-1 text-xs text-fg focus:border-line-strong focus:bg-background focus:outline-none disabled:opacity-60`}
       disabled={disabled}
       onBlur={() => {
         if (draft !== value) onCommit(draft);
@@ -3918,7 +3918,7 @@ function CellTextarea({
   useEffect(() => setDraft(value), [value]);
   return (
     <textarea
-      className="min-h-7 w-72 resize-y rounded border border-transparent bg-transparent px-1 py-0.5 text-xs leading-4 text-zinc-100 focus:border-zinc-700 focus:bg-zinc-950 focus:outline-none disabled:opacity-60"
+      className="min-h-7 w-72 resize-y rounded border border-transparent bg-transparent px-1 py-0.5 text-xs leading-4 text-fg focus:border-line-strong focus:bg-background focus:outline-none disabled:opacity-60"
       disabled={disabled}
       onBlur={() => {
         if (draft !== value) onCommit(draft);
@@ -3945,7 +3945,7 @@ function TimecodeCell({
   useEffect(() => setDraft(framesToTimecode(value, fps)), [value, fps]);
   return (
     <input
-      className="h-7 w-28 rounded border border-transparent bg-transparent px-1 text-xs tabular-nums text-zinc-100 focus:border-zinc-700 focus:bg-zinc-950 focus:outline-none disabled:opacity-60"
+      className="h-7 w-28 rounded border border-transparent bg-transparent px-1 text-xs tabular-nums text-fg focus:border-line-strong focus:bg-background focus:outline-none disabled:opacity-60"
       disabled={disabled}
       onBlur={() => {
         const parsed = parseTimecode(draft, fps);
@@ -3981,14 +3981,14 @@ function MergeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-xl rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
-        <div className="border-b border-zinc-800 px-5 py-4">
-          <h2 className="text-base font-semibold text-zinc-50">{t("scene.mergeShots")}</h2>
-          <p className="mt-1 text-xs text-zinc-400">{t("scene.mergeHelp")}</p>
+      <div className="w-full max-w-xl rounded-lg border border-line bg-background shadow-2xl">
+        <div className="border-b border-line px-5 py-4">
+          <h2 className="text-base font-semibold text-fg-strong">{t("scene.mergeShots")}</h2>
+          <p className="mt-1 text-xs text-muted">{t("scene.mergeHelp")}</p>
         </div>
 
-        <div className="grid gap-2 border-b border-zinc-800 px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <div className="grid gap-2 border-b border-line px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             {t("scene.mergePreview")}
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -4002,7 +4002,7 @@ function MergeModal({
               {framesToTimecode(preview.durationFrames, fps)}
             </PreviewTile>
           </div>
-          <p className="text-[10px] text-zinc-500">
+          <p className="text-[10px] text-muted">
             {t("scene.mergePreviewHint", {
               left: `${formatTimeRange(request.leftStartFrame, request.leftEndFrame, fps)}`,
               right: `${formatTimeRange(request.rightStartFrame, request.rightEndFrame, fps)}`
@@ -4012,33 +4012,33 @@ function MergeModal({
 
         <div className="grid gap-3 p-5 sm:grid-cols-2">
           <button
-            className="flex flex-col items-start gap-1 rounded-md border border-zinc-800 bg-zinc-900 p-4 text-left text-sm transition hover:border-red-600 hover:bg-red-600/10 disabled:opacity-50"
+            className="flex flex-col items-start gap-1 rounded-md border border-line bg-surface p-4 text-left text-sm transition hover:border-red-600 hover:bg-red-600/10 disabled:opacity-50"
             disabled={isSubmitting}
             onClick={() => onConfirm("left")}
             type="button"
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("scene.mergeKeepLeft")}
             </span>
-            <span className="font-semibold text-zinc-100">{request.leftLabel}</span>
-            <span className="text-[11px] text-zinc-500">{t("scene.mergeKeepHint")}</span>
+            <span className="font-semibold text-fg">{request.leftLabel}</span>
+            <span className="text-[11px] text-muted">{t("scene.mergeKeepHint")}</span>
           </button>
           <button
-            className="flex flex-col items-start gap-1 rounded-md border border-zinc-800 bg-zinc-900 p-4 text-left text-sm transition hover:border-red-600 hover:bg-red-600/10 disabled:opacity-50"
+            className="flex flex-col items-start gap-1 rounded-md border border-line bg-surface p-4 text-left text-sm transition hover:border-red-600 hover:bg-red-600/10 disabled:opacity-50"
             disabled={isSubmitting}
             onClick={() => onConfirm("right")}
             type="button"
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("scene.mergeKeepRight")}
             </span>
-            <span className="font-semibold text-zinc-100">{request.rightLabel}</span>
-            <span className="text-[11px] text-zinc-500">{t("scene.mergeKeepHint")}</span>
+            <span className="font-semibold text-fg">{request.rightLabel}</span>
+            <span className="text-[11px] text-muted">{t("scene.mergeKeepHint")}</span>
           </button>
         </div>
-        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <button
-            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted-strong hover:bg-elevated disabled:opacity-50"
             disabled={isSubmitting}
             onClick={onCancel}
             type="button"
@@ -4094,31 +4094,31 @@ function AddShotModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
-        <div className="border-b border-zinc-800 px-5 py-4">
-          <h2 className="text-base font-semibold text-zinc-50">{t("scene.addShotTitle")}</h2>
-          <p className="mt-1 text-xs text-zinc-400">{t("scene.addShotHelp")}</p>
+      <div className="w-full max-w-lg rounded-lg border border-line bg-background shadow-2xl">
+        <div className="border-b border-line px-5 py-4">
+          <h2 className="text-base font-semibold text-fg-strong">{t("scene.addShotTitle")}</h2>
+          <p className="mt-1 text-xs text-muted">{t("scene.addShotHelp")}</p>
         </div>
 
         <div className="grid gap-4 px-5 py-4">
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {t("scene.addShotStart")}
               </span>
               <input
-                className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm tabular-nums text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm tabular-nums text-fg focus:border-red-600/60 focus:outline-none"
                 onChange={(event) => setStartTc(event.target.value)}
                 placeholder="00:00:00:00"
                 value={startTc}
               />
             </label>
             <label className="grid gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {t("scene.addShotDuration")}
               </span>
               <input
-                className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm tabular-nums text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm tabular-nums text-fg focus:border-red-600/60 focus:outline-none"
                 onChange={(event) => setDurationTc(event.target.value)}
                 placeholder="00:00:02:00"
                 value={durationTc}
@@ -4126,45 +4126,45 @@ function AddShotModal({
             </label>
           </div>
 
-          <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-center">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+          <div className="rounded-md border border-line bg-surface px-3 py-2 text-center">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted">
               {t("scene.addShotEnd")}
             </p>
-            <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-zinc-100">
+            <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-fg">
               {endFrame !== null ? framesToTimecode(endFrame, fps) : "—"}
             </p>
           </div>
 
           <label className="grid gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("scene.type")}
             </span>
             <input
-              className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-fg focus:border-red-600/60 focus:outline-none"
               onChange={(event) => setShotType(event.target.value)}
               value={shotType}
             />
           </label>
 
           <label className="grid gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t("scene.description")}
             </span>
             <textarea
-              className="min-h-20 resize-y rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm leading-5 text-zinc-100 focus:border-red-600/60 focus:outline-none"
+              className="min-h-20 resize-y rounded-md border border-line bg-surface px-2.5 py-2 text-sm leading-5 text-fg focus:border-red-600/60 focus:outline-none"
               onChange={(event) => setDescription(event.target.value)}
               value={description}
             />
           </label>
 
           {touched && !valid ? (
-            <p className="text-[11px] text-red-400">{t("scene.addShotInvalid")}</p>
+            <p className="text-[11px] text-danger-fg">{t("scene.addShotInvalid")}</p>
           ) : null}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <button
-            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted-strong hover:bg-elevated"
             onClick={onCancel}
             type="button"
           >
@@ -4268,11 +4268,11 @@ function DeleteSceneModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-lg border border-red-900/60 bg-zinc-950 shadow-2xl">
-        <div className="border-b border-zinc-800 px-5 py-4">
-          <h2 className="text-base font-semibold text-red-300">{t("scene.deleteSceneTitle")}</h2>
-          <p className="mt-1 text-xs text-zinc-400">{t("scene.deleteSceneHelp")}</p>
-          <p className="mt-2 text-[11px] text-zinc-500">
+      <div className="w-full max-w-lg rounded-lg border border-danger bg-background shadow-2xl">
+        <div className="border-b border-line px-5 py-4">
+          <h2 className="text-base font-semibold text-danger-fg">{t("scene.deleteSceneTitle")}</h2>
+          <p className="mt-1 text-xs text-muted">{t("scene.deleteSceneHelp")}</p>
+          <p className="mt-2 text-[11px] text-muted">
             {t("scene.scene")} {sceneNumber} · {sceneTitle}
           </p>
         </div>
@@ -4280,12 +4280,12 @@ function DeleteSceneModal({
         {!isDeleting && !done ? (
           <div className="grid gap-3 px-5 py-4">
             <label className="grid gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {t("scene.deleteSceneConfirmLabel")}
               </span>
               <input
                 autoFocus
-                className="rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-2 text-sm text-zinc-100 focus:border-red-600/60 focus:outline-none"
+                className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-fg focus:border-red-600/60 focus:outline-none"
                 onChange={(event) => setConfirmation(event.target.value)}
                 placeholder={t("scene.deleteSceneConfirmPlaceholder")}
                 value={confirmation}
@@ -4294,27 +4294,27 @@ function DeleteSceneModal({
           </div>
         ) : (
           <div className="grid gap-2 px-5 py-4">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-elevated">
               <div
                 className={`h-full transition-all duration-200 ${done ? "bg-emerald-500" : "bg-red-500"}`}
                 style={{ width: `${Math.max(2, Math.min(100, progress))}%` }}
               />
             </div>
-            <p className="text-xs tabular-nums text-zinc-300">
+            <p className="text-xs tabular-nums text-muted-strong">
               {Math.round(progress)}% · {label || "..."}
             </p>
           </div>
         )}
 
         {error ? (
-          <p className="mx-5 mb-2 rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+          <p className="mx-5 mb-2 rounded-md border border-danger bg-danger-soft px-3 py-2 text-xs text-danger-fg">
             {error}
           </p>
         ) : null}
 
-        <div className="flex justify-end gap-2 border-t border-zinc-800 px-5 py-3">
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <button
-            className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted-strong hover:bg-elevated disabled:opacity-50"
             disabled={isDeleting && !done && !error}
             onClick={onCancel}
             type="button"
@@ -4339,9 +4339,9 @@ function DeleteSceneModal({
 
 function PreviewTile({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-2 text-center">
-      <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">{label}</p>
-      <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-zinc-100">{children}</p>
+    <div className="rounded-md border border-line bg-surface px-2 py-2 text-center">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted">{label}</p>
+      <p className="mt-0.5 text-[12px] font-semibold tabular-nums text-fg">{children}</p>
     </div>
   );
 }
@@ -4402,24 +4402,24 @@ function ScriptOverlay({
       onClick={onClose}
     >
       <div
-        className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl"
+        className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-line bg-background shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-800 px-6 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-red-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg">
               {t("scene.scene")} {scene.sceneNumber} · {t("scene.literaryScript")}
-              {canEdit ? <span className="ml-2 text-zinc-500">· {t("scene.adminEditEnabled")}</span> : null}
+              {canEdit ? <span className="ml-2 text-muted">· {t("scene.adminEditEnabled")}</span> : null}
             </p>
             {scene.literaryHeading ? (
-              <h2 className="mt-1 truncate text-base font-semibold text-zinc-50">{scene.literaryHeading}</h2>
+              <h2 className="mt-1 truncate text-base font-semibold text-fg-strong">{scene.literaryHeading}</h2>
             ) : scene.title ? (
-              <h2 className="mt-1 truncate text-base font-semibold text-zinc-50">{scene.title}</h2>
+              <h2 className="mt-1 truncate text-base font-semibold text-fg-strong">{scene.title}</h2>
             ) : null}
           </div>
           <button
             aria-label={t("scene.cancel")}
-            className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            className="shrink-0 rounded-md p-1.5 text-muted hover:bg-elevated hover:text-fg"
             onClick={onClose}
             type="button"
           >
@@ -4443,15 +4443,15 @@ function ScriptOverlay({
               dangerouslySetInnerHTML={{ __html: plainTextToHtml(scene.literaryScript) }}
             />
           ) : (
-            <p className="text-sm italic text-zinc-500">{t("scene.missingLiteraryScript")}</p>
+            <p className="text-sm italic text-muted">{t("scene.missingLiteraryScript")}</p>
           )}
         </div>
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-zinc-800 bg-zinc-900/40 px-6 py-2 text-[11px] text-zinc-500">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line bg-surface/40 px-6 py-2 text-[11px] text-muted">
           <span>{t("scene.scriptShortcutHint")}</span>
           <span className="flex items-center gap-1.5">
-            <kbd className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300">G</kbd>
+            <kbd className="rounded border border-line-strong bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted-strong">G</kbd>
             <span>·</span>
-            <kbd className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300">Esc</kbd>
+            <kbd className="rounded border border-line-strong bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted-strong">Esc</kbd>
           </span>
         </div>
       </div>

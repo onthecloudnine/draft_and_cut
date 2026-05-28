@@ -16,12 +16,12 @@ export default async function LoginPage() {
 
   return (
     <I18nProvider dictionary={dictionary} locale={locale}>
-      <main className="flex min-h-screen items-center justify-center bg-black px-4 py-10 text-slate-100">
-        <section className="w-full max-w-sm rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-2xl shadow-black/30">
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-fg">
+        <section className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-2xl shadow-black/30">
           <div className="mb-6">
-            <p className="text-sm font-medium uppercase tracking-wide text-red-300">{t("app.brand")}</p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-50">{t("login.title")}</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-400">{t("login.subtitle")}</p>
+            <p className="text-sm font-medium uppercase tracking-wide text-danger-fg">{t("app.brand")}</p>
+            <h1 className="mt-2 text-2xl font-semibold text-fg-strong">{t("login.title")}</h1>
+            <p className="mt-2 text-sm leading-6 text-muted">{t("login.subtitle")}</p>
           </div>
           <LoginForm />
         </section>

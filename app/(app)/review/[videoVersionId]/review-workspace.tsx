@@ -141,7 +141,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
   return (
     <div className="grid gap-6 p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_420px]">
       <section className="grid gap-4">
-        <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-lg shadow-black/30">
+        <div className="overflow-hidden rounded-lg border border-line bg-black shadow-lg shadow-black/30">
           <video
             className="aspect-video w-full"
             controls
@@ -151,17 +151,17 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
           />
         </div>
 
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30">
+        <div className="rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/30">
           <div className="flex flex-wrap items-center gap-3">
             <button
-              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-neutral-800"
+              className="rounded-md border border-line-strong px-3 py-2 text-sm font-medium text-fg hover:bg-elevated"
               onClick={() => stepFrame(-1)}
               type="button"
             >
               {t("review.frameBack")}
             </button>
             <button
-              className="rounded-md border border-neutral-700 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-neutral-800"
+              className="rounded-md border border-line-strong px-3 py-2 text-sm font-medium text-fg hover:bg-elevated"
               onClick={() => stepFrame(1)}
               type="button"
             >
@@ -169,23 +169,23 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
             </button>
             <div className="ml-auto grid grid-cols-3 gap-4 text-sm">
               <div>
-                <p className="text-slate-500">{t("review.time")}</p>
-                <p className="font-medium text-slate-100">{currentTime.toFixed(3)}s</p>
+                <p className="text-muted">{t("review.time")}</p>
+                <p className="font-medium text-fg">{currentTime.toFixed(3)}s</p>
               </div>
               <div>
-                <p className="text-slate-500">Frame</p>
-                <p className="font-medium text-slate-100">{currentFrame}</p>
+                <p className="text-muted">Frame</p>
+                <p className="font-medium text-fg">{currentFrame}</p>
               </div>
               <div>
-                <p className="text-slate-500">Timecode</p>
-                <p className="font-medium text-slate-100">{currentTimecode}</p>
+                <p className="text-muted">Timecode</p>
+                <p className="font-medium text-fg">{currentTimecode}</p>
               </div>
             </div>
           </div>
 
-          <div className="relative mt-5 h-7 rounded-full bg-black">
+          <div className="relative mt-5 h-7 rounded-full bg-elevated">
             <div
-              className="absolute left-0 top-0 h-7 rounded-full bg-red-900/30"
+              className="absolute left-0 top-0 h-7 rounded-full bg-danger-soft"
               style={{ width: `${Math.min(100, (currentFrame / data.video.frameCount) * 100)}%` }}
             />
             {comments.map((comment) => (
@@ -205,11 +205,11 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
           </div>
         </div>
 
-        <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30" onSubmit={createComment}>
+        <form className="grid gap-3 rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/30" onSubmit={createComment}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold text-slate-50">{t("review.commentFrame", { frame: currentFrame })}</h2>
+            <h2 className="font-semibold text-fg-strong">{t("review.commentFrame", { frame: currentFrame })}</h2>
             <select
-              className="h-9 rounded-md border border-neutral-700 bg-black px-2 text-sm text-slate-100"
+              className="h-9 rounded-md border border-line-strong bg-background px-2 text-sm text-fg"
               onChange={(event) => setPriority(event.target.value as CommentPriority)}
               value={priority}
             >
@@ -221,12 +221,12 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
             </select>
           </div>
           <textarea
-            className="min-h-24 rounded-md border border-neutral-700 bg-black px-3 py-2 text-sm text-slate-100"
+            className="min-h-24 rounded-md border border-line-strong bg-background px-3 py-2 text-sm text-fg"
             onChange={(event) => setCommentText(event.target.value)}
             placeholder={t("review.commentPlaceholder")}
             value={commentText}
           />
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
           <div className="flex justify-end">
             <button
               className="h-10 rounded-md bg-red-900 px-4 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-60"
@@ -240,39 +240,39 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
       </section>
 
       <aside className="grid gap-4">
-        <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30">
-          <h2 className="font-semibold text-slate-50">{t("review.technicalScript")}</h2>
+        <section className="rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/30">
+          <h2 className="font-semibold text-fg-strong">{t("review.technicalScript")}</h2>
           {data.shot ? (
             <div className="mt-4 grid gap-3 text-sm">
-              <p className="font-medium text-slate-50">
+              <p className="font-medium text-fg-strong">
                 Shot {data.shot.shotNumber} {data.shot.shotType ? `- ${data.shot.shotType}` : ""}
               </p>
-              <p className="leading-6 text-slate-400">{data.shot.description}</p>
+              <p className="leading-6 text-muted">{data.shot.description}</p>
               <dl className="grid gap-3">
                 <div>
-                  <dt className="text-slate-500">{t("scene.action")}</dt>
-                  <dd className="text-slate-100">{data.shot.action || "-"}</dd>
+                  <dt className="text-muted">{t("scene.action")}</dt>
+                  <dd className="text-fg">{data.shot.action || "-"}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">{t("scene.camera")}</dt>
-                  <dd className="text-slate-100">{data.shot.camera || "-"}</dd>
+                  <dt className="text-muted">{t("scene.camera")}</dt>
+                  <dd className="text-fg">{data.shot.camera || "-"}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">{t("scene.sound")}</dt>
-                  <dd className="text-slate-100">{data.shot.sound || "-"}</dd>
+                  <dt className="text-muted">{t("scene.sound")}</dt>
+                  <dd className="text-fg">{data.shot.sound || "-"}</dd>
                 </div>
               </dl>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-400">{t("review.completeSceneVersion")}</p>
+            <p className="mt-3 text-sm text-muted">{t("review.completeSceneVersion")}</p>
           )}
         </section>
 
-        <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 shadow-lg shadow-black/30">
+        <section className="rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/30">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold text-slate-50">{t("review.comments")}</h2>
+            <h2 className="font-semibold text-fg-strong">{t("review.comments")}</h2>
             <select
-              className="h-9 rounded-md border border-neutral-700 bg-black px-2 text-sm text-slate-100"
+              className="h-9 rounded-md border border-line-strong bg-background px-2 text-sm text-fg"
               onChange={(event) => setStatusFilter(event.target.value as CommentStatus | "all")}
               value={statusFilter}
             >
@@ -286,20 +286,20 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
           </div>
           <div className="mt-4 grid gap-3">
             {filteredComments.map((comment) => (
-              <article className="rounded-md border border-neutral-800 bg-black/40 p-3 text-sm" key={comment.id}>
+              <article className="rounded-md border border-line bg-background/60 p-3 text-sm" key={comment.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-slate-50">
+                    <p className="font-medium text-fg-strong">
                       {t("review.frame")} {comment.frame} / {comment.timecode}
                     </p>
-                    <p className="mt-2 leading-6 text-slate-400">{comment.text}</p>
+                    <p className="mt-2 leading-6 text-muted">{comment.text}</p>
                   </div>
-                  <span className="rounded-md bg-neutral-800 px-2 py-1 text-xs text-slate-300">
+                  <span className="rounded-md bg-elevated px-2 py-1 text-xs text-muted-strong">
                     {optionLabel("commentPriorities", comment.priority)}
                   </span>
                 </div>
                 <select
-                  className="mt-3 h-9 w-full rounded-md border border-neutral-700 bg-black px-2 text-sm text-slate-100"
+                  className="mt-3 h-9 w-full rounded-md border border-line-strong bg-background px-2 text-sm text-fg"
                   onChange={(event) => void updateCommentStatus(comment.id, event.target.value as CommentStatus)}
                   value={comment.status}
                 >
@@ -312,7 +312,7 @@ export function ReviewWorkspace({ data }: { data: ReviewData }) {
               </article>
             ))}
             {filteredComments.length === 0 ? (
-              <p className="text-sm text-slate-400">{t("review.emptyComments")}</p>
+              <p className="text-sm text-muted">{t("review.emptyComments")}</p>
             ) : null}
           </div>
         </section>

@@ -28,14 +28,36 @@ const updateUserSchema = z.object({
   isActive: z.boolean()
 });
 
-function serializeUser(user: SerializableUser, projectCount: number) {
+async function serializeUser(user: SerializableUser) {
+  const memberships = await ProjectMembership.find({ userId: String(user._id) }).lean();
+  const projectIds = memberships.map((membership) => membership.projectId);
+  const { Project } = await import("@/models/Project");
+  const projects = await Project.find({ _id: { $in: projectIds } }).select("slug title").lean();
+  const projectMap = new Map(projects.map((project) => [String(project._id), project]));
+  const items = memberships
+    .map((membership) => {
+      const project = projectMap.get(String(membership.projectId));
+      if (!project) return null;
+      return {
+        projectId: String(membership.projectId),
+        projectSlug: project.slug,
+        projectTitle: project.title,
+        role: membership.role
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((left, right) =>
+      left.projectTitle.localeCompare(right.projectTitle, undefined, { sensitivity: "base" })
+    );
+
   return {
     id: String(user._id),
     name: user.name,
     email: user.email,
     accountRole: user.accountRole ?? "user",
     isActive: user.isActive,
-    projectCount,
+    projectCount: items.length,
+    memberships: items,
     createdAt: user.createdAt?.toISOString(),
     updatedAt: user.updatedAt?.toISOString()
   };
@@ -69,9 +91,7 @@ export async function PATCH(
       return jsonError("User not found", 404);
     }
 
-    const projectCount = await ProjectMembership.countDocuments({ userId });
-
-    return NextResponse.json({ user: serializeUser(user, projectCount) });
+    return NextResponse.json({ user: await serializeUser(user) });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid user payload", 400);
