@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth/session";
+import { requireNativeUser } from "@/lib/auth/native-session";
 import { connectDb } from "@/lib/db/mongoose";
 import { getProjectsForUser } from "@/lib/data/projects";
 import { jsonError } from "@/lib/api/http";
@@ -12,9 +12,9 @@ function compareNumericText(left: string, right: string) {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireNativeUser(request);
     await connectDb();
 
     const projects = await getProjectsForUser(user.id);

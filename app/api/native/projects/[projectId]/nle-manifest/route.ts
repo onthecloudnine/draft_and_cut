@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth/session";
+import { requireNativeUser } from "@/lib/auth/native-session";
 import { assertProjectPermission } from "@/lib/auth/permissions";
 import { getProjectNleManifest } from "@/lib/data/nle-manifest";
 import { jsonError } from "@/lib/api/http";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
     const { projectId } = await params;
-    const user = await requireUser();
+    const user = await requireNativeUser(request);
     await assertProjectPermission(user.id, projectId, "project:read");
 
     const manifest = await getProjectNleManifest(projectId);
