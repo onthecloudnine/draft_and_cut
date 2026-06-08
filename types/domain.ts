@@ -20,6 +20,12 @@ export const assetTagCategories = nonEmptyOptionList(options.assetTagCategories,
 export const shotStatuses = nonEmptyOptionList(options.shotStatuses, "shotStatuses");
 export const commentStatuses = nonEmptyOptionList(options.commentStatuses, "commentStatuses");
 export const commentPriorities = nonEmptyOptionList(options.commentPriorities, "commentPriorities");
+// Sound stems = the sound categories that can carry an assembled audio track,
+// i.e. sceneSoundOptions minus the "none" sentinel.
+export const soundStems = nonEmptyOptionList(
+  options.sceneSoundOptions.filter((option) => option !== "none"),
+  "soundStems"
+);
 
 export type UserRole = string;
 export type AccountRole = string;
@@ -29,6 +35,7 @@ export type VideoStatus = string;
 export type ScriptStatus = string;
 export type SceneStatus = string;
 export type SceneSoundOption = string;
+export type SoundStem = string;
 export type AssetTagCategory = string;
 export type ShotStatus = string;
 export type CommentStatus = string;

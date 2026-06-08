@@ -4,8 +4,8 @@ import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Draft & Cut",
-  description: "Draft & Cut"
+  title: "TMKL",
+  description: "TMKL"
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -13,7 +13,6 @@ export function SceneDetailRouter(props: Props) {
     return (
       <MobileSceneDetail
         attachments={props.attachments}
-        humanResources={props.humanResources}
         nextScene={props.nextScene ?? null}
         previousScene={props.previousScene ?? null}
         scene={props.scene}

@@ -13,6 +13,11 @@ function padNumber(value: string) {
   return value.padStart(3, "0");
 }
 
+function fileExtension(fileName: string, fallback: string) {
+  const match = /\.([a-zA-Z0-9]+)$/.exec(fileName.trim());
+  return match ? match[1].toLowerCase() : fallback;
+}
+
 function cleanFileName(value: string) {
   return value
     .trim()
@@ -57,6 +62,32 @@ export function deriveThumbnailKeyFromVideoKey(videoKey: string) {
   }
 
   return `${videoKey}.thumb.jpg`;
+}
+
+export function buildStoryboardFrameS3Key(input: {
+  projectSlug: string;
+  sceneNumber: string;
+  shotNumber: string;
+  versionNumber: number;
+  fileName: string;
+}) {
+  const ext = fileExtension(input.fileName, "png");
+  const version = `v${String(input.versionNumber).padStart(3, "0")}.${ext}`;
+
+  return `projects/${input.projectSlug}/scenes/${padNumber(input.sceneNumber)}/shots/${padNumber(input.shotNumber)}/storyboard/${version}`;
+}
+
+export function buildSceneAudioS3Key(input: {
+  projectSlug: string;
+  sceneNumber: string;
+  stem: string;
+  versionNumber: number;
+  fileName: string;
+}) {
+  const ext = fileExtension(input.fileName, "mp3");
+  const version = `v${String(input.versionNumber).padStart(3, "0")}.${ext}`;
+
+  return `projects/${input.projectSlug}/scenes/${padNumber(input.sceneNumber)}/audio/${input.stem}/${version}`;
 }
 
 export function buildSceneAttachmentS3Key(input: {

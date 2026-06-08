@@ -1,0 +1,155 @@
+// Client-side helpers to upload media via the presigned-PUT flow:
+// init (create record + signed URL) -> PUT to S3 -> complete (mark ready).
+// Mirrors the flow in app/(app)/upload/upload-form.tsx, generalized for the
+// per-shot video, storyboard image and scene audio endpoints.
+
+export type VideoFileMetadata = {
+  duration: number;
+  resolution: string;
+  fileSizeMb: number;
+};
+
+function fileSizeMb(file: File) {
+  return Number((file.size / 1024 / 1024).toFixed(2));
+}
+
+export async function readVideoMetadata(file: File): Promise<VideoFileMetadata> {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.src = objectUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("No se pudo leer el video"));
+    });
+    return {
+      duration: Number(video.duration.toFixed(3)),
+      resolution: `${video.videoWidth}x${video.videoHeight}`,
+      fileSizeMb: fileSizeMb(file)
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export async function readAudioDuration(file: File): Promise<number> {
+  const objectUrl = URL.createObjectURL(file);
+  const audio = document.createElement("audio");
+  audio.preload = "metadata";
+  audio.src = objectUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      audio.onloadedmetadata = () => resolve();
+      audio.onerror = () => reject(new Error("No se pudo leer el audio"));
+    });
+    return Number(audio.duration.toFixed(3));
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function postJson(url: string, body: unknown) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Error en la solicitud");
+  }
+  return payload;
+}
+
+async function putToS3(file: File, uploadUrl: string, uploadHeaders: Record<string, string> | undefined) {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type, ...(uploadHeaders ?? {}) },
+    body: file
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`S3 rechazó la subida (${response.status})${detail ? `: ${detail}` : ""}`);
+  }
+  return response.headers.get("etag") ?? undefined;
+}
+
+export type ShotVideoUploadResult = { versionNumber: number; objectUrl: string };
+
+export async function uploadShotVideo(input: {
+  projectId: string;
+  sceneId: string;
+  shotId: string;
+  stage: string;
+  fps: number;
+  file: File;
+}): Promise<ShotVideoUploadResult> {
+  const metadata = await readVideoMetadata(input.file);
+  const init = await postJson("/api/uploads/init", {
+    projectId: input.projectId,
+    sceneId: input.sceneId,
+    scope: "shot",
+    shotId: input.shotId,
+    stage: input.stage,
+    fileName: input.file.name,
+    mimeType: input.file.type,
+    fileSizeMb: metadata.fileSizeMb,
+    duration: metadata.duration,
+    fps: input.fps,
+    resolution: metadata.resolution
+  });
+  const etag = await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  await postJson(`/api/uploads/${init.uploadId}/complete`, {
+    uploaded: true,
+    etag,
+    thumbnailUploaded: false
+  });
+  return { versionNumber: init.versionNumber, objectUrl: URL.createObjectURL(input.file) };
+}
+
+export type StoryboardUploadResult = { versionNumber: number; objectUrl: string };
+
+export async function uploadStoryboardImage(input: {
+  sceneId: string;
+  shotId: string;
+  file: File;
+}): Promise<StoryboardUploadResult> {
+  const init = await postJson(`/api/scenes/${input.sceneId}/storyboard/init`, {
+    shotId: input.shotId,
+    fileName: input.file.name,
+    mimeType: input.file.type,
+    fileSizeMb: fileSizeMb(input.file)
+  });
+  const etag = await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  await postJson(`/api/scenes/${input.sceneId}/storyboard/${init.uploadId}/complete`, {
+    uploaded: true,
+    etag
+  });
+  return { versionNumber: init.versionNumber, objectUrl: URL.createObjectURL(input.file) };
+}
+
+export type AudioUploadResult = { versionNumber: number; objectUrl: string };
+
+export async function uploadSceneAudio(input: {
+  sceneId: string;
+  stem: string;
+  file: File;
+}): Promise<AudioUploadResult> {
+  const duration = await readAudioDuration(input.file);
+  const init = await postJson(`/api/scenes/${input.sceneId}/audio/init`, {
+    stem: input.stem,
+    fileName: input.file.name,
+    mimeType: input.file.type,
+    fileSizeMb: fileSizeMb(input.file),
+    duration
+  });
+  const etag = await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  await postJson(`/api/scenes/${input.sceneId}/audio/${init.uploadId}/complete`, {
+    uploaded: true,
+    etag
+  });
+  return { versionNumber: init.versionNumber, objectUrl: URL.createObjectURL(input.file) };
+}

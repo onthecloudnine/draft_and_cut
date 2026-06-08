@@ -39,7 +39,9 @@ export async function POST(
     }
     await videoVersion.save();
 
-    if (body.uploaded) {
+    // Only scene-scoped videos (the scene animatic) drive the scene's "current video"
+    // pointer. Shot-scoped clips (playblast/render) must not hijack it.
+    if (body.uploaded && videoVersion.scope === "scene") {
       await Scene.findByIdAndUpdate(videoVersion.sceneId, {
         currentVideoVersionId: videoVersion._id,
         currentScriptVersionId: videoVersion.scriptVersionId

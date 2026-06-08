@@ -8,6 +8,8 @@ import { SceneAttachment } from "@/models/SceneAttachment";
 import { SceneResourceAssignment } from "@/models/SceneResourceAssignment";
 import { ProjectMembership } from "@/models/ProjectMembership";
 import { Shot } from "@/models/Shot";
+import { StoryboardFrame } from "@/models/StoryboardFrame";
+import { AudioVersion } from "@/models/AudioVersion";
 import { User } from "@/models/User";
 import { VideoVersion } from "@/models/VideoVersion";
 import type { SceneSoundOption } from "@/types/domain";
@@ -34,7 +36,9 @@ export async function getSceneDetailData(sceneId: string) {
     memberships,
     resourceAssignments,
     sceneAssetTags,
-    activeUsers
+    activeUsers,
+    storyboardFrames,
+    audioVersions
   ] = await Promise.all([
     Scene.find({ projectId: scene.projectId }).select("sceneNumber title").lean(),
     Project.findById(scene.projectId).select("fpsDefault").lean(),
@@ -44,7 +48,9 @@ export async function getSceneDetailData(sceneId: string) {
     ProjectMembership.find({ projectId: scene.projectId }).lean(),
     SceneResourceAssignment.find({ sceneId }).sort({ createdAt: 1 }).lean(),
     SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean(),
-    User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean()
+    User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean(),
+    StoryboardFrame.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean(),
+    AudioVersion.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean()
   ]);
 
   projectScenes.sort((left, right) => compareNumericText(left.sceneNumber, right.sceneNumber));
@@ -141,6 +147,31 @@ export async function getSceneDetailData(sceneId: string) {
         isFavorite: video.isFavorite,
         createdAt: video.createdAt?.toISOString(),
         url: video.status === "ready_for_review" ? await maybeGetSignedObjectUrl(video.s3Key) : null
+      }))
+    ),
+    storyboardFrames: await Promise.all(
+      storyboardFrames.map(async (frame) => ({
+        id: String(frame._id),
+        shotId: String(frame.shotId),
+        versionNumber: frame.versionNumber,
+        fileName: frame.fileName,
+        mimeType: frame.mimeType,
+        width: frame.width ?? null,
+        height: frame.height ?? null,
+        createdAt: frame.createdAt?.toISOString(),
+        url: await maybeGetSignedObjectUrl(frame.s3Key)
+      }))
+    ),
+    audioVersions: await Promise.all(
+      audioVersions.map(async (audio) => ({
+        id: String(audio._id),
+        stem: audio.stem,
+        versionNumber: audio.versionNumber,
+        fileName: audio.fileName,
+        mimeType: audio.mimeType,
+        duration: audio.duration,
+        createdAt: audio.createdAt?.toISOString(),
+        url: await maybeGetSignedObjectUrl(audio.s3Key)
       }))
     ),
     attachments: await Promise.all(

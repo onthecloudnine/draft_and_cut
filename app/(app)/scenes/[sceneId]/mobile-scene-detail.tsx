@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { plainTextToHtml } from "@/components/rich-text-editor";
 import { useI18n } from "@/lib/i18n/client";
-import { productionStages } from "@/types/domain";
 
 type SceneSiblingData = { id: string; sceneNumber: string; title: string };
 
@@ -53,15 +52,6 @@ type Video = {
   url: string | null;
 };
 
-type HumanResource = {
-  id: string;
-  userId: string;
-  name: string;
-  email: string;
-  role: string;
-  stages: string[];
-};
-
 type Attachment = {
   id: string;
   title: string;
@@ -77,13 +67,12 @@ type MobileSceneDetailProps = {
   scene: Scene;
   shots: Shot[];
   videos: Video[];
-  humanResources: HumanResource[];
   attachments: Attachment[];
   previousScene: SceneSiblingData | null;
   nextScene: SceneSiblingData | null;
 };
 
-type SheetTab = "shot" | "scene" | "script" | "team" | "files";
+type SheetTab = "shot" | "scene" | "script" | "files";
 type SheetState = "peek" | "half" | "full";
 
 const SHEET_HANDLE_HEIGHT = 56;
@@ -106,7 +95,6 @@ export function MobileSceneDetail({
   scene,
   shots,
   videos,
-  humanResources,
   attachments,
   previousScene,
   nextScene
@@ -310,7 +298,6 @@ export function MobileSceneDetail({
       <BottomSheet
         activeShot={activeShot}
         attachments={attachments}
-        humanResources={humanResources}
         onChangeState={setSheetState}
         onChangeTab={setSheetTab}
         onOpenScript={() => setIsScriptOverlayOpen(true)}
@@ -443,7 +430,6 @@ function CompactTransport({
 function BottomSheet({
   activeShot,
   attachments,
-  humanResources,
   onChangeState,
   onChangeTab,
   onOpenScript,
@@ -455,7 +441,6 @@ function BottomSheet({
 }: {
   activeShot: Shot | null;
   attachments: Attachment[];
-  humanResources: HumanResource[];
   onChangeState: (state: SheetState) => void;
   onChangeTab: (tab: SheetTab) => void;
   onOpenScript: () => void;
@@ -512,7 +497,6 @@ function BottomSheet({
     { key: "shot", label: t("scene.tabShot") },
     { key: "scene", label: t("scene.tabScene") },
     { key: "script", label: t("scene.tabScript") },
-    { key: "team", label: t("scene.tabTeam") },
     { key: "files", label: t("scene.tabFiles") }
   ];
 
@@ -579,9 +563,6 @@ function BottomSheet({
         ) : null}
         {sheetTab === "script" ? (
           <ScriptPanel onOpenScript={onOpenScript} scene={scene} t={t} />
-        ) : null}
-        {sheetTab === "team" ? (
-          <TeamPanel humanResources={humanResources} optionLabel={optionLabel} t={t} />
         ) : null}
         {sheetTab === "files" ? <FilesPanel attachments={attachments} t={t} /> : null}
       </div>
@@ -709,45 +690,6 @@ function ScriptPanel({
         <p className="text-sm italic text-muted">{t("scene.missingLiteraryScript")}</p>
       )}
     </div>
-  );
-}
-
-function TeamPanel({
-  humanResources,
-  optionLabel,
-  t
-}: {
-  humanResources: HumanResource[];
-  optionLabel: (group: string, value: string) => string;
-  t: (path: string) => string;
-}) {
-  if (humanResources.length === 0) {
-    return <p className="text-sm text-muted">{t("scene.noResponsibles")}</p>;
-  }
-  return (
-    <ul className="grid gap-2">
-      {humanResources.map((resource) => (
-        <li className="rounded-md border border-line bg-background p-3 text-xs" key={resource.id}>
-          <p className="text-sm font-semibold text-fg-strong">{resource.name}</p>
-          <p className="mt-0.5 text-muted">{resource.email}</p>
-          <p className="mt-1 text-[10px] font-medium uppercase text-danger-fg">{resource.role}</p>
-          {resource.stages.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {productionStages
-                .filter((stage) => resource.stages.includes(stage))
-                .map((stage) => (
-                  <span
-                    className="rounded-full border border-red-600 bg-red-600/15 px-1.5 py-0.5 text-[9px] font-medium text-fg"
-                    key={stage}
-                  >
-                    {optionLabel("productionStages", stage)}
-                  </span>
-                ))}
-            </div>
-          ) : null}
-        </li>
-      ))}
-    </ul>
   );
 }
 

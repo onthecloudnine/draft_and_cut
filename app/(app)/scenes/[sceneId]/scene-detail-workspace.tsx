@@ -15,6 +15,11 @@ import {
 } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { plainTextToHtml } from "@/components/rich-text-editor";
+import { PhaseSwitcher } from "./phase-switcher";
+import { ShotVideoView } from "./shot-video-view";
+import { StoryboardGallery } from "./storyboard-gallery";
+import { AudioTracksPanel } from "./audio-tracks-panel";
+import type { AudioVersionData, PhaseId, StoryboardFrameData } from "./phase-types";
 
 const RichTextEditor = dynamic(
   () => import("@/components/rich-text-editor").then((mod) => ({ default: mod.RichTextEditor })),
@@ -22,7 +27,6 @@ const RichTextEditor = dynamic(
 );
 import {
   assetTagCategories,
-  productionStages,
   sceneSoundOptions,
   sceneStatuses,
   shotStatuses,
@@ -131,6 +135,8 @@ type SceneDetailWorkspaceProps = {
   scene: SceneData;
   shots: ShotData[];
   videos: VideoData[];
+  storyboardFrames: StoryboardFrameData[];
+  audioVersions: AudioVersionData[];
   attachments: AttachmentData[];
   projectMembers: ProjectMemberData[];
   humanResources: HumanResourceData[];
@@ -146,7 +152,7 @@ type SceneDetailWorkspaceProps = {
 
 type TopView = "timeline" | "table";
 type TimelineTool = "select" | "blade";
-type SidebarTab = "scene" | "script" | "shot" | "team" | "elements" | "files";
+type SidebarTab = "scene" | "script" | "shot" | "elements" | "files";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
 const DRAFT_STORAGE_PREFIX = "scene-draft:";
@@ -287,6 +293,8 @@ export function SceneDetailWorkspace({
   scene: initialScene,
   shots: initialShots,
   videos: initialVideos,
+  storyboardFrames,
+  audioVersions,
   attachments: initialAttachments,
   projectMembers,
   humanResources: initialHumanResources,
@@ -314,6 +322,7 @@ export function SceneDetailWorkspace({
   const [assetTags, setAssetTags] = useState(initialAssetTags);
   const [activeShotId, setActiveShotId] = useState(initialShotId ?? sortedInitialShots[0]?.id ?? "");
   const [selectedVideoId, setSelectedVideoId] = useState("");
+  const [phase, setPhase] = useState<PhaseId>("animatic");
   const [topView, setTopView] = useState<TopView>("timeline");
   const [timelineTool, setTimelineTool] = useState<TimelineTool>("select");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("scene");
@@ -1086,10 +1095,34 @@ export function SceneDetailWorkspace({
         t={t}
       />
 
-      <TopTabs t={t} value={topView} onChange={setTopView} />
+      <PhaseSwitcher t={t} value={phase} onChange={setPhase} />
+
+      {phase === "animatic" ? <TopTabs t={t} value={topView} onChange={setTopView} /> : null}
 
       <div className="flex min-h-0 flex-1 flex-col">
-        {topView === "timeline" ? (
+        {phase === "storyboard" ? (
+          <StoryboardGallery
+            sceneId={scene.id}
+            shots={shots}
+            initialFrames={storyboardFrames}
+            activeShotId={activeShotId}
+            onSelectShot={setActiveShotId}
+            canManage={canManageVideos}
+            t={t}
+          />
+        ) : phase === "playblast" || phase === "render" ? (
+          <ShotVideoView
+            phase={phase}
+            scene={scene}
+            shots={shots}
+            initialVideos={videos}
+            activeShotId={activeShotId}
+            onSelectShot={setActiveShotId}
+            canManageVideos={canManageVideos}
+            optionLabel={optionLabel}
+            t={t}
+          />
+        ) : topView === "timeline" ? (
           <TimelineView
             activeShot={activeShot}
             activeVideo={activeVideo}
@@ -1165,6 +1198,15 @@ export function SceneDetailWorkspace({
           />
         )}
       </div>
+
+      <AudioTracksPanel
+        sceneId={scene.id}
+        soundOptions={scene.soundOptions}
+        initialAudio={audioVersions}
+        canManage={canManageVideos}
+        optionLabel={optionLabel}
+        t={t}
+      />
 
       {error ? (
         <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md border border-red-600/60 bg-danger-soft px-4 py-2 text-sm text-danger-fg shadow-lg">
@@ -2067,7 +2109,6 @@ function TimelineView(props: TimelineViewProps) {
             {sidebarTab === "scene" ? <SceneTab {...props} /> : null}
             {sidebarTab === "script" ? <ScriptTab {...props} /> : null}
             {sidebarTab === "shot" ? <ShotTab {...props} /> : null}
-            {sidebarTab === "team" ? <TeamTab {...props} /> : null}
             {sidebarTab === "elements" ? <ElementsTab {...props} /> : null}
             {sidebarTab === "files" ? <FilesTab {...props} /> : null}
           </div>
@@ -2931,7 +2972,6 @@ function SidebarTabs({
     { key: "scene", label: t("scene.tabScene") },
     { key: "script", label: t("scene.tabScript") },
     { key: "shot", label: activeShot ? t("scene.tabShotN", { shotNumber: activeShot.shotNumber }) : t("scene.tabShot") },
-    { key: "team", label: t("scene.tabTeam") },
     { key: "elements", label: t("scene.tabElements") },
     { key: "files", label: t("scene.tabFiles") }
   ];
@@ -3366,151 +3406,6 @@ function TimecodeField({
         value={draft}
       />
     </label>
-  );
-}
-
-function TeamTab(props: TimelineViewProps) {
-  const {
-    availableResourceMembers,
-    canManageResources,
-    humanResources,
-    isSavingResource,
-    onAddHumanResource,
-    onRemoveHumanResource,
-    onUpdateResourceStages,
-    optionLabel,
-    selectedResourceStages,
-    selectedResourceUserIds,
-    setSelectedResourceStages,
-    setSelectedResourceUserIds,
-    t
-  } = props;
-
-  return (
-    <div className="grid gap-4 p-4 sm:p-5">
-      {canManageResources ? (
-        <form className="grid gap-3 rounded-md border border-line bg-background p-3" onSubmit={onAddHumanResource}>
-          <FieldLabel>{t("scene.responsible")}</FieldLabel>
-          {availableResourceMembers.length === 0 ? (
-            <p className="text-xs text-muted">{t("scene.noAvailableMembers")}</p>
-          ) : (
-            <div className="grid max-h-44 gap-1 overflow-y-auto rounded-md border border-line bg-background p-1">
-              {availableResourceMembers.map((member) => {
-                const checked = selectedResourceUserIds.includes(member.id);
-                return (
-                  <label
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-surface"
-                    key={member.id}
-                  >
-                    <input
-                      checked={checked}
-                      className="h-3.5 w-3.5 accent-red-600"
-                      disabled={isSavingResource}
-                      onChange={(event) =>
-                        setSelectedResourceUserIds((current) =>
-                          event.target.checked
-                            ? [...current, member.id]
-                            : current.filter((id) => id !== member.id)
-                        )
-                      }
-                      type="checkbox"
-                    />
-                    <span className="flex-1 truncate text-xs text-fg">{member.name}</span>
-                    <span className="text-[10px] uppercase text-muted">{member.role}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-          <FieldLabel>{t("scene.stagesPreset")}</FieldLabel>
-          <div className="flex flex-wrap gap-1.5">
-            {productionStages.map((stage) => {
-              const selected = selectedResourceStages.includes(stage);
-              return (
-                <button
-                  className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
-                    selected
-                      ? "border-red-600 bg-red-600/15 text-fg-strong"
-                      : "border-line bg-background text-muted hover:bg-surface"
-                  }`}
-                  key={stage}
-                  onClick={() =>
-                    setSelectedResourceStages((current) =>
-                      current.includes(stage) ? current.filter((s) => s !== stage) : [...current, stage]
-                    )
-                  }
-                  type="button"
-                >
-                  {optionLabel("productionStages", stage)}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            className="h-9 rounded-md bg-red-600 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-60"
-            disabled={selectedResourceUserIds.length === 0 || isSavingResource}
-            type="submit"
-          >
-            {isSavingResource
-              ? t("scene.assigning")
-              : t("scene.assignResponsibles", { count: selectedResourceUserIds.length })}
-          </button>
-        </form>
-      ) : null}
-
-      <div className="grid gap-2">
-        {humanResources.map((resource) => (
-          <article className="rounded-md border border-line bg-background p-3 text-xs" key={resource.id}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-fg-strong">{resource.name}</p>
-                <p className="mt-0.5 text-muted">{resource.email}</p>
-                <p className="mt-1 text-[10px] font-medium uppercase text-danger-fg">{resource.role}</p>
-              </div>
-              {canManageResources ? (
-                <button
-                  className="rounded-md border border-line-strong px-2 py-1 text-[10px] font-medium text-muted-strong hover:bg-surface"
-                  onClick={() => void onRemoveHumanResource(resource.id)}
-                  type="button"
-                >
-                  {t("scene.remove")}
-                </button>
-              ) : null}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {productionStages.map((stage) => {
-                const active = resource.stages.includes(stage);
-                return (
-                  <button
-                    className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition ${
-                      active
-                        ? "border-red-600 bg-red-600/15 text-fg-strong"
-                        : "border-line bg-background text-muted hover:bg-surface"
-                    }`}
-                    disabled={!canManageResources}
-                    key={stage}
-                    onClick={() => {
-                      const next = active
-                        ? resource.stages.filter((item) => item !== stage)
-                        : [...resource.stages, stage];
-                      void onUpdateResourceStages(resource.id, next);
-                    }}
-                    type="button"
-                  >
-                    {optionLabel("productionStages", stage)}
-                  </button>
-                );
-              })}
-            </div>
-          </article>
-        ))}
-        {humanResources.length === 0 ? (
-          <p className="rounded-md border border-line bg-background p-3 text-xs text-muted">
-            {t("scene.noResponsibles")}
-          </p>
-        ) : null}
-      </div>
-    </div>
   );
 }
 

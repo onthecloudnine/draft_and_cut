@@ -11,23 +11,30 @@ import { buildPutObjectUpload } from "@/lib/s3/upload";
 import { jsonError } from "@/lib/api/http";
 import { Project } from "@/models/Project";
 import { Scene } from "@/models/Scene";
+import { Shot } from "@/models/Shot";
 import { ScriptVersion } from "@/models/ScriptVersion";
 import { VideoVersion } from "@/models/VideoVersion";
 import { productionStages } from "@/types/domain";
 
-const initUploadSchema = z.object({
-  projectId: z.string().min(1),
-  sceneId: z.string().min(1),
-  scope: z.literal("scene").optional().default("scene"),
-  stage: z.enum(productionStages),
-  fileName: z.string().min(1),
-  mimeType: z.literal("video/mp4"),
-  fileSizeMb: z.number().positive(),
-  duration: z.number().positive(),
-  fps: z.number().positive(),
-  resolution: z.string().min(3),
-  notes: z.string().optional().default("")
-});
+const initUploadSchema = z
+  .object({
+    projectId: z.string().min(1),
+    sceneId: z.string().min(1),
+    scope: z.enum(["scene", "shot"]).optional().default("scene"),
+    shotId: z.string().optional(),
+    stage: z.enum(productionStages),
+    fileName: z.string().min(1),
+    mimeType: z.literal("video/mp4"),
+    fileSizeMb: z.number().positive(),
+    duration: z.number().positive(),
+    fps: z.number().positive(),
+    resolution: z.string().min(3),
+    notes: z.string().optional().default("")
+  })
+  .refine((data) => data.scope !== "shot" || Boolean(data.shotId), {
+    message: "shotId is required for shot scoped uploads",
+    path: ["shotId"]
+  });
 
 export async function POST(request: Request) {
   try {
@@ -56,11 +63,23 @@ export async function POST(request: Request) {
       return jsonError("Scene does not belong to project", 400);
     }
 
+    let shotNumber: string | null = null;
+    if (body.scope === "shot") {
+      const shot = await Shot.findById(body.shotId).lean();
+      if (!shot) {
+        return jsonError("Shot not found", 404);
+      }
+      if (String(shot.sceneId) !== body.sceneId) {
+        return jsonError("Shot does not belong to scene", 400);
+      }
+      shotNumber = shot.shotNumber;
+    }
+
     const latest = await VideoVersion.findOne({
       projectId: body.projectId,
       sceneId: body.sceneId,
-      shotId: null,
-      scope: "scene",
+      shotId: body.scope === "shot" ? body.shotId : null,
+      scope: body.scope,
       stage: body.stage
     })
       .sort({ versionNumber: -1 })
@@ -70,14 +89,16 @@ export async function POST(request: Request) {
     const s3Key = buildVideoS3Key({
       projectSlug: project.slug,
       sceneNumber: scene.sceneNumber,
-      scope: "scene",
+      shotNumber,
+      scope: body.scope,
       stage: body.stage,
       versionNumber
     });
     const thumbnailKey = buildVideoThumbnailS3Key({
       projectSlug: project.slug,
       sceneNumber: scene.sceneNumber,
-      scope: "scene",
+      shotNumber,
+      scope: body.scope,
       stage: body.stage,
       versionNumber
     });
@@ -86,7 +107,8 @@ export async function POST(request: Request) {
     const videoVersion = await VideoVersion.create({
       projectId: body.projectId,
       sceneId: body.sceneId,
-      scope: "scene",
+      shotId: body.scope === "shot" ? body.shotId : null,
+      scope: body.scope,
       versionNumber,
       stage: body.stage,
       status: "uploading",
