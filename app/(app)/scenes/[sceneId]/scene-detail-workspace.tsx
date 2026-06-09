@@ -1119,6 +1119,8 @@ export function SceneDetailWorkspace({
             activeShotId={activeShotId}
             onSelectShot={setActiveShotId}
             canManageVideos={canManageVideos}
+            canEditShots={canEditScript}
+            onUpdateShot={updateShot}
             optionLabel={optionLabel}
             t={t}
           />

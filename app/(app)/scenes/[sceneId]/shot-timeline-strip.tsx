@@ -5,6 +5,10 @@ import { useEffect, useMemo, useRef } from "react";
 const PIXELS_PER_SECOND = 50;
 const MIN_SEGMENT_WIDTH_PX = 96;
 const FALLBACK_SECONDS = 2;
+const STRIP_PADDING_LEFT_PX = 12; // px-3
+const STRIP_GAP_PX = 4; // gap-1
+const SEGMENT_HEIGHT_PX = 80; // h-20
+const STRIP_PADDING_TOP_PX = 4; // pt-1
 
 type StripShot = { id: string; shotNumber: string; durationFrames: number | null };
 
@@ -19,6 +23,7 @@ export function ShotTimelineStrip({
   onSelect,
   thumbnailByShot,
   hasMediaShotIds,
+  playhead,
   t
 }: {
   shots: StripShot[];
@@ -27,6 +32,7 @@ export function ShotTimelineStrip({
   onSelect: (shotId: string) => void;
   thumbnailByShot?: Record<string, string | null>;
   hasMediaShotIds?: Set<string>;
+  playhead?: { shotId: string; progress: number } | null;
   t: (path: string, replacements?: Record<string, string | number>) => string;
 }) {
   const activeRef = useRef<HTMLButtonElement | null>(null);
@@ -47,6 +53,20 @@ export function ShotTimelineStrip({
     activeRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }, [activeShotId]);
 
+  // Continuous playhead X (in the inner container's coordinate space): offset of
+  // the playing shot's segment + progress within it. Sweeps across segments.
+  const playheadX = useMemo(() => {
+    if (!playhead) return null;
+    const idx = shots.findIndex((shot) => shot.id === playhead.shotId);
+    if (idx < 0) return null;
+    let x = STRIP_PADDING_LEFT_PX;
+    for (let i = 0; i < idx; i += 1) {
+      x += widths[i] + STRIP_GAP_PX;
+    }
+    x += Math.max(0, Math.min(1, playhead.progress)) * widths[idx];
+    return x;
+  }, [playhead, shots, widths]);
+
   return (
     <div className="shrink-0 border-t border-line bg-surface">
       <div className="flex items-center justify-between px-3 pb-1 pt-2">
@@ -58,7 +78,14 @@ export function ShotTimelineStrip({
         </span>
       </div>
       <div className="overflow-x-auto overflow-y-hidden">
-        <div className="flex items-stretch gap-1 px-3 pb-3 pt-1">
+        <div className="relative flex items-stretch gap-1 px-3 pb-3 pt-1">
+          {playheadX !== null ? (
+            <div
+              className="pointer-events-none absolute z-10 w-0.5 bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.8)]"
+              style={{ left: `${playheadX}px`, top: `${STRIP_PADDING_TOP_PX}px`, height: `${SEGMENT_HEIGHT_PX}px` }}
+              aria-hidden
+            />
+          ) : null}
           {shots.map((shot, idx) => {
             const isActive = shot.id === activeShotId;
             const thumb = thumbnailByShot?.[shot.id] ?? null;
