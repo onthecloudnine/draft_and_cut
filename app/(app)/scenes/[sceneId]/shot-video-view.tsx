@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { uploadShotVideo } from "@/lib/uploads/client";
 import { shotStatuses } from "@/types/domain";
 import { PHASE_STAGES } from "./phase-types";
@@ -124,11 +124,16 @@ export function ShotVideoView({
   }
 
   // Manual selection (strip / chips / version) interrupts scene playback.
-  function handleManualSelectShot(shotId: string) {
-    stopScenePlayback();
-    onSelectShot(shotId);
-    setSelectedVersionId("");
-  }
+  // Stable identity so the timeline strip's memoized segments survive the
+  // ~4x/sec playhead re-renders during playback.
+  const handleManualSelectShot = useCallback(
+    (shotId: string) => {
+      setScenePlaying(false);
+      onSelectShot(shotId);
+      setSelectedVersionId("");
+    },
+    [onSelectShot]
+  );
 
   // Which shots already have at least one clip in this phase (any of its stages).
   const shotsWithMedia = useMemo(() => {
@@ -311,7 +316,9 @@ export function ShotVideoView({
   );
 }
 
-function ShotInfoPanel({
+// Memoized: its props are stable across the player's frequent playhead
+// re-renders, so it skips re-rendering during playback.
+const ShotInfoPanel = memo(function ShotInfoPanel({
   shot,
   canEdit,
   onUpdateShot,
@@ -422,7 +429,7 @@ function ShotInfoPanel({
       </div>
     </aside>
   );
-}
+});
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</span>;
