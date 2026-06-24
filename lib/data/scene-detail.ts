@@ -78,7 +78,13 @@ export async function getSceneDetailData(sceneId: string) {
     User.find({ _id: { $in: userIds } }).select("name email isActive").lean()
   ]);
   const assetTagById = new Map(assetTags.map((tag) => [String(tag._id), tag]));
-  shots.sort((left, right) => compareNumericText(left.shotNumber, right.shotNumber));
+  // Order by cut position (startFrame) so split shots stay in place; shotNumber
+  // is only a tie-breaker (and the fallback when frames are absent).
+  shots.sort((left, right) => {
+    const lf = typeof left.startFrame === "number" ? left.startFrame : Number.POSITIVE_INFINITY;
+    const rf = typeof right.startFrame === "number" ? right.startFrame : Number.POSITIVE_INFINITY;
+    return lf !== rf ? lf - rf : compareNumericText(left.shotNumber, right.shotNumber);
+  });
   const userById = new Map([...users, ...activeUsers].map((user) => [String(user._id), user]));
   const membershipRoleByUserId = new Map(memberships.map((membership) => [String(membership.userId), membership.role]));
 

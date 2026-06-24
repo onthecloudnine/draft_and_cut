@@ -16,7 +16,6 @@ import {
   MoonIcon,
   ProjectsAdminIcon,
   SunIcon,
-  UploadIcon,
   UsersIcon
 } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/client";
@@ -61,8 +60,7 @@ export function AppChrome({ canManageProjects, canManageUsers, userName, childre
   }, [pathname]);
 
   const mainNav: NavItem[] = [
-    { href: "/projects", labelKey: "app.projects", icon: DashboardIcon, matchPrefix: "/projects" },
-    { href: "/upload", labelKey: "app.uploadVersion", icon: UploadIcon, matchPrefix: "/upload" }
+    { href: "/projects", labelKey: "app.projects", icon: DashboardIcon, matchPrefix: "/projects" }
   ];
 
   const adminNav: NavItem[] = [];
