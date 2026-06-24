@@ -14,3 +14,7 @@ coverage
 
 # DB backups (local only)
 backups/
+
+# Local media (large source files — not committed)
+media/
+*.mov
