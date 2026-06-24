@@ -150,6 +150,10 @@ type SceneDetailWorkspaceProps = {
   siblingScenes?: SceneSiblingData[];
 };
 
+// Sound/audio panel hidden for now (pending product decision). Flip to true to
+// re-enable the per-stem audio tracks below the player.
+const SHOW_AUDIO_PANEL = false;
+
 type TopView = "timeline" | "table";
 type TimelineTool = "select" | "blade";
 type SidebarTab = "scene" | "script" | "shot" | "elements" | "files";
@@ -309,8 +313,16 @@ export function SceneDetailWorkspace({
 }: SceneDetailWorkspaceProps) {
   const { optionLabel, t } = useI18n();
 
+  // Timeline order follows the cut positions (startFrame); shotNumber is only a
+  // tie-breaker. This keeps a freshly-split shot in its place instead of jumping
+  // to the end on reload (a split assigns a high shotNumber but a mid startFrame).
   const sortedInitialShots = useMemo(
-    () => [...initialShots].sort((a, b) => compareShotNumbers(a.shotNumber, b.shotNumber)),
+    () =>
+      [...initialShots].sort((a, b) => {
+        const af = typeof a.startFrame === "number" ? a.startFrame : Number.POSITIVE_INFINITY;
+        const bf = typeof b.startFrame === "number" ? b.startFrame : Number.POSITIVE_INFINITY;
+        return af !== bf ? af - bf : compareShotNumbers(a.shotNumber, b.shotNumber);
+      }),
     [initialShots]
   );
 
@@ -1201,14 +1213,16 @@ export function SceneDetailWorkspace({
         )}
       </div>
 
-      <AudioTracksPanel
-        sceneId={scene.id}
-        soundOptions={scene.soundOptions}
-        initialAudio={audioVersions}
-        canManage={canManageVideos}
-        optionLabel={optionLabel}
-        t={t}
-      />
+      {SHOW_AUDIO_PANEL ? (
+        <AudioTracksPanel
+          sceneId={scene.id}
+          soundOptions={scene.soundOptions}
+          initialAudio={audioVersions}
+          canManage={canManageVideos}
+          optionLabel={optionLabel}
+          t={t}
+        />
+      ) : null}
 
       {error ? (
         <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md border border-red-600/60 bg-danger-soft px-4 py-2 text-sm text-danger-fg shadow-lg">
@@ -1854,10 +1868,18 @@ function TimelineView(props: TimelineViewProps) {
     const resizingIdx = resizingShotId ? shots.findIndex((s) => s.id === resizingShotId) : -1;
     for (let i = 0; i < shots.length; i += 1) {
       const shot = shots[i];
-      const durationSecs =
-        typeof shot.durationFrames === "number" && shot.durationFrames > 0
-          ? shot.durationFrames / fps
-          : 2;
+      // Segment width tracks the shot's actual video range (endFrame - startFrame)
+      // so the playhead speed matches the video; fall back to durationFrames, then
+      // a 2s default. Using the range also avoids stale/corrupt durationFrames.
+      const spanFrames =
+        typeof shot.startFrame === "number" &&
+        typeof shot.endFrame === "number" &&
+        shot.endFrame > shot.startFrame
+          ? shot.endFrame - shot.startFrame
+          : typeof shot.durationFrames === "number" && shot.durationFrames > 0
+            ? shot.durationFrames
+            : 2 * fps;
+      const durationSecs = spanFrames / fps;
       const isInvolvedInResize =
         resizingShotId != null && (i === resizingIdx || i === resizingIdx + 1);
       const w = isInvolvedInResize
@@ -1870,20 +1892,38 @@ function TimelineView(props: TimelineViewProps) {
     return { items, totalWidth: cursor };
   }, [shots, canEditScript, fps, resizingShotId]);
 
+  // Playhead is driven by the video's current time (playbackSeconds), independent
+  // of which shot is "active", so it tracks playback continuously across segments.
   const playheadPx = useMemo(() => {
-    if (!activeShot) return null;
-    const idx = shots.findIndex((s) => s.id === activeShot.id);
-    if (idx < 0 || !timelineGeometry.items[idx]) return null;
-    const item = timelineGeometry.items[idx];
-    const startFrame = activeShot.startFrame;
-    const endFrame = activeShot.endFrame;
-    if (typeof startFrame !== "number" || typeof endFrame !== "number" || endFrame <= startFrame) {
-      return TIMELINE_PADDING_PX + item.startPx;
-    }
+    if (shots.length === 0) return null;
     const playbackFrames = playbackSeconds * fps;
-    const progress = Math.max(0, Math.min(1, (playbackFrames - startFrame) / (endFrame - startFrame)));
-    return TIMELINE_PADDING_PX + item.startPx + progress * item.widthPx;
-  }, [activeShot, shots, timelineGeometry, playbackSeconds, fps]);
+
+    // Position within whichever shot's video range contains the playhead.
+    for (let i = 0; i < shots.length; i += 1) {
+      const shot = shots[i];
+      const item = timelineGeometry.items[i];
+      if (!item || typeof shot.startFrame !== "number" || typeof shot.endFrame !== "number") continue;
+      const span = shot.endFrame - shot.startFrame;
+      if (span <= 0) continue;
+      if (playbackFrames >= shot.startFrame && playbackFrames < shot.endFrame) {
+        const progress = (playbackFrames - shot.startFrame) / span;
+        return TIMELINE_PADDING_PX + item.startPx + progress * item.widthPx;
+      }
+    }
+
+    // Outside any shot range (gap / before / after): snap to the nearest edge.
+    let lastBeforeIdx = -1;
+    for (let i = 0; i < shots.length; i += 1) {
+      const s = shots[i];
+      if (typeof s.startFrame === "number" && s.startFrame <= playbackFrames) lastBeforeIdx = i;
+    }
+    if (lastBeforeIdx < 0) {
+      const first = timelineGeometry.items[0];
+      return first ? TIMELINE_PADDING_PX + first.startPx : null;
+    }
+    const item = timelineGeometry.items[lastBeforeIdx];
+    return item ? TIMELINE_PADDING_PX + item.startPx + item.widthPx : null;
+  }, [shots, timelineGeometry, playbackSeconds, fps]);
 
   const playheadScrubbingRef = useRef(false);
   const seekFromTimelinePx = useCallback(
@@ -2223,12 +2263,15 @@ function TimelineView(props: TimelineViewProps) {
                 typeof shot.endFrame === "number" &&
                 shot.endFrame > shot.startFrame;
               const widthPx = timelineGeometry.items[idx]?.widthPx ?? MIN_THUMB_WIDTH_PX;
+              // Resizable when there's a valid neighbouring cut to move, OR when
+              // it's the last shot (no next) — in that case the right edge just
+              // extends the shot's own duration (handleResizeRightEdge clamps the
+              // minimum only and leaves the upper bound open).
               const canResize =
                 canEditScript &&
                 hasRange &&
-                nextShot != null &&
-                typeof nextShot.startFrame === "number" &&
-                typeof nextShot.endFrame === "number";
+                (nextShot == null ||
+                  (typeof nextShot.startFrame === "number" && typeof nextShot.endFrame === "number"));
               return (
                 <li className="flex shrink-0 items-stretch" key={shot.id} ref={isActive ? activeThumbRef : null}>
                   <ShotThumbnail

@@ -22,7 +22,6 @@ const storyboardFrameSchema = new Schema(
 );
 
 storyboardFrameSchema.index({ shotId: 1, versionNumber: 1 }, { unique: true });
-storyboardFrameSchema.index({ sceneId: 1 });
 
 export type StoryboardFrameDocument = InferSchemaType<typeof storyboardFrameSchema>;
 
