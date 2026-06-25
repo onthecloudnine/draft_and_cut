@@ -216,6 +216,7 @@ export async function getProjectNleManifest(projectId: string) {
               return {
                 id: shotId,
                 shotNumber: shot.shotNumber,
+                title: shot.title ?? "",
                 shotType: shot.shotType,
                 status: shot.status ?? "animatic",
                 description: shot.description,

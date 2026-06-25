@@ -8,7 +8,7 @@ const FALLBACK_SECONDS = 2;
 const STRIP_PADDING_LEFT_PX = 12; // px-3
 const STRIP_GAP_PX = 4; // gap-1
 
-type StripShot = { id: string; shotNumber: string; durationFrames: number | null };
+type StripShot = { id: string; shotNumber: string; title?: string; durationFrames: number | null };
 
 // Horizontal timeline strip of shots, shared across phases so every phase keeps
 // the same timeline-style layout: shots are segments whose width is proportional
@@ -79,8 +79,8 @@ export function ShotTimelineStrip({
               <span className="absolute inset-0 bg-elevated" aria-hidden />
             )}
             <span className="relative flex items-center justify-between gap-1 bg-black/55 px-1.5 py-0.5">
-              <span className="text-[10px] font-semibold text-white">
-                {t("scene.shotShort")} {shot.shotNumber}
+              <span className="truncate text-[10px] font-semibold text-white">
+                {shot.title ? shot.title : `${t("scene.shotShort")} ${shot.shotNumber}`}
               </span>
               <span
                 className={`h-1.5 w-1.5 rounded-full ${hasMedia ? "bg-red-500" : "bg-white/40"}`}

@@ -19,7 +19,8 @@ const initAttachmentSchema = z.object({
   attachmentDate: z.string().datetime(),
   fileName: z.string().min(1),
   mimeType: z.string().min(1),
-  fileSizeMb: z.number().positive()
+  fileSizeMb: z.number().positive(),
+  shotId: z.string().optional()
 });
 
 export async function POST(
@@ -63,6 +64,7 @@ export async function POST(
     const attachment = await SceneAttachment.create({
       projectId: scene.projectId,
       sceneId,
+      shotId: body.shotId ?? null,
       title: body.title,
       description: body.description,
       attachmentDate: new Date(body.attachmentDate),

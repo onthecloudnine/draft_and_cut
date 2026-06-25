@@ -144,6 +144,8 @@
     "phaseNoMediaHint": "Usa “Subir video” para agregar uno.",
     "phaseNoImage": "Sin imagen",
     "phaseNoShot": "Selecciona un plano en la linea de tiempo.",
+    "attachmentsForShot": "Adjuntos del plano {shotNumber}",
+    "elementsForShot": "Elementos del plano {shotNumber}",
     "shotType": "Tipo de plano",
     "audioTitle": "Sonido",
     "audioPlayAll": "Reproducir todo",

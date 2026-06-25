@@ -556,7 +556,7 @@ function BottomSheet({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {sheetTab === "shot" ? (
-          <ShotPanel activeShot={activeShot} fps={scene.fpsDefault} optionLabel={optionLabel} t={t} />
+          <ShotPanel activeShot={activeShot} fps={scene.fpsDefault} t={t} />
         ) : null}
         {sheetTab === "scene" ? (
           <ScenePanel optionLabel={optionLabel} scene={scene} t={t} />
@@ -582,12 +582,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ShotPanel({
   activeShot,
   fps,
-  optionLabel,
   t
 }: {
   activeShot: Shot | null;
   fps: number;
-  optionLabel: (group: string, value: string) => string;
   t: (path: string) => string;
 }) {
   if (!activeShot) {
@@ -599,9 +597,6 @@ function ShotPanel({
         <h2 className="text-base font-semibold text-fg-strong">
           {t("scene.tabShot")} {activeShot.shotNumber}
         </h2>
-        <span className="rounded-md border border-line bg-background px-2 py-0.5 text-[10px] font-medium uppercase text-muted-strong">
-          {optionLabel("shotStatuses", activeShot.status)}
-        </span>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
         <Tile label={t("scene.startTc")}>{framesToTimecode(activeShot.startFrame, fps)}</Tile>

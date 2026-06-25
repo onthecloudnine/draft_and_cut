@@ -41,6 +41,7 @@ export async function POST(
     return NextResponse.json({
       attachment: {
         id: String(attachment._id),
+        shotId: attachment.shotId ? String(attachment.shotId) : null,
         title: attachment.title,
         description: attachment.description,
         attachmentDate: attachment.attachmentDate.toISOString(),

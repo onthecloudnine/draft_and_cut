@@ -12,6 +12,7 @@ import { sceneSoundOptions, sceneStatuses, shotStatuses, type SceneSoundOption }
 const shotInputSchema = z.object({
   id: z.string().min(1).optional(),
   shotNumber: z.string().min(1),
+  title: z.string().optional().default(""),
   shotType: z.string().optional().default(""),
   status: z.enum(shotStatuses).optional().default("animatic"),
   description: z.string().optional().default(""),
@@ -44,6 +45,7 @@ type ScriptShotInput = z.infer<typeof shotInputSchema>;
 function serializeShot(shot: {
   _id: unknown;
   shotNumber: string;
+  title?: string;
   shotType: string;
   status?: string;
   description: string;
@@ -59,6 +61,7 @@ function serializeShot(shot: {
   return {
     id: String(shot._id),
     shotNumber: shot.shotNumber,
+    title: shot.title ?? "",
     shotType: shot.shotType,
     status: shot.status ?? "animatic",
     description: shot.description,
@@ -100,6 +103,7 @@ async function getWritableScriptVersionId(projectId: string, createdBy: string, 
 function buildShotUpdate(shot: ScriptShotInput) {
   return {
     shotNumber: shot.shotNumber,
+    title: shot.title,
     shotType: shot.shotType,
     status: shot.status,
     description: shot.description,

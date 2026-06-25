@@ -29,7 +29,6 @@ import {
   assetTagCategories,
   sceneSoundOptions,
   sceneStatuses,
-  shotStatuses,
   type AssetTagCategory,
   type ProductionStage,
   type SceneSoundOption,
@@ -54,6 +53,7 @@ type SceneData = {
 type ShotData = {
   id: string;
   shotNumber: string;
+  title: string;
   shotType: string;
   status: ShotStatus;
   description: string;
@@ -84,6 +84,7 @@ type VideoData = {
 
 type AttachmentData = {
   id: string;
+  shotId: string | null;
   title: string;
   description: string;
   attachmentDate: string;
@@ -114,6 +115,7 @@ type HumanResourceData = {
 
 type AssetTagData = {
   id: string;
+  shotId: string | null;
   tagId: string;
   category: AssetTagCategory;
   name: string;
@@ -154,9 +156,8 @@ type SceneDetailWorkspaceProps = {
 // re-enable the per-stem audio tracks below the player.
 const SHOW_AUDIO_PANEL = false;
 
-type TopView = "timeline" | "table";
+type TopView = "timeline" | "table" | "scene" | "script";
 type TimelineTool = "select" | "blade";
-type SidebarTab = "scene" | "script" | "shot" | "elements" | "files";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
 const DRAFT_STORAGE_PREFIX = "scene-draft:";
@@ -337,7 +338,6 @@ export function SceneDetailWorkspace({
   const [phase, setPhase] = useState<PhaseId>("animatic");
   const [topView, setTopView] = useState<TopView>("timeline");
   const [timelineTool, setTimelineTool] = useState<TimelineTool>("select");
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("scene");
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [mergeRequest, setMergeRequest] = useState<MergeRequest | null>(null);
@@ -467,6 +467,7 @@ export function SceneDetailWorkspace({
       sh: next.shots.map((shot) => ({
         i: shot.id,
         n: shot.shotNumber,
+        tt: shot.title,
         ty: shot.shotType,
         st: shot.status,
         de: shot.description,
@@ -710,6 +711,7 @@ export function SceneDetailWorkspace({
     const newShot: ShotData = {
       id: `new-${crypto.randomUUID()}`,
       shotNumber: nextShotNumberAfter(reference?.shotNumber, shots),
+      title: "",
       shotType: data.shotType,
       status: "animatic",
       description: data.description,
@@ -738,7 +740,6 @@ export function SceneDetailWorkspace({
       return [...shifted.slice(0, insertAt), newShot, ...shifted.slice(insertAt)];
     });
     setActiveShotId(newShot.id);
-    setSidebarTab("shot");
     setAddShotRequest(null);
     requestAutosave();
   }
@@ -797,6 +798,7 @@ export function SceneDetailWorkspace({
     const newShot: ShotData = {
       id: `new-${crypto.randomUUID()}`,
       shotNumber: nextShotNumberAfter(reference?.shotNumber, currentShots),
+      title: "",
       shotType: "",
       status: "animatic",
       description: "",
@@ -811,7 +813,6 @@ export function SceneDetailWorkspace({
     };
     setShots((current) => [...current, newShot]);
     setActiveShotId(newShot.id);
-    setSidebarTab("shot");
     requestAutosave();
   }
 
@@ -919,14 +920,14 @@ export function SceneDetailWorkspace({
 
   async function addAssetTag(event: FormEvent<HTMLFormElement>, category: AssetTagCategory) {
     event.preventDefault();
-    if (!canEditScript || !tagInputs[category].trim()) return;
+    if (!canEditScript || !tagInputs[category].trim() || !activeShotId) return;
     setError("");
     setIsSavingTag(category);
     try {
       const response = await fetch(`/api/scenes/${scene.id}/asset-tags`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, name: tagInputs[category] })
+        body: JSON.stringify({ category, name: tagInputs[category], shotId: activeShotId })
       });
       if (!response.ok) {
         const payload = await response.json();
@@ -1044,7 +1045,8 @@ export function SceneDetailWorkspace({
           attachmentDate: new Date(`${attachmentDate}T00:00:00`).toISOString(),
           fileName: attachmentFile.name,
           mimeType: attachmentFile.type || "application/octet-stream",
-          fileSizeMb
+          fileSizeMb,
+          shotId: activeShotId || undefined
         })
       });
       if (!initResponse.ok) {
@@ -1088,6 +1090,68 @@ export function SceneDetailWorkspace({
       setIsUploadingAttachment(false);
     }
   }
+
+  // Shared props for the timeline and the scene/script/elements full-width views.
+  const timelineProps: TimelineViewProps = {
+    activeShot,
+    activeVideo,
+    availableVideos,
+    assetTags,
+    attachments,
+    attachmentDate,
+    attachmentDescription,
+    attachmentFile,
+    attachmentTitle,
+    availableResourceMembers,
+    canEditScript,
+    canManageResources,
+    canManageVideos,
+    fileInputRef,
+    humanResources,
+    isDeletingVideo,
+    isSavingResource,
+    isSavingTag,
+    isUploadingAttachment,
+    onAddAssetTag: addAssetTag,
+    onAddHumanResource: addHumanResource,
+    onAddShotAfter: addShotAfter,
+    onDeleteVideo: deleteActiveVideo,
+    onOpenMerge: openMergeRequest,
+    onOpenScriptOverlay: () => setIsScriptOverlayOpen(true),
+    onRemoveAssetTag: removeAssetTag,
+    onRemoveHumanResource: removeHumanResource,
+    onRemoveShot: removeShot,
+    onAddShotFromSelection: addShotFromSelection,
+    onRedo: redo,
+    onSelectShot: setActiveShotId,
+    onSelectVideo: setSelectedVideoId,
+    onSetTimelineTool: setTimelineTool,
+    onSplitShot: splitShot,
+    onUndo: undo,
+    onTagInputChange: updateTagInput,
+    onUpdateResourceStages: updateResourceStages,
+    onUpdateScene: updateScene,
+    onUpdateShot: updateShot,
+    onUploadAttachment: uploadAttachment,
+    optionLabel,
+    scene,
+    selectedResourceStages,
+    selectedResourceUserIds,
+    setAttachmentDate,
+    setAttachmentDescription,
+    setAttachmentFile,
+    setAttachmentTitle,
+    setSelectedResourceStages,
+    setSelectedResourceUserIds,
+    shots,
+    tagInputs,
+    tagSuggestions,
+    canRedo,
+    canUndo,
+    t,
+    timelineTool,
+    toggleSceneSoundOption
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-fg">
@@ -1137,79 +1201,24 @@ export function SceneDetailWorkspace({
             t={t}
           />
         ) : topView === "timeline" ? (
-          <TimelineView
-            activeShot={activeShot}
-            activeVideo={activeVideo}
-            availableVideos={availableVideos}
-            assetTags={assetTags}
-            attachments={attachments}
-            attachmentDate={attachmentDate}
-            attachmentDescription={attachmentDescription}
-            attachmentFile={attachmentFile}
-            attachmentTitle={attachmentTitle}
-            availableResourceMembers={availableResourceMembers}
-            canEditScript={canEditScript}
-            canManageResources={canManageResources}
-            canManageVideos={canManageVideos}
-            fileInputRef={fileInputRef}
-            humanResources={humanResources}
-            isDeletingVideo={isDeletingVideo}
-            isSavingResource={isSavingResource}
-            isSavingTag={isSavingTag}
-            isUploadingAttachment={isUploadingAttachment}
-            onAddAssetTag={addAssetTag}
-            onAddHumanResource={addHumanResource}
-            onAddShotAfter={addShotAfter}
-            onDeleteVideo={deleteActiveVideo}
-            onOpenMerge={openMergeRequest}
-            onOpenScriptOverlay={() => setIsScriptOverlayOpen(true)}
-            onRemoveAssetTag={removeAssetTag}
-            onRemoveHumanResource={removeHumanResource}
-            onRemoveShot={removeShot}
-            onAddShotFromSelection={addShotFromSelection}
-            onRedo={redo}
-            onSelectShot={setActiveShotId}
-            onSelectVideo={setSelectedVideoId}
-            onSetTimelineTool={setTimelineTool}
-            onSplitShot={splitShot}
-            onUndo={undo}
-            onTagInputChange={updateTagInput}
-            onUpdateResourceStages={updateResourceStages}
-            onUpdateScene={updateScene}
-            onUpdateShot={updateShot}
-            onUploadAttachment={uploadAttachment}
-            optionLabel={optionLabel}
-            scene={scene}
-            selectedResourceStages={selectedResourceStages}
-            selectedResourceUserIds={selectedResourceUserIds}
-            setAttachmentDate={setAttachmentDate}
-            setAttachmentDescription={setAttachmentDescription}
-            setAttachmentFile={setAttachmentFile}
-            setAttachmentTitle={setAttachmentTitle}
-            setSelectedResourceStages={setSelectedResourceStages}
-            setSelectedResourceUserIds={setSelectedResourceUserIds}
-            setSidebarTab={setSidebarTab}
-            shots={shots}
-            sidebarTab={sidebarTab}
-            tagInputs={tagInputs}
-            tagSuggestions={tagSuggestions}
-            canRedo={canRedo}
-            canUndo={canUndo}
-            t={t}
-            timelineTool={timelineTool}
-            toggleSceneSoundOption={toggleSceneSoundOption}
-          />
-        ) : (
+          <TimelineView {...timelineProps} />
+        ) : topView === "table" ? (
           <TableView
             canEditScript={canEditScript}
             onAddShotAfter={addShotAfter}
             onRemoveShot={removeShot}
             onUpdateShot={updateShot}
-            optionLabel={optionLabel}
             scene={scene}
             shots={shots}
             t={t}
           />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-3xl">
+              {topView === "scene" ? <SceneTab {...timelineProps} /> : null}
+              {topView === "script" ? <ScriptTab {...timelineProps} /> : null}
+            </div>
+          </div>
         )}
       </div>
 
@@ -1493,7 +1502,9 @@ function TopTabs({
 }) {
   const tabs: { key: TopView; label: string }[] = [
     { key: "timeline", label: t("scene.viewTimeline") },
-    { key: "table", label: t("scene.viewTable") }
+    { key: "table", label: t("scene.viewTable") },
+    { key: "scene", label: t("scene.tabScene") },
+    { key: "script", label: t("scene.tabScript") }
   ];
   return (
     <div className="shrink-0 border-b border-line bg-background px-5 sm:px-7">
@@ -1575,9 +1586,7 @@ type TimelineViewProps = {
   setAttachmentTitle: (value: string) => void;
   setSelectedResourceStages: React.Dispatch<React.SetStateAction<ProductionStage[]>>;
   setSelectedResourceUserIds: React.Dispatch<React.SetStateAction<string[]>>;
-  setSidebarTab: (tab: SidebarTab) => void;
   shots: ShotData[];
-  sidebarTab: SidebarTab;
   tagInputs: Record<string, string>;
   tagSuggestions: Record<string, AssetTagSuggestion[]>;
   t: (path: string, replacements?: Record<string, string | number>) => string;
@@ -1605,9 +1614,7 @@ function TimelineView(props: TimelineViewProps) {
     onUpdateShot,
     optionLabel,
     scene,
-    setSidebarTab,
     shots,
-    sidebarTab,
     t,
     timelineTool
   } = props;
@@ -1791,9 +1798,8 @@ function TimelineView(props: TimelineViewProps) {
   const handleSelectShotFromThumb = useCallback(
     (shotId: string) => {
       onSelectShot(shotId);
-      setSidebarTab("shot");
     },
-    [onSelectShot, setSidebarTab]
+    [onSelectShot]
   );
 
   const shotsRef = useRef(shots);
@@ -2146,13 +2152,10 @@ function TimelineView(props: TimelineViewProps) {
         </div>
 
         <aside className="flex w-full shrink-0 flex-col border-line bg-surface lg:w-[380px] lg:border-l xl:w-[420px]">
-          <SidebarTabs activeShot={activeShot} onChange={setSidebarTab} t={t} value={sidebarTab} />
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {sidebarTab === "scene" ? <SceneTab {...props} /> : null}
-            {sidebarTab === "script" ? <ScriptTab {...props} /> : null}
-            {sidebarTab === "shot" ? <ShotTab {...props} /> : null}
-            {sidebarTab === "elements" ? <ElementsTab {...props} /> : null}
-            {sidebarTab === "files" ? <FilesTab {...props} /> : null}
+            <ShotTab {...props} />
+            <ElementsTab {...props} />
+            <FilesTab {...props} />
           </div>
         </aside>
       </section>
@@ -2714,7 +2717,6 @@ const ShotThumbnail = memo(function ShotThumbnail({
   onSeek,
   onSelect,
   onSplit,
-  optionLabel,
   pixelsPerSecond,
   scrubbingRef,
   scene,
@@ -2865,9 +2867,14 @@ const ShotThumbnail = memo(function ShotThumbnail({
         <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           {framesToTimecode(shot.startFrame, scene.fpsDefault)}
         </span>
-        <p className="pointer-events-none relative z-10 text-[11px] font-semibold uppercase tracking-wider text-muted-strong">
-          {shot.shotNumber}
-        </p>
+        <div className="pointer-events-none relative z-10 min-w-0">
+          {shot.title ? (
+            <p className="truncate text-[11px] font-semibold text-fg-strong">{shot.title}</p>
+          ) : null}
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-strong">
+            {shot.shotNumber}
+          </p>
+        </div>
         {tool === "blade" && bladePreview ? (
           <>
             <div
@@ -2891,8 +2898,7 @@ const ShotThumbnail = memo(function ShotThumbnail({
       >
         <p className="truncate text-[11px] font-medium text-fg">{shot.shotType || "—"}</p>
         <p className="truncate text-[10px] text-muted">
-          {optionLabel("shotStatuses", shot.status)}
-          <span className="text-muted"> · {formatDurationSeconds(shot.durationFrames, scene.fpsDefault)}</span>
+          {formatDurationSeconds(shot.durationFrames, scene.fpsDefault)}
         </p>
       </button>
       {canResize ? (
@@ -2998,49 +3004,6 @@ function NoVideoPlaceholder({ t }: { t: (path: string) => string }) {
       </div>
       <p className="text-sm font-semibold text-fg">{t("scene.noPreviewTitle")}</p>
       <p className="mt-1 text-xs text-muted">{t("scene.noPreviewBody")}</p>
-    </div>
-  );
-}
-
-function SidebarTabs({
-  activeShot,
-  onChange,
-  t,
-  value
-}: {
-  activeShot: ShotData | null;
-  onChange: (tab: SidebarTab) => void;
-  t: (path: string, replacements?: Record<string, string | number>) => string;
-  value: SidebarTab;
-}) {
-  const tabs: { key: SidebarTab; label: string }[] = [
-    { key: "scene", label: t("scene.tabScene") },
-    { key: "script", label: t("scene.tabScript") },
-    { key: "shot", label: activeShot ? t("scene.tabShotN", { shotNumber: activeShot.shotNumber }) : t("scene.tabShot") },
-    { key: "elements", label: t("scene.tabElements") },
-    { key: "files", label: t("scene.tabFiles") }
-  ];
-  return (
-    <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-line px-2">
-      {tabs.map((tab) => {
-        const active = tab.key === value;
-        return (
-          <button
-            className={[
-              "relative shrink-0 px-3 py-2.5 text-[12px] font-medium transition",
-              active ? "text-fg-strong" : "text-muted hover:text-fg"
-            ].join(" ")}
-            key={tab.key}
-            onClick={() => onChange(tab.key)}
-            type="button"
-          >
-            {tab.label}
-            {active ? (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-t bg-red-500" aria-hidden />
-            ) : null}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -3272,7 +3235,7 @@ function ScriptTab(props: TimelineViewProps) {
 }
 
 function ShotTab(props: TimelineViewProps) {
-  const { activeShot, canEditScript, onRemoveShot, onUpdateShot, optionLabel, scene, t } = props;
+  const { activeShot, canEditScript, onRemoveShot, onUpdateShot, scene, t } = props;
 
   if (!activeShot) {
     return (
@@ -3298,6 +3261,15 @@ function ShotTab(props: TimelineViewProps) {
         ) : null}
       </div>
 
+      <div className="grid min-w-0 gap-2">
+        <FieldLabel>{t("scene.title")}</FieldLabel>
+        <TextInput
+          disabled={!canEditScript}
+          onChange={(value) => onUpdateShot(activeShot.id, { title: value })}
+          value={activeShot.title}
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="grid min-w-0 gap-2">
           <FieldLabel>{t("scene.number")}</FieldLabel>
@@ -3315,22 +3287,6 @@ function ShotTab(props: TimelineViewProps) {
             value={activeShot.shotType}
           />
         </div>
-      </div>
-
-      <div className="grid gap-2">
-        <FieldLabel>{t("scene.status")}</FieldLabel>
-        <select
-          className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-2 text-sm text-fg disabled:opacity-60"
-          disabled={!canEditScript}
-          onChange={(event) => onUpdateShot(activeShot.id, { status: event.target.value as ShotStatus })}
-          value={activeShot.status}
-        >
-          {shotStatuses.map((item) => (
-            <option key={item} value={item}>
-              {optionLabel("shotStatuses", item)}
-            </option>
-          ))}
-        </select>
       </div>
 
       <fieldset className="grid min-w-0 gap-2 rounded-md border border-line bg-background p-3">
@@ -3456,6 +3412,7 @@ function TimecodeField({
 
 function ElementsTab(props: TimelineViewProps) {
   const {
+    activeShot,
     assetTags,
     canEditScript,
     isSavingTag,
@@ -3467,10 +3424,21 @@ function ElementsTab(props: TimelineViewProps) {
     tagSuggestions,
     t
   } = props;
+
+  // Asset tags ("elementos") belong to the selected shot.
+  const shotTags = activeShot ? assetTags.filter((tag) => tag.shotId === activeShot.id) : [];
+
+  if (!activeShot) {
+    return (
+      <div className="border-t border-line p-4 text-sm text-muted sm:p-5">{t("scene.phaseNoShot")}</div>
+    );
+  }
+
   return (
-    <div className="grid gap-4 p-4 sm:p-5">
+    <div className="grid gap-4 border-t border-line p-4 sm:p-5">
+      <FieldLabel>{t("scene.elementsForShot", { shotNumber: activeShot.shotNumber })}</FieldLabel>
       {assetTagCategories.map((category) => {
-        const categoryTags = assetTags.filter((tag) => tag.category === category);
+        const categoryTags = shotTags.filter((tag) => tag.category === category);
         const datalistId = `${category}-asset-tags-sidebar`;
         return (
           <div className="grid gap-2" key={category}>
@@ -3529,6 +3497,7 @@ function ElementsTab(props: TimelineViewProps) {
 
 function FilesTab(props: TimelineViewProps) {
   const {
+    activeShot,
     attachmentDate,
     attachmentDescription,
     attachmentFile,
@@ -3543,8 +3512,21 @@ function FilesTab(props: TimelineViewProps) {
     setAttachmentTitle,
     t
   } = props;
+
+  // Attachments are per shot: show only the active shot's files.
+  const shotAttachments = activeShot
+    ? attachments.filter((attachment) => attachment.shotId === activeShot.id)
+    : [];
+
+  if (!activeShot) {
+    return (
+      <div className="border-t border-line p-4 text-sm text-muted sm:p-5">{t("scene.phaseNoShot")}</div>
+    );
+  }
+
   return (
-    <div className="grid gap-4 p-4 sm:p-5">
+    <div className="grid gap-4 border-t border-line p-4 sm:p-5">
+      <FieldLabel>{t("scene.attachmentsForShot", { shotNumber: activeShot.shotNumber })}</FieldLabel>
       <form className="grid gap-3 rounded-md border border-line bg-background p-3" onSubmit={onUploadAttachment}>
         <FieldLabel>{t("scene.title")}</FieldLabel>
         <TextInput onChange={setAttachmentTitle} value={attachmentTitle} />
@@ -3574,7 +3556,7 @@ function FilesTab(props: TimelineViewProps) {
         </button>
       </form>
       <div className="grid gap-2">
-        {attachments.map((attachment) => (
+        {shotAttachments.map((attachment) => (
           <article className="rounded-md border border-line bg-background p-3 text-xs" key={attachment.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -3604,7 +3586,7 @@ function FilesTab(props: TimelineViewProps) {
             )}
           </article>
         ))}
-        {attachments.length === 0 ? (
+        {shotAttachments.length === 0 ? (
           <p className="text-xs text-muted">{t("scene.noAttachments")}</p>
         ) : null}
       </div>
@@ -3617,7 +3599,6 @@ function TableView({
   onAddShotAfter,
   onRemoveShot,
   onUpdateShot,
-  optionLabel,
   scene,
   shots,
   t
@@ -3626,7 +3607,6 @@ function TableView({
   onAddShotAfter: (shot: ShotData | null) => void;
   onRemoveShot: (id: string) => void;
   onUpdateShot: (id: string, patch: Partial<ShotData>) => void;
-  optionLabel: (group: string, value: string) => string;
   scene: SceneData;
   shots: ShotData[];
   t: (path: string, replacements?: Record<string, string | number>) => string;
@@ -3654,7 +3634,6 @@ function TableView({
               {[
                 t("scene.number"),
                 t("scene.type"),
-                t("scene.status"),
                 t("scene.startTc"),
                 t("scene.endTc"),
                 t("scene.durationTc"),
@@ -3693,20 +3672,6 @@ function TableView({
                     value={shot.shotType}
                     width="w-40"
                   />
-                </Cell>
-                <Cell>
-                  <select
-                    className="h-7 w-32 rounded border border-line bg-background px-1 text-xs text-fg disabled:opacity-60"
-                    disabled={!canEditScript}
-                    onChange={(event) => onUpdateShot(shot.id, { status: event.target.value as ShotStatus })}
-                    value={shot.status}
-                  >
-                    {shotStatuses.map((item) => (
-                      <option key={item} value={item}>
-                        {optionLabel("shotStatuses", item)}
-                      </option>
-                    ))}
-                  </select>
                 </Cell>
                 <Cell>
                   <TimecodeCell

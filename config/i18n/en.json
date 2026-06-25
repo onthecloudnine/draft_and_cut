@@ -144,6 +144,8 @@
     "phaseNoMediaHint": "Use “Upload video” to add one.",
     "phaseNoImage": "No image",
     "phaseNoShot": "Select a shot in the timeline.",
+    "attachmentsForShot": "Attachments for shot {shotNumber}",
+    "elementsForShot": "Elements for shot {shotNumber}",
     "shotType": "Shot type",
     "audioTitle": "Sound",
     "audioPlayAll": "Play all",

@@ -8,6 +8,7 @@ const shotSchema = new Schema(
     scriptVersionId: { type: Schema.Types.ObjectId, ref: "ScriptVersion", required: true, index: true },
     sceneNumber: { type: String, required: true, trim: true },
     shotNumber: { type: String, required: true, trim: true },
+    title: { type: String, default: "" },
     shotType: { type: String, default: "" },
     status: { type: String, enum: shotStatuses, default: "animatic", index: true },
     description: { type: String, default: "" },

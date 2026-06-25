@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { uploadShotVideo } from "@/lib/uploads/client";
-import { shotStatuses } from "@/types/domain";
 import { PHASE_STAGES } from "./phase-types";
 import { ShotTimelineStrip } from "./shot-timeline-strip";
 
@@ -20,6 +19,7 @@ type ShotVideoData = {
 type ShotItem = {
   id: string;
   shotNumber: string;
+  title: string;
   shotType: string;
   status: string;
   description: string;
@@ -289,13 +289,7 @@ export function ShotVideoView({
           )}
         </div>
 
-        <ShotInfoPanel
-          shot={activeShot}
-          canEdit={canEditShots}
-          onUpdateShot={onUpdateShot}
-          optionLabel={optionLabel}
-          t={t}
-        />
+        <ShotInfoPanel shot={activeShot} canEdit={canEditShots} onUpdateShot={onUpdateShot} t={t} />
       </div>
 
       {error ? (
@@ -322,13 +316,11 @@ const ShotInfoPanel = memo(function ShotInfoPanel({
   shot,
   canEdit,
   onUpdateShot,
-  optionLabel,
   t
 }: {
   shot: ShotItem | null;
   canEdit: boolean;
   onUpdateShot: (shotId: string, patch: Partial<Omit<ShotItem, "id">>) => void;
-  optionLabel: (group: string, value: string) => string;
   t: (path: string, replacements?: Record<string, string | number>) => string;
 }) {
   if (!shot) {
@@ -354,27 +346,22 @@ const ShotInfoPanel = memo(function ShotInfoPanel({
     <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-line bg-surface lg:block">
       <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
         <span className="text-sm font-semibold text-fg-strong">
-          {t("scene.shotShort")} {shot.shotNumber}
+          {shot.title ? shot.title : `${t("scene.shotShort")} ${shot.shotNumber}`}
         </span>
-        {canEdit ? (
-          <select
-            className="rounded-md border border-line-strong bg-background px-2 py-0.5 text-[11px] text-fg"
-            onChange={(event) => onUpdateShot(shot.id, { status: event.target.value })}
-            value={shot.status}
-          >
-            {shotStatuses.map((status) => (
-              <option key={status} value={status}>
-                {optionLabel("shotStatuses", status)}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-medium uppercase text-muted">
-            {optionLabel("shotStatuses", shot.status)}
-          </span>
-        )}
       </div>
       <div className="grid gap-3 p-4">
+        <div className="grid gap-1">
+          <FieldLabel>{t("scene.title")}</FieldLabel>
+          {canEdit ? (
+            <input
+              className="h-8 rounded-md border border-line-strong bg-background px-2 text-sm text-fg"
+              onChange={(event) => onUpdateShot(shot.id, { title: event.target.value })}
+              value={shot.title}
+            />
+          ) : (
+            <ReadValue value={shot.title} />
+          )}
+        </div>
         {typeof shot.durationFrames === "number" ? (
           <Field label={t("scene.duration")} value={`${shot.durationFrames} ${t("scene.frames")}`} />
         ) : null}

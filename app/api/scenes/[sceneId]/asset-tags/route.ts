@@ -12,7 +12,8 @@ import { assetTagCategories } from "@/types/domain";
 
 const tagInputSchema = z.object({
   category: z.enum(assetTagCategories),
-  name: z.string().min(1)
+  name: z.string().min(1),
+  shotId: z.string().min(1)
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ sceneId: string }> }) {
@@ -54,11 +55,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ sce
     ).lean();
 
     const assignment = await SceneAssetTag.findOneAndUpdate(
-      { sceneId, tagId: tag._id },
+      { shotId: body.shotId, tagId: tag._id },
       {
         $setOnInsert: {
           projectId: scene.projectId,
           sceneId,
+          shotId: body.shotId,
           tagId: tag._id,
           category: body.category
         }
@@ -69,6 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ sce
     return NextResponse.json({
       tag: {
         id: String(assignment._id),
+        shotId: body.shotId,
         tagId: String(tag._id),
         category: body.category,
         name: tag.name

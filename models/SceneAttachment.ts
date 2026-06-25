@@ -4,6 +4,7 @@ const sceneAttachmentSchema = new Schema(
   {
     projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
     sceneId: { type: Schema.Types.ObjectId, ref: "Scene", required: true, index: true },
+    shotId: { type: Schema.Types.ObjectId, ref: "Shot", default: null, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     attachmentDate: { type: Date, required: true },

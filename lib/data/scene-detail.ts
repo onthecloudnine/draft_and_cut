@@ -125,6 +125,7 @@ export async function getSceneDetailData(sceneId: string) {
     shots: shots.map((shot) => ({
       id: String(shot._id),
       shotNumber: shot.shotNumber,
+      title: shot.title ?? "",
       shotType: shot.shotType,
       status: shot.status ?? "animatic",
       description: shot.description,
@@ -186,6 +187,7 @@ export async function getSceneDetailData(sceneId: string) {
 
         return {
           id: String(attachment._id),
+          shotId: attachment.shotId ? String(attachment.shotId) : null,
           title: attachment.title,
           description: attachment.description,
           attachmentDate: attachment.attachmentDate.toISOString(),
@@ -235,6 +237,7 @@ export async function getSceneDetailData(sceneId: string) {
 
         return {
           id: String(assignment._id),
+          shotId: assignment.shotId ? String(assignment.shotId) : null,
           tagId: String(assignment.tagId),
           category: assignment.category,
           name: tag.name
