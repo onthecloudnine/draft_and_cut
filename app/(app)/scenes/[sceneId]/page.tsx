@@ -44,6 +44,7 @@ export default async function SceneDetailPage({
       videos={data.videos}
       storyboardFrames={data.storyboardFrames}
       audioVersions={data.audioVersions}
+      shotStageStates={data.shotStageStates}
     />
   );
 }

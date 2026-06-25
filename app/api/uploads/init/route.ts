@@ -14,7 +14,7 @@ import { Scene } from "@/models/Scene";
 import { Shot } from "@/models/Shot";
 import { ScriptVersion } from "@/models/ScriptVersion";
 import { VideoVersion } from "@/models/VideoVersion";
-import { productionStages } from "@/types/domain";
+import { sceneStages } from "@/types/domain";
 
 const initUploadSchema = z
   .object({
@@ -22,7 +22,7 @@ const initUploadSchema = z
     sceneId: z.string().min(1),
     scope: z.enum(["scene", "shot"]).optional().default("scene"),
     shotId: z.string().optional(),
-    stage: z.enum(productionStages),
+    stage: z.enum(sceneStages),
     fileName: z.string().min(1),
     mimeType: z.literal("video/mp4"),
     fileSizeMb: z.number().positive(),

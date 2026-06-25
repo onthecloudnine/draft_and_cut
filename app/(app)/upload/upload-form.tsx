@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/client";
-import { productionStages, type ProductionStage } from "@/types/domain";
+import { sceneStages, type SceneStage } from "@/types/domain";
 
 type UploadOptions = {
   projects: Array<{ id: string; title: string; fpsDefault: number }>;
@@ -70,7 +70,7 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
   const { optionLabel, t } = useI18n();
   const [projectId, setProjectId] = useState(initialProjectId ?? options.projects[0]?.id ?? "");
   const [sceneId, setSceneId] = useState(initialSceneId ?? "");
-  const [stage, setStage] = useState<ProductionStage>("animation");
+  const [stage, setStage] = useState<SceneStage>("animation");
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
   const [notes, setNotes] = useState("");
@@ -283,12 +283,12 @@ export function UploadForm({ options, initialProjectId, initialSceneId }: Upload
           {t("upload.stage")}
           <select
             className="h-11 rounded-md border border-line-strong bg-background px-3 text-fg"
-            onChange={(event) => setStage(event.target.value as ProductionStage)}
+            onChange={(event) => setStage(event.target.value as SceneStage)}
             value={stage}
           >
-            {productionStages.map((item) => (
+            {sceneStages.map((item) => (
               <option key={item} value={item}>
-                {optionLabel("productionStages", item)}
+                {optionLabel("sceneStages", item)}
               </option>
             ))}
           </select>

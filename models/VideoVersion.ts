@@ -1,5 +1,5 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
-import { productionStages, videoScopes, videoStatuses } from "@/types/domain";
+import { sceneStages, videoScopes, videoStatuses } from "@/types/domain";
 
 const videoVersionSchema = new Schema(
   {
@@ -8,7 +8,7 @@ const videoVersionSchema = new Schema(
     shotId: { type: Schema.Types.ObjectId, ref: "Shot", index: true },
     scope: { type: String, enum: videoScopes, required: true },
     versionNumber: { type: Number, required: true },
-    stage: { type: String, enum: productionStages, required: true },
+    stage: { type: String, enum: sceneStages, required: true },
     status: { type: String, enum: videoStatuses, default: "uploading" },
     source: { type: String, default: "web_upload" },
     fileName: { type: String, required: true },

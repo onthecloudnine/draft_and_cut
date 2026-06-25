@@ -8,6 +8,7 @@ import { SceneAttachment } from "@/models/SceneAttachment";
 import { SceneResourceAssignment } from "@/models/SceneResourceAssignment";
 import { ProjectMembership } from "@/models/ProjectMembership";
 import { Shot } from "@/models/Shot";
+import { ShotStageState } from "@/models/ShotStageState";
 import { StoryboardFrame } from "@/models/StoryboardFrame";
 import { AudioVersion } from "@/models/AudioVersion";
 import { User } from "@/models/User";
@@ -38,7 +39,8 @@ export async function getSceneDetailData(sceneId: string) {
     sceneAssetTags,
     activeUsers,
     storyboardFrames,
-    audioVersions
+    audioVersions,
+    shotStageStates
   ] = await Promise.all([
     Scene.find({ projectId: scene.projectId }).select("sceneNumber title").lean(),
     Project.findById(scene.projectId).select("fpsDefault").lean(),
@@ -50,7 +52,8 @@ export async function getSceneDetailData(sceneId: string) {
     SceneAssetTag.find({ sceneId }).sort({ createdAt: 1 }).lean(),
     User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean(),
     StoryboardFrame.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean(),
-    AudioVersion.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean()
+    AudioVersion.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean(),
+    ShotStageState.find({ sceneId }).lean()
   ]);
 
   projectScenes.sort((left, right) => compareNumericText(left.sceneNumber, right.sceneNumber));
@@ -100,6 +103,7 @@ export async function getSceneDetailData(sceneId: string) {
       location: scene.location,
       timeOfDay: scene.timeOfDay,
       soundOptions: (scene.soundOptions?.length ? scene.soundOptions : ["none"]) as SceneSoundOption[],
+      stage: scene.stage ?? "storyboard",
       status: scene.status,
       fpsDefault: project?.fpsDefault ?? 24
     },
@@ -181,6 +185,13 @@ export async function getSceneDetailData(sceneId: string) {
         url: await maybeGetSignedObjectUrl(audio.s3Key)
       }))
     ),
+    shotStageStates: shotStageStates.map((state) => ({
+      id: String(state._id),
+      shotId: String(state.shotId),
+      stage: state.stage,
+      reviewStatus: state.reviewStatus ?? "draft",
+      assignees: (state.assignees ?? []).map((id) => String(id))
+    })),
     attachments: await Promise.all(
       attachments.map(async (attachment) => {
         const uploader = userById.get(String(attachment.uploadedBy));

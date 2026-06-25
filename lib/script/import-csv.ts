@@ -149,6 +149,7 @@ export async function importTechnicalScriptCsv(input: ImportTechnicalScriptInput
         timeOfDay: cleanText(firstRow.momento),
         sortOrder: index,
         status: "in_review",
+        stage: "storyboard",
         currentScriptVersionId: scriptVersion._id
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }

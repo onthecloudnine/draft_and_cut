@@ -6,6 +6,7 @@
   "videoStatuses": ["draft", "uploading", "ready_for_review", "approved", "rejected", "archived", "failed"],
   "scriptStatuses": ["draft", "active", "superseded", "locked", "archived"],
   "sceneStatuses": ["draft", "in_progress", "in_review", "approved", "archived"],
+  "sceneStages": ["storyboard", "animatic", "layout", "camera", "blocking", "playblast", "animation", "polish", "fx_sim", "lighting", "render_test", "render_final", "compositing", "color", "audio_sync", "final"],
   "sceneSoundOptions": ["none", "incidental", "dialogue", "music", "folley"],
   "assetTagCategories": ["character", "prop", "environment"],
   "shotStatuses": ["animatic", "playblast", "render"],

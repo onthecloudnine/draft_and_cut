@@ -15,11 +15,26 @@ import {
 } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { plainTextToHtml } from "@/components/rich-text-editor";
-import { PhaseSwitcher } from "./phase-switcher";
-import { ShotVideoView } from "./shot-video-view";
-import { StoryboardGallery } from "./storyboard-gallery";
 import { AudioTracksPanel } from "./audio-tracks-panel";
-import type { AudioVersionData, PhaseId, StoryboardFrameData } from "./phase-types";
+import { uploadShotVideo } from "@/lib/uploads/client";
+import type { AudioVersionData, StoryboardFrameData } from "./phase-types";
+
+export type ShotStageStateData = {
+  id: string;
+  shotId: string;
+  stage: string;
+  reviewStatus: string;
+  assignees: string[];
+};
+
+// Colores por estado de revisión (validados con el usuario).
+const SCENE_STATUS_COLORS: Record<string, string> = {
+  draft: "#9ca3af",
+  in_progress: "#f59e0b",
+  in_review: "#3b82f6",
+  approved: "#22c55e",
+  archived: "#64748b"
+};
 
 const RichTextEditor = dynamic(
   () => import("@/components/rich-text-editor").then((mod) => ({ default: mod.RichTextEditor })),
@@ -28,6 +43,7 @@ const RichTextEditor = dynamic(
 import {
   assetTagCategories,
   sceneSoundOptions,
+  sceneStages,
   sceneStatuses,
   type AssetTagCategory,
   type ProductionStage,
@@ -46,6 +62,7 @@ type SceneData = {
   location: string;
   timeOfDay: string;
   soundOptions: SceneSoundOption[];
+  stage: string;
   status: string;
   fpsDefault: number;
 };
@@ -139,6 +156,7 @@ type SceneDetailWorkspaceProps = {
   videos: VideoData[];
   storyboardFrames: StoryboardFrameData[];
   audioVersions: AudioVersionData[];
+  shotStageStates: ShotStageStateData[];
   attachments: AttachmentData[];
   projectMembers: ProjectMemberData[];
   humanResources: HumanResourceData[];
@@ -298,8 +316,8 @@ export function SceneDetailWorkspace({
   scene: initialScene,
   shots: initialShots,
   videos: initialVideos,
-  storyboardFrames,
   audioVersions,
+  shotStageStates,
   attachments: initialAttachments,
   projectMembers,
   humanResources: initialHumanResources,
@@ -335,7 +353,6 @@ export function SceneDetailWorkspace({
   const [assetTags, setAssetTags] = useState(initialAssetTags);
   const [activeShotId, setActiveShotId] = useState(initialShotId ?? sortedInitialShots[0]?.id ?? "");
   const [selectedVideoId, setSelectedVideoId] = useState("");
-  const [phase, setPhase] = useState<PhaseId>("animatic");
   const [topView, setTopView] = useState<TopView>("timeline");
   const [timelineTool, setTimelineTool] = useState<TimelineTool>("select");
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
@@ -460,6 +477,7 @@ export function SceneDetailWorkspace({
         l: next.scene.location,
         tod: next.scene.timeOfDay,
         so: [...next.scene.soundOptions].sort(),
+        sg: next.scene.stage,
         st: next.scene.status,
         lh: next.scene.literaryHeading,
         ls: next.scene.literaryScript
@@ -511,6 +529,7 @@ export function SceneDetailWorkspace({
             location: snapshot.scene.location,
             timeOfDay: snapshot.scene.timeOfDay,
             soundOptions: snapshot.scene.soundOptions,
+            stage: snapshot.scene.stage,
             status: snapshot.scene.status,
             literaryHeading: snapshot.scene.literaryHeading,
             literaryScript: snapshot.scene.literaryScript
@@ -1096,6 +1115,9 @@ export function SceneDetailWorkspace({
     activeShot,
     activeVideo,
     availableVideos,
+    videos,
+    projectMembers,
+    shotStageStates,
     assetTags,
     attachments,
     attachmentDate,
@@ -1171,36 +1193,10 @@ export function SceneDetailWorkspace({
         t={t}
       />
 
-      <PhaseSwitcher t={t} value={phase} onChange={setPhase} />
-
-      {phase === "animatic" ? <TopTabs t={t} value={topView} onChange={setTopView} /> : null}
+      <TopTabs t={t} value={topView} onChange={setTopView} />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        {phase === "storyboard" ? (
-          <StoryboardGallery
-            sceneId={scene.id}
-            shots={shots}
-            initialFrames={storyboardFrames}
-            activeShotId={activeShotId}
-            onSelectShot={setActiveShotId}
-            canManage={canManageVideos}
-            t={t}
-          />
-        ) : phase === "playblast" || phase === "render" ? (
-          <ShotVideoView
-            phase={phase}
-            scene={scene}
-            shots={shots}
-            initialVideos={videos}
-            activeShotId={activeShotId}
-            onSelectShot={setActiveShotId}
-            canManageVideos={canManageVideos}
-            canEditShots={canEditScript}
-            onUpdateShot={updateShot}
-            optionLabel={optionLabel}
-            t={t}
-          />
-        ) : topView === "timeline" ? (
+        {topView === "timeline" ? (
           <TimelineView {...timelineProps} />
         ) : topView === "table" ? (
           <TableView
@@ -1537,6 +1533,9 @@ type TimelineViewProps = {
   activeShot: ShotData | null;
   activeVideo: VideoData | null;
   availableVideos: VideoData[];
+  videos: VideoData[];
+  projectMembers: ProjectMemberData[];
+  shotStageStates: ShotStageStateData[];
   assetTags: AssetTagData[];
   attachments: AttachmentData[];
   attachmentDate: string;
@@ -2156,6 +2155,22 @@ function TimelineView(props: TimelineViewProps) {
             <ShotTab {...props} />
             <ElementsTab {...props} />
             <FilesTab {...props} />
+            {props.canEditScript && props.activeShot ? (
+              <div className="border-t border-line p-4 sm:p-5">
+                <button
+                  className="flex w-full items-center justify-center gap-2 rounded-md border border-danger px-3 py-2 text-[12px] font-medium text-danger-fg hover:bg-danger-soft"
+                  onClick={() => props.onRemoveShot(props.activeShot!.id)}
+                  type="button"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  </svg>
+                  {props.t("scene.deleteShot")}
+                </button>
+              </div>
+            ) : null}
           </div>
         </aside>
       </section>
@@ -3114,26 +3129,9 @@ function SceneTab(props: TimelineViewProps) {
   const { canEditScript, optionLabel, onUpdateScene, scene, t, toggleSceneSoundOption } = props;
   return (
     <div className="grid gap-4 p-4 sm:p-5">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="grid min-w-0 gap-2">
-          <FieldLabel>{t("scene.number")}</FieldLabel>
-          <TextInput disabled value={scene.sceneNumber} onChange={() => {}} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <FieldLabel>{t("scene.status")}</FieldLabel>
-          <select
-            className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-2 text-sm text-fg disabled:opacity-60"
-            disabled={!canEditScript}
-            onChange={(event) => onUpdateScene({ status: event.target.value })}
-            value={scene.status}
-          >
-            {sceneStatuses.map((item) => (
-              <option key={item} value={item}>
-                {optionLabel("sceneStatuses", item)}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="grid min-w-0 gap-2">
+        <FieldLabel>{t("scene.number")}</FieldLabel>
+        <TextInput disabled value={scene.sceneNumber} onChange={() => {}} />
       </div>
       <div className="grid gap-2">
         <FieldLabel>{t("scene.title")}</FieldLabel>
@@ -3235,7 +3233,112 @@ function ScriptTab(props: TimelineViewProps) {
 }
 
 function ShotTab(props: TimelineViewProps) {
-  const { activeShot, canEditScript, onRemoveShot, onUpdateShot, scene, t } = props;
+  const {
+    activeShot,
+    canEditScript,
+    onUpdateScene,
+    onUpdateShot,
+    optionLabel,
+    projectMembers,
+    scene,
+    shotStageStates,
+    t,
+    videos
+  } = props;
+
+  // Estado local por (plano × etapa activa). La etapa activa = scene.stage,
+  // que es la que "manda": estado de revisión, responsables y videos se editan
+  // siempre en el contexto de esa etapa.
+  const [stageStates, setStageStates] = useState<ShotStageStateData[]>(shotStageStates);
+  const [stageVideos, setStageVideos] = useState<VideoData[]>(videos);
+  const [isUploading, setIsUploading] = useState(false);
+  const [stageError, setStageError] = useState("");
+  const stageFileRef = useRef<HTMLInputElement>(null);
+
+  const memberName = useMemo(
+    () => new Map(projectMembers.map((member) => [member.id, member.name])),
+    [projectMembers]
+  );
+
+  const activeStage = scene.stage;
+  const shotId = activeShot?.id ?? "";
+  const currentState = stageStates.find((s) => s.shotId === shotId && s.stage === activeStage) ?? null;
+  const reviewStatus = currentState?.reviewStatus ?? "draft";
+  const assignees = currentState?.assignees ?? [];
+  const stageClips = stageVideos
+    .filter((v) => v.shotId === shotId && v.stage === activeStage && v.scope === "shot" && v.url)
+    .sort((a, b) => b.versionNumber - a.versionNumber);
+
+  async function persistStage(patch: { reviewStatus?: string; assignees?: string[] }) {
+    if (!canEditScript || !shotId) return;
+    setStageError("");
+    setStageStates((current) => {
+      const existing = current.find((s) => s.shotId === shotId && s.stage === activeStage);
+      if (existing) return current.map((s) => (s === existing ? { ...s, ...patch } : s));
+      return [
+        ...current,
+        { id: `local-${activeStage}`, shotId, stage: activeStage, reviewStatus: "draft", assignees: [], ...patch }
+      ];
+    });
+    try {
+      const res = await fetch(`/api/scenes/${scene.id}/shot-stages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shotId, stage: activeStage, ...patch })
+      });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? "Error");
+      const payload = (await res.json()) as { stageState: ShotStageStateData };
+      setStageStates((current) => [
+        ...current.filter((s) => !(s.shotId === shotId && s.stage === activeStage)),
+        payload.stageState
+      ]);
+    } catch (error) {
+      setStageError(error instanceof Error ? error.message : "Error al guardar");
+    }
+  }
+
+  function toggleAssignee(userId: string) {
+    const next = assignees.includes(userId) ? assignees.filter((id) => id !== userId) : [...assignees, userId];
+    void persistStage({ assignees: next });
+  }
+
+  async function handleStageFile(file: File) {
+    if (!shotId) return;
+    setStageError("");
+    setIsUploading(true);
+    try {
+      const result = await uploadShotVideo({
+        projectId: scene.projectId,
+        sceneId: scene.id,
+        shotId,
+        stage: activeStage,
+        fps: scene.fpsDefault,
+        file
+      });
+      setStageVideos((current) => [
+        {
+          id: `local-${Date.now()}`,
+          shotId,
+          scope: "shot",
+          versionNumber: result.versionNumber,
+          stage: activeStage,
+          status: "ready_for_review",
+          fileName: file.name,
+          duration: 0,
+          fps: scene.fpsDefault,
+          resolution: "",
+          isFavorite: false,
+          url: result.objectUrl
+        },
+        ...current
+      ]);
+    } catch (error) {
+      setStageError(error instanceof Error ? error.message : "Error al subir el clip");
+    } finally {
+      setIsUploading(false);
+      if (stageFileRef.current) stageFileRef.current.value = "";
+    }
+  }
 
   if (!activeShot) {
     return (
@@ -3243,22 +3346,61 @@ function ShotTab(props: TimelineViewProps) {
     );
   }
 
+  const hasTitle = activeShot.title.trim().length > 0;
+
   return (
     <div className="grid gap-4 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <FieldLabel>{t("scene.number")}</FieldLabel>
-          <p className="mt-1 text-lg font-semibold text-fg-strong">{activeShot.shotNumber}</p>
+        <div className="min-w-0">
+          <FieldLabel>{t("scene.tabShot")}</FieldLabel>
+          <p className="mt-1 truncate text-lg font-semibold text-fg-strong">
+            {hasTitle ? activeShot.title : activeShot.shotNumber}
+          </p>
         </div>
-        {canEditScript ? (
-          <button
-            className="rounded-md border border-danger px-2.5 py-1.5 text-[11px] font-medium text-danger-fg hover:bg-danger-soft"
-            onClick={() => onRemoveShot(activeShot.id)}
-            type="button"
+        <label className="grid shrink-0 gap-1">
+          <span className="text-right text-[10px] font-medium uppercase tracking-wider text-muted">
+            {t("scene.stage")}
+          </span>
+          <select
+            className="h-8 rounded-md border border-line-strong bg-background px-2 text-[12px] font-medium text-fg disabled:opacity-60"
+            disabled={!canEditScript}
+            onChange={(event) => onUpdateScene({ stage: event.target.value })}
+            value={scene.stage}
           >
-            {t("scene.remove")}
-          </button>
-        ) : null}
+            {sceneStages.map((item) => (
+              <option key={item} value={item}>
+                {optionLabel("sceneStages", item)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="grid gap-1.5">
+        <FieldLabel>{t("scene.reviewStatus")}</FieldLabel>
+        <div className="flex items-center gap-2.5">
+          {sceneStatuses.map((status) => {
+            const selected = reviewStatus === status;
+            return (
+              <button
+                aria-label={optionLabel("sceneStatuses", status)}
+                aria-pressed={selected}
+                className={[
+                  "h-6 w-6 rounded-full border border-black/10 transition disabled:cursor-not-allowed",
+                  selected
+                    ? "scale-110 ring-2 ring-red-500 ring-offset-2 ring-offset-surface"
+                    : "opacity-45 hover:opacity-100"
+                ].join(" ")}
+                disabled={!canEditScript}
+                key={status}
+                onClick={() => void persistStage({ reviewStatus: status })}
+                style={{ backgroundColor: SCENE_STATUS_COLORS[status] ?? "#9ca3af" }}
+                title={optionLabel("sceneStatuses", status)}
+                type="button"
+              />
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid min-w-0 gap-2">
@@ -3317,6 +3459,93 @@ function ShotTab(props: TimelineViewProps) {
           />
         </div>
       </fieldset>
+
+      <div className="grid gap-2">
+        <FieldLabel>{t("scene.responsibles")}</FieldLabel>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {assignees.map((id) => (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-line bg-background px-2 py-0.5 text-[11px] text-fg"
+              key={id}
+            >
+              {memberName.get(id) ?? "—"}
+              {canEditScript ? (
+                <button
+                  className="text-muted hover:text-danger-fg"
+                  onClick={() => toggleAssignee(id)}
+                  type="button"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </span>
+          ))}
+          {canEditScript ? (
+            <select
+              className="h-7 rounded-md border border-line-strong bg-background px-1.5 text-[11px] text-muted"
+              onChange={(event) => {
+                if (event.target.value) toggleAssignee(event.target.value);
+                event.currentTarget.selectedIndex = 0;
+              }}
+              value=""
+            >
+              <option value="">+ {t("scene.add")}</option>
+              {projectMembers
+                .filter((member) => !assignees.includes(member.id))
+                .map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+            </select>
+          ) : assignees.length === 0 ? (
+            <span className="text-[11px] text-muted">{t("scene.noResponsibles")}</span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <FieldLabel>{t("scene.stageVideos")}</FieldLabel>
+        <div className="grid gap-1.5">
+          {stageClips.length === 0 ? (
+            <p className="text-[11px] text-muted">{t("scene.noStageVideos")}</p>
+          ) : (
+            stageClips.map((clip) => (
+              <a
+                className="flex items-center justify-between gap-2 rounded-md border border-line bg-background px-2.5 py-1.5 text-[11px] text-fg hover:bg-elevated"
+                href={clip.url ?? "#"}
+                key={clip.id}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <span className="shrink-0 font-medium">▶ v{clip.versionNumber}</span>
+                <span className="truncate text-[10px] text-muted">{clip.fileName}</span>
+              </a>
+            ))
+          )}
+          {canEditScript ? (
+            <button
+              className="rounded-md border border-line-strong px-2.5 py-1.5 text-[11px] font-medium text-muted-strong hover:bg-elevated disabled:opacity-60"
+              disabled={isUploading}
+              onClick={() => stageFileRef.current?.click()}
+              type="button"
+            >
+              {isUploading ? t("scene.phaseUploadBusy") : `+ ${t("scene.uploadVersion")}`}
+            </button>
+          ) : null}
+          {stageError ? <p className="text-[10px] text-danger-fg">{stageError}</p> : null}
+        </div>
+        <input
+          accept="video/mp4"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void handleStageFile(file);
+          }}
+          ref={stageFileRef}
+          type="file"
+        />
+      </div>
 
       <div className="grid gap-2">
         <FieldLabel>{t("scene.description")}</FieldLabel>

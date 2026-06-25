@@ -1,5 +1,5 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
-import { sceneSoundOptions, sceneStatuses } from "@/types/domain";
+import { sceneSoundOptions, sceneStages, sceneStatuses } from "@/types/domain";
 
 const sceneSchema = new Schema(
   {
@@ -13,6 +13,9 @@ const sceneSchema = new Schema(
     timeOfDay: { type: String, default: "" },
     soundOptions: { type: [String], enum: sceneSoundOptions, default: ["none"] },
     sortOrder: { type: Number, default: 0, index: true },
+    // Pipeline stage of the scene ("etapa") — distinct from review/approval status.
+    stage: { type: String, enum: sceneStages, default: "storyboard" },
+    // Review / approval status — distinct from the pipeline stage.
     status: { type: String, enum: sceneStatuses, default: "draft" },
     currentVideoVersionId: { type: Schema.Types.ObjectId, ref: "VideoVersion" },
     currentScriptVersionId: { type: Schema.Types.ObjectId, ref: "ScriptVersion" }

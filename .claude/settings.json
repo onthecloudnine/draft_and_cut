@@ -1,0 +1,53 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -p \"require\\('lightningcss/package.json'\\).version\")",
+      "Bash(/usr/bin/grep -c \"lightningcss-darwin-arm64\" package-lock.json)",
+      "Bash(cd /Users/antonio/workspace/TMKL *)",
+      "Bash(node -e \"try{require\\('lightningcss'\\);console.log\\('lightningcss OK'\\)}catch\\(e\\){console.log\\('FALLA:', e.message\\)}\")",
+      "Bash(/usr/bin/grep -c 'lightningcss-darwin-arm64' package-lock.json)",
+      "Bash(echo \"refs en lock: $\\(/usr/bin/grep -c 'lightningcss-darwin-arm64' package-lock.json\\)\")",
+      "Bash(/usr/bin/grep -rniE \"subir version|subir versión|upload.*version|uploadVersion|/upload\\\\b|nav.*upload\" components app lib config/i18n)",
+      "Bash(/usr/bin/grep -viE \"uploads/|upload-form|api/\")",
+      "Bash(/usr/bin/grep -n \"UploadIcon\" components/app-chrome.tsx)",
+      "Bash(/usr/bin/grep -iE \"error|app-chrome\")",
+      "Bash(/usr/bin/grep -n \"AudioTracksPanel\\\\|SHOW_AUDIO\" \"app/\\(app\\)/scenes/[sceneId]/scene-detail-workspace.tsx\")",
+      "Bash(mkdir -p public)",
+      "Bash(mkdir -p public/press)",
+      "Bash(cp Elprincipiodelfilm-2023_VF.pdf public/press/elprincipiodelfilm-2023.pdf)",
+      "Bash(pdftoppm -png -r 150 -singlefile Elprincipiodelfilm-2023_VF.pdf public/press/elprincipiodelfilm-2023)",
+      "Bash(pdftoppm -png -r 70 -singlefile Elprincipiodelfilm-2023_VF.pdf public/press/elprincipiodelfilm-2023.thumb)",
+      "Bash(/usr/bin/grep -iE \"error|prensa|press-gallery|icons|app-chrome\")",
+      "Bash(/usr/bin/grep -iE \"prensa|press|public\")",
+      "Bash(/usr/bin/grep -iE \"error\")",
+      "Bash(/usr/bin/grep -iE \"compiled successfully|failed|Type error|Error:\")",
+      "Bash(xargs -I{} ls -la {})",
+      "Bash(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate,nb_frames,duration -of default=noprint_wrappers=1 teaser.mov)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git push *)",
+      "Bash(/usr/bin/grep -n \"shotNumber: shot.shotNumber\" lib/data/nle-manifest.ts)",
+      "Bash(awk 'NR>=37 && NR<=240' config/i18n/es.json)",
+      "Bash(/usr/bin/grep -nE \"\\\\\"title\\\\\":\")",
+      "Bash(awk 'NR>=37 && NR<=240' config/i18n/en.json)",
+      "Bash(/usr/bin/grep -iE \"error|never used|defined but\")",
+      "Bash(/usr/bin/grep -v \"Need to disable|board-workspace\")",
+      "Bash(/usr/bin/grep -B40 \"optionLabel.*never used\\\\|optionLabel.*defined but\")",
+      "Bash(/usr/bin/grep -E \"^\\\\./|optionLabel\")",
+      "Bash(/usr/bin/grep -v board-workspace)",
+      "Bash(/usr/bin/grep -n \"<ShotPanel\" \"app/\\(app\\)/scenes/[sceneId]/mobile-scene-detail.tsx\")",
+      "Bash(/usr/bin/grep -viE \"board-workspace\")",
+      "Bash(/usr/bin/grep -n \"shotStatuses\\\\|ShotStatus\" \"app/\\(app\\)/scenes/[sceneId]/scene-detail-workspace.tsx\")",
+      "Bash(/usr/bin/grep -iE \"error|never used|defined but|assigned a value but\")",
+      "Bash(/usr/bin/grep -n \"assetTags:\\\\|tagId: String\\\\|sceneAssetTags\" lib/data/scene-detail.ts)",
+      "Bash(git restore *)",
+      "Bash(/usr/bin/grep -nE \"\\\\\"\\(status|number|type\\)\\\\\":\")",
+      "Bash(node -e \"['config/options.json','config/i18n/es.json','config/i18n/en.json'].forEach\\(f=>JSON.parse\\(require\\('fs'\\).readFileSync\\(f,'utf8'\\)\\)\\);console.log\\('JSON ok'\\)\")",
+      "Bash(rm -f \"app/\\(app\\)/scenes/[sceneId]/shot-stages-panel.tsx\" && npx tsc --noEmit 2>&1 | head -30)"
+    ],
+    "additionalDirectories": [
+      "/Users/antonio/workspace/TMKL/node_modules",
+      "/Users/antonio/workspace/TMKL/app/(app)/scenes/[sceneId]"
+    ]
+  }
+}

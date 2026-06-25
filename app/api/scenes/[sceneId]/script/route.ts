@@ -7,7 +7,7 @@ import { jsonError } from "@/lib/api/http";
 import { Scene } from "@/models/Scene";
 import { ScriptVersion } from "@/models/ScriptVersion";
 import { Shot } from "@/models/Shot";
-import { sceneSoundOptions, sceneStatuses, shotStatuses, type SceneSoundOption } from "@/types/domain";
+import { sceneSoundOptions, sceneStages, sceneStatuses, shotStatuses, type SceneSoundOption } from "@/types/domain";
 
 const shotInputSchema = z.object({
   id: z.string().min(1).optional(),
@@ -33,6 +33,7 @@ const scriptUpdateSchema = z.object({
     location: z.string().optional().default(""),
     timeOfDay: z.string().optional().default(""),
     soundOptions: z.array(z.enum(sceneSoundOptions)).optional().default(["none"]),
+    stage: z.enum(sceneStages).optional(),
     status: z.enum(sceneStatuses).optional(),
     literaryHeading: z.string().optional().default(""),
     literaryScript: z.string().optional().default("")
@@ -172,6 +173,9 @@ export async function PATCH(
     };
     if (body.scene.status) {
       sceneUpdate.status = body.scene.status;
+    }
+    if (body.scene.stage) {
+      sceneUpdate.stage = body.scene.stage;
     }
     await Scene.findByIdAndUpdate(sceneId, sceneUpdate);
 
