@@ -52,6 +52,8 @@
     "noVideoSelection": "No video for this selection",
     "noPreviewTitle": "No preview available",
     "noPreviewBody": "Upload or select a version ready for review in this scene.",
+    "stageOfflineTitle": "Offline material in this stage",
+    "stageOfflineBody": "The «{stage}» stage has no video yet. You can upload it per shot from the shot panel.",
     "literaryScript": "Literary script",
     "literaryHeading": "Literary heading",
     "missingLiteraryScript": "This scene does not have literary script content yet.",
@@ -126,6 +128,11 @@
     "noAttachments": "No attachments in this scene.",
     "viewTimeline": "Timeline",
     "viewTable": "Table",
+    "viewBoard": "Board",
+    "boardEmpty": "No responsible assignments yet.",
+    "boardUnassigned": "No responsibles",
+    "boardStage": "Stage",
+    "boardShotsCount": "{count} shots",
     "phase": {
       "storyboard": "Storyboard",
       "animatic": "Animatic",
@@ -410,7 +417,8 @@
     "playlistQueue": "Queue ({count})",
     "timelineTitle": "Timeline",
     "timelineCount": "{count} scenes",
-    "openScene": "Open scene"
+    "openScene": "Open scene",
+    "playAll": "Play all"
   },
   "review": {
     "backToScene": "Back to scene",

@@ -84,6 +84,25 @@ export async function getProjectSceneSummaries(projectId: string) {
     shotsByScene.set(key, [...(shotsByScene.get(key) ?? []), shot]);
   }
 
+  // Clips por plano (para reproducir secuencialmente todos los planos del proyecto).
+  const shotClips = await VideoVersion.find({
+    projectId,
+    scope: "shot",
+    status: "ready_for_review",
+    shotId: { $in: shots.map((shot) => shot._id) }
+  })
+    .select("shotId stage versionNumber s3Key")
+    .lean();
+  const latestClipByShotStage = new Map<string, { versionNumber: number; s3Key: string }>();
+  for (const clip of shotClips) {
+    if (!clip.s3Key) continue;
+    const key = `${String(clip.shotId)}:${clip.stage}`;
+    const current = latestClipByShotStage.get(key);
+    if (!current || clip.versionNumber > current.versionNumber) {
+      latestClipByShotStage.set(key, { versionNumber: clip.versionNumber, s3Key: clip.s3Key });
+    }
+  }
+
   return Promise.all(
     scenes.map(async (scene) => {
       const [latestVideo, openComments, videoCount] = await Promise.all([
@@ -95,9 +114,30 @@ export async function getProjectSceneSummaries(projectId: string) {
         VideoVersion.countDocuments({ sceneId: scene._id })
       ]);
       const sceneShots = shotsByScene.get(String(scene._id)) ?? [];
-      const [latestVideoUrl, latestThumbnailUrl] = await Promise.all([
+      const sceneStage = scene.stage ?? "storyboard";
+      const orderedShots = [...sceneShots].sort(
+        (left, right) =>
+          (typeof left.startFrame === "number" ? left.startFrame : 0) -
+            (typeof right.startFrame === "number" ? right.startFrame : 0) ||
+          compareNumericText(left.shotNumber, right.shotNumber)
+      );
+      const [latestVideoUrl, latestThumbnailUrl, shotsOut] = await Promise.all([
         latestVideo?.s3Key ? maybeGetSignedObjectUrl(latestVideo.s3Key) : Promise.resolve(null),
-        latestVideo?.thumbnailKey ? maybeGetSignedObjectUrl(latestVideo.thumbnailKey) : Promise.resolve(null)
+        latestVideo?.thumbnailKey ? maybeGetSignedObjectUrl(latestVideo.thumbnailKey) : Promise.resolve(null),
+        Promise.all(
+          orderedShots.map(async (shot) => {
+            const clip = latestClipByShotStage.get(`${String(shot._id)}:${sceneStage}`) ?? null;
+            return {
+              id: String(shot._id),
+              shotNumber: shot.shotNumber,
+              shotType: shot.shotType,
+              description: shot.description,
+              startFrame: typeof shot.startFrame === "number" ? shot.startFrame : null,
+              clipUrl: clip ? await maybeGetSignedObjectUrl(clip.s3Key) : null,
+              clipVersion: clip?.versionNumber ?? null
+            };
+          })
+        )
       ]);
 
       return {
@@ -123,12 +163,7 @@ export async function getProjectSceneSummaries(projectId: string) {
           : null,
         openComments,
         videoCount,
-        shots: sceneShots.map((shot) => ({
-          id: String(shot._id),
-          shotNumber: shot.shotNumber,
-          shotType: shot.shotType,
-          description: shot.description
-        })),
+        shots: shotsOut,
         updatedAt: scene.updatedAt?.toISOString()
       };
     })

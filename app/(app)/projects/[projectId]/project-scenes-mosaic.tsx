@@ -29,7 +29,18 @@ type SceneCard = {
     shotNumber: string;
     shotType: string;
     description: string;
+    startFrame: number | null;
+    clipUrl: string | null;
+    clipVersion: number | null;
   }>;
+};
+
+type PlaylistItem = {
+  sceneId: string;
+  sceneNumber: string;
+  label: string;
+  url: string;
+  mimeType: string | null;
 };
 
 type ProjectScenesMosaicProps = {
@@ -45,10 +56,40 @@ type ProjectScenesMosaicProps = {
 
 export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenesMosaicProps) {
   const { optionLabel, t } = useI18n();
-  const [selectedSceneId, setSelectedSceneId] = useState<string>(() => {
-    const firstWithVideo = scenes.find((scene) => scene.latestVideo?.url);
-    return firstWithVideo?.id ?? scenes[0]?.id ?? "";
-  });
+
+  // Playlist global: todos los planos (su clip) de todas las escenas, en orden.
+  // Si una escena no tiene clips por plano, cae a su video de escena.
+  const playlist = useMemo<PlaylistItem[]>(() => {
+    const items: PlaylistItem[] = [];
+    for (const scene of scenes) {
+      const shotClips = scene.shots.filter((shot) => shot.clipUrl);
+      if (shotClips.length > 0) {
+        for (const shot of shotClips) {
+          items.push({
+            sceneId: scene.id,
+            sceneNumber: scene.sceneNumber,
+            label: `${t("scene.shotShort")} ${shot.shotNumber}`,
+            url: shot.clipUrl as string,
+            mimeType: null
+          });
+        }
+      } else if (scene.latestVideo?.url) {
+        items.push({
+          sceneId: scene.id,
+          sceneNumber: scene.sceneNumber,
+          label: `${t("project.scene")} ${scene.sceneNumber}`,
+          url: scene.latestVideo.url,
+          mimeType: scene.latestVideo.mimeType ?? null
+        });
+      }
+    }
+    return items;
+  }, [scenes, t]);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedSceneId, setSelectedSceneId] = useState<string>(
+    () => playlist[0]?.sceneId ?? scenes[0]?.id ?? ""
+  );
   const [autoPlay, setAutoPlay] = useState(false);
   const [thumbnailOverrides, setThumbnailOverrides] = useState<Record<string, string>>({});
   const thumbnailOverridesRef = useRef(thumbnailOverrides);
@@ -63,8 +104,10 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
     [scenes, selectedSceneId]
   );
 
+  const currentItem = playlist[currentIndex] ?? null;
+  const playableUrl = currentItem?.url ?? null;
+  // currentVideo (nivel escena) se sigue usando para las miniaturas del strip.
   const currentVideo = selectedScene?.latestVideo ?? null;
-  const playableUrl = currentVideo?.url ?? null;
   const playablePoster = useMemo(() => {
     if (!currentVideo?.id) return currentVideo?.thumbnailUrl ?? undefined;
     return thumbnailOverrides[currentVideo.id] ?? currentVideo.thumbnailUrl ?? undefined;
@@ -141,19 +184,28 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
   }, []);
 
   const handleSelect = (sceneId: string, opts: { play?: boolean } = {}) => {
-    setAutoPlay(Boolean(opts.play));
     setSelectedSceneId(sceneId);
+    const idx = playlist.findIndex((item) => item.sceneId === sceneId);
+    if (idx >= 0) {
+      setAutoPlay(Boolean(opts.play));
+      setCurrentIndex(idx);
+    }
   };
 
   const handleEnded = () => {
-    if (!selectedScene) return;
-    const idx = scenes.findIndex((scene) => scene.id === selectedScene.id);
-    for (let i = idx + 1; i < scenes.length; i += 1) {
-      if (scenes[i].latestVideo?.url) {
-        handleSelect(scenes[i].id, { play: true });
-        return;
-      }
+    const next = currentIndex + 1;
+    if (next < playlist.length) {
+      setAutoPlay(true);
+      setCurrentIndex(next);
+      setSelectedSceneId(playlist[next].sceneId);
     }
+  };
+
+  const playAll = () => {
+    if (playlist.length === 0) return;
+    setAutoPlay(true);
+    setSelectedSceneId(playlist[0].sceneId);
+    setCurrentIndex(0);
   };
 
   const totalScenes = scenes.length;
@@ -168,6 +220,18 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
             <h1 className="mt-0.5 truncate text-lg font-semibold text-fg-strong">{project.title}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
+            {playlist.length > 0 ? (
+              <button
+                className="inline-flex h-7 items-center gap-1.5 rounded-md bg-red-600 px-2.5 font-semibold text-white hover:bg-red-500"
+                onClick={playAll}
+                type="button"
+              >
+                <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                {t("project.playAll")}
+              </button>
+            ) : null}
             <StatPill label={t("project.scenes")} value={totalScenes} />
             <StatPill label={t("project.videos")} value={scenesWithVideo} />
             <Link
@@ -189,7 +253,7 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
             {playableUrl ? (
               <video
                 ref={videoRef}
-                key={selectedScene?.id}
+                key={currentIndex}
                 className="max-h-full max-w-full rounded-md bg-black shadow-2xl shadow-black/60"
                 controls
                 onEnded={handleEnded}
@@ -197,7 +261,7 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                 poster={playablePoster}
                 preload="metadata"
               >
-                <source src={playableUrl} type={currentVideo?.mimeType ?? undefined} />
+                <source src={playableUrl} type={currentItem?.mimeType ?? undefined} />
               </video>
             ) : (
               <EmptyPlayer
@@ -213,9 +277,9 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
                   {t("project.scene")} {selectedScene.sceneNumber}
                 </span>
                 {selectedScene.title ? <span className="truncate text-muted">{selectedScene.title}</span> : null}
-                {currentVideo ? (
+                {currentItem ? (
                   <span className="text-muted">
-                    · {optionLabel("productionStages", currentVideo.stage)} v{currentVideo.versionNumber}
+                    · {currentItem.label} · {currentIndex + 1}/{playlist.length}
                   </span>
                 ) : null}
               </div>

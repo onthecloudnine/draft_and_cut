@@ -174,7 +174,7 @@ type SceneDetailWorkspaceProps = {
 // re-enable the per-stem audio tracks below the player.
 const SHOW_AUDIO_PANEL = false;
 
-type TopView = "timeline" | "table" | "scene" | "script";
+type TopView = "timeline" | "table" | "board" | "scene" | "script";
 type TimelineTool = "select" | "blade";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -348,6 +348,7 @@ export function SceneDetailWorkspace({
   const [scene, setScene] = useState(initialScene);
   const [shots, setShots] = useState<ShotData[]>(sortedInitialShots);
   const [videos, setVideos] = useState(initialVideos);
+  const [stageStates, setStageStates] = useState<ShotStageStateData[]>(shotStageStates);
   const [attachments, setAttachments] = useState(initialAttachments);
   const [humanResources, setHumanResources] = useState(initialHumanResources);
   const [assetTags, setAssetTags] = useState(initialAssetTags);
@@ -1116,8 +1117,10 @@ export function SceneDetailWorkspace({
     activeVideo,
     availableVideos,
     videos,
+    setVideos,
     projectMembers,
-    shotStageStates,
+    shotStageStates: stageStates,
+    setStageStates,
     assetTags,
     attachments,
     attachmentDate,
@@ -1206,6 +1209,18 @@ export function SceneDetailWorkspace({
             onUpdateShot={updateShot}
             scene={scene}
             shots={shots}
+            t={t}
+          />
+        ) : topView === "board" ? (
+          <BoardView
+            onOpenShot={(shotId) => {
+              setActiveShotId(shotId);
+              setTopView("timeline");
+            }}
+            optionLabel={optionLabel}
+            projectMembers={projectMembers}
+            shots={shots}
+            shotStageStates={stageStates}
             t={t}
           />
         ) : (
@@ -1382,22 +1397,6 @@ function SceneHeader({
           >
             {t("scene.downloadAssetsZip")}
           </a>
-          <Link
-            className="inline-flex h-8 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-500"
-            href={`/upload?projectId=${scene.projectId}&sceneId=${scene.id}`}
-          >
-            {t("scene.uploadVideo")}
-          </Link>
-          {canManageVideos && activeVideo ? (
-            <button
-              className="inline-flex h-8 items-center justify-center rounded-md border border-danger px-3 text-xs font-medium text-danger-fg hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isDeletingVideo}
-              onClick={onDeleteVideo}
-              type="button"
-            >
-              {isDeletingVideo ? t("scene.deletingVideo") : t("scene.deleteVideo")}
-            </button>
-          ) : null}
           {canDeleteScene ? (
             <button
               className="inline-flex h-8 items-center justify-center rounded-md border border-danger px-3 text-xs font-medium text-danger-fg hover:bg-danger-soft"
@@ -1499,6 +1498,7 @@ function TopTabs({
   const tabs: { key: TopView; label: string }[] = [
     { key: "timeline", label: t("scene.viewTimeline") },
     { key: "table", label: t("scene.viewTable") },
+    { key: "board", label: t("scene.viewBoard") },
     { key: "scene", label: t("scene.tabScene") },
     { key: "script", label: t("scene.tabScript") }
   ];
@@ -1529,13 +1529,122 @@ function TopTabs({
   );
 }
 
+// Tablero de la escena: una card por cada asignación (plano × etapa) con
+// responsables; columnas por estado de aprobación (review status).
+function BoardView({
+  onOpenShot,
+  optionLabel,
+  projectMembers,
+  shots,
+  shotStageStates,
+  t
+}: {
+  onOpenShot: (shotId: string) => void;
+  optionLabel: (group: string, value: string) => string;
+  projectMembers: ProjectMemberData[];
+  shots: ShotData[];
+  shotStageStates: ShotStageStateData[];
+  t: (path: string, replacements?: Record<string, string | number>) => string;
+}) {
+  const shotById = useMemo(() => new Map(shots.map((s) => [s.id, s])), [shots]);
+  const memberName = useMemo(
+    () => new Map(projectMembers.map((m) => [m.id, m.name])),
+    [projectMembers]
+  );
+
+  const cards = useMemo(
+    () =>
+      shotStageStates
+        .filter((st) => st.assignees.length > 0 || st.reviewStatus !== "draft")
+        .map((st) => ({ state: st, shot: shotById.get(st.shotId) ?? null }))
+        .filter((c): c is { state: ShotStageStateData; shot: ShotData } => c.shot != null)
+        .sort((a, b) => (a.shot.startFrame ?? 0) - (b.shot.startFrame ?? 0)),
+    [shotStageStates, shotById]
+  );
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+      {cards.length === 0 ? (
+        <p className="text-sm text-muted">{t("scene.boardEmpty")}</p>
+      ) : (
+        <div className="flex gap-4">
+          {sceneStatuses.map((status) => {
+            const color = SCENE_STATUS_COLORS[status] ?? "#9ca3af";
+            const colCards = cards.filter((c) => c.state.reviewStatus === status);
+            return (
+              <div className="flex w-72 shrink-0 flex-col" key={status}>
+                <div className="mb-2 flex items-center gap-2 px-1">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="text-[12px] font-semibold text-fg-strong">
+                    {optionLabel("sceneStatuses", status)}
+                  </span>
+                  <span className="text-[11px] text-muted">{colCards.length}</span>
+                </div>
+                <div className="grid gap-2">
+                  {colCards.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-[11px] text-muted">
+                      —
+                    </p>
+                  ) : (
+                    colCards.map(({ state, shot }) => {
+                      const title = shot.title?.trim()
+                        ? shot.title
+                        : `${t("scene.shotShort")} ${shot.shotNumber}`;
+                      return (
+                        <button
+                          className="grid gap-2 rounded-lg border border-line bg-surface p-3 text-left hover:border-line-strong hover:bg-elevated"
+                          key={state.id}
+                          onClick={() => onOpenShot(shot.id)}
+                          style={{ borderLeft: `3px solid ${color}` }}
+                          type="button"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-[12px] font-semibold text-fg-strong">{title}</span>
+                            <span className="shrink-0 text-[10px] text-muted">#{shot.shotNumber}</span>
+                          </div>
+                          <span className="inline-flex w-fit items-center rounded-full border border-line bg-background px-2 py-0.5 text-[10px] font-medium text-muted-strong">
+                            {optionLabel("sceneStages", state.stage)}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {state.assignees.length === 0 ? (
+                              <span className="text-[10px] italic text-muted">{t("scene.boardUnassigned")}</span>
+                            ) : (
+                              state.assignees.map((id) => (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full bg-background px-1.5 py-0.5 text-[10px] text-fg"
+                                  key={id}
+                                >
+                                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-600/15 text-[8px] font-semibold text-red-700">
+                                    {(memberName.get(id) ?? "?").slice(0, 1).toUpperCase()}
+                                  </span>
+                                  {memberName.get(id) ?? "—"}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type TimelineViewProps = {
   activeShot: ShotData | null;
   activeVideo: VideoData | null;
   availableVideos: VideoData[];
   videos: VideoData[];
+  setVideos: React.Dispatch<React.SetStateAction<VideoData[]>>;
   projectMembers: ProjectMemberData[];
   shotStageStates: ShotStageStateData[];
+  setStageStates: React.Dispatch<React.SetStateAction<ShotStageStateData[]>>;
   assetTags: AssetTagData[];
   attachments: AttachmentData[];
   attachmentDate: string;
@@ -1615,7 +1724,8 @@ function TimelineView(props: TimelineViewProps) {
     scene,
     shots,
     t,
-    timelineTool
+    timelineTool,
+    videos
   } = props;
 
   const activeThumbRef = useRef<HTMLLIElement | null>(null);
@@ -1629,6 +1739,68 @@ function TimelineView(props: TimelineViewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const fps = Math.max(1, scene.fpsDefault);
 
+  // --- Reproducción secuencial (playlist) por clips de plano ---
+  // Cuando los planos tienen su propio clip en la etapa activa (scene.stage),
+  // la línea de tiempo se reproduce encadenando esos clips en orden, en vez de
+  // un único video continuo. El playhead (`playbackSeconds`) representa el tiempo
+  // GLOBAL de la escena; cada clip es local y se mapea contra su rango de frames.
+  const clipByShot = useMemo(() => {
+    const map = new Map<string, VideoData>();
+    for (const video of videos) {
+      if (video.scope !== "shot" || !video.shotId || video.stage !== scene.stage || !video.url) continue;
+      const current = map.get(video.shotId);
+      if (!current || video.versionNumber > current.versionNumber) map.set(video.shotId, video);
+    }
+    return map;
+  }, [videos, scene.stage]);
+
+  const playableShots = useMemo(
+    () =>
+      shots.filter(
+        (s) => clipByShot.has(s.id) && typeof s.startFrame === "number" && typeof s.endFrame === "number"
+      ),
+    [shots, clipByShot]
+  );
+  const sequential = playableShots.length > 0;
+  const totalFrames = useMemo(
+    () => shots.reduce((max, s) => Math.max(max, typeof s.endFrame === "number" ? s.endFrame : 0), 0),
+    [shots]
+  );
+
+  const [playingShotId, setPlayingShotId] = useState<string>("");
+  const pendingLocalSeekRef = useRef<number | null>(null);
+  const wantPlayRef = useRef(false);
+
+  // Keep the playing shot valid as clips/active shot change.
+  useEffect(() => {
+    if (!sequential) return;
+    setPlayingShotId((cur) => {
+      if (cur && clipByShot.has(cur)) return cur;
+      if (activeShot && clipByShot.has(activeShot.id)) return activeShot.id;
+      return playableShots[0]?.id ?? "";
+    });
+  }, [sequential, clipByShot, activeShot?.id, playableShots]);
+
+  const playingShot = sequential ? shots.find((s) => s.id === playingShotId) ?? null : null;
+  const playingClip = playingShot ? clipByShot.get(playingShot.id) ?? null : null;
+
+  // Avanza al siguiente plano con clip. El <video> se remonta por plano
+  // (key=playingShotId) y arranca desde 0 en su onLoadedMetadata.
+  const advanceSequential = useCallback(() => {
+    const idx = playableShots.findIndex((s) => s.id === playingShotId);
+    const next = playableShots[idx + 1];
+    if (next && typeof next.startFrame === "number") {
+      pendingLocalSeekRef.current = 0;
+      wantPlayRef.current = true;
+      setPlaybackSeconds(next.startFrame / fps);
+      if (next.id !== activeShot?.id) onSelectShot(next.id);
+      setPlayingShotId(next.id);
+    } else {
+      wantPlayRef.current = false;
+      setIsPlaying(false);
+    }
+  }, [playableShots, playingShotId, fps, activeShot?.id, onSelectShot]);
+
   const activeShotIndex = useMemo(
     () => (activeShot ? shots.findIndex((shot) => shot.id === activeShot.id) : -1),
     [shots, activeShot?.id]
@@ -1640,6 +1812,7 @@ function TimelineView(props: TimelineViewProps) {
   }, [activeShot?.id]);
 
   useEffect(() => {
+    if (sequential) return;
     const video = videoRef.current;
     if (!video || !activeShot) return;
     if (typeof activeShot.startFrame !== "number") return;
@@ -1670,12 +1843,14 @@ function TimelineView(props: TimelineViewProps) {
   }, [activeShot?.id, activeShot?.startFrame, activeShot?.endFrame, fps, activeVideo?.id]);
 
   useEffect(() => {
+    if (sequential) return;
     setPlaybackSeconds(0);
     setDuration(0);
     setIsPlaying(false);
-  }, [activeVideo?.id]);
+  }, [activeVideo?.id, sequential]);
 
   useEffect(() => {
+    if (sequential) return;
     if (isScrubbingRef.current) return;
     if (!isPlaying) return;
     const playbackFrames = playbackSeconds * fps;
@@ -1753,6 +1928,48 @@ function TimelineView(props: TimelineViewProps) {
 
   useEffect(() => () => stopBackwardPlay(), [stopBackwardPlay]);
 
+  // Carga el clip del plano que contiene `globalSeconds` y lo posiciona en el
+  // offset local correspondiente (modo secuencial).
+  const loadGlobal = useCallback(
+    (globalSeconds: number, play: boolean) => {
+      if (playableShots.length === 0) return;
+      const frame = globalSeconds * fps;
+      let target =
+        playableShots.find(
+          (s) => frame >= (s.startFrame as number) && frame < (s.endFrame as number)
+        ) ?? null;
+      if (!target) {
+        for (const s of playableShots) {
+          if ((s.startFrame as number) <= frame) target = s;
+        }
+        if (!target) target = playableShots[0];
+      }
+      const startSec = (target.startFrame as number) / fps;
+      const endSec = (target.endFrame as number) / fps;
+      const clampedGlobal = Math.max(startSec, Math.min(globalSeconds, endSec));
+      const local = Math.max(0, clampedGlobal - startSec);
+      wantPlayRef.current = play;
+      setPlaybackSeconds(clampedGlobal);
+      if (target.id !== activeShot?.id) onSelectShot(target.id);
+      if (target.id === playingShotId) {
+        const video = videoRef.current;
+        if (video) {
+          try {
+            video.currentTime = local;
+          } catch {
+            /* ignore */
+          }
+          if (play) video.play().catch(() => {});
+          else video.pause();
+        }
+      } else {
+        pendingLocalSeekRef.current = local;
+        setPlayingShotId(target.id);
+      }
+    },
+    [playableShots, fps, activeShot?.id, onSelectShot, playingShotId]
+  );
+
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -1761,44 +1978,84 @@ function TimelineView(props: TimelineViewProps) {
       return;
     }
     if (video.paused) {
+      wantPlayRef.current = true;
       video.play().catch(() => {
         /* autoplay may be blocked */
       });
     } else {
+      wantPlayRef.current = false;
       video.pause();
     }
   }, [stopBackwardPlay]);
 
-  const seekTo = useCallback((seconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    const clamped = Math.max(0, Math.min(seconds, video.duration || seconds));
-    try {
-      video.currentTime = clamped;
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const seekTo = useCallback(
+    (seconds: number) => {
+      if (sequential) {
+        loadGlobal(seconds, videoRef.current ? !videoRef.current.paused : false);
+        return;
+      }
+      const video = videoRef.current;
+      if (!video) return;
+      const clamped = Math.max(0, Math.min(seconds, video.duration || seconds));
+      try {
+        video.currentTime = clamped;
+      } catch {
+        /* ignore */
+      }
+    },
+    [sequential, loadGlobal]
+  );
 
   const goPrevShot = useCallback(() => {
+    if (sequential) {
+      const idx = playableShots.findIndex((s) => s.id === (playingShotId || activeShot?.id));
+      if (idx > 0) loadGlobal((playableShots[idx - 1].startFrame as number) / fps, wantPlayRef.current);
+      else loadGlobal(0, wantPlayRef.current);
+      return;
+    }
     if (activeShotIndex < 0) return;
     if (activeShotIndex === 0) {
       seekTo(0);
       return;
     }
     onSelectShot(shots[activeShotIndex - 1].id);
-  }, [activeShotIndex, shots, onSelectShot, seekTo]);
+  }, [
+    sequential,
+    playableShots,
+    playingShotId,
+    activeShot?.id,
+    fps,
+    loadGlobal,
+    activeShotIndex,
+    shots,
+    onSelectShot,
+    seekTo
+  ]);
 
   const goNextShot = useCallback(() => {
+    if (sequential) {
+      const idx = playableShots.findIndex((s) => s.id === (playingShotId || activeShot?.id));
+      if (idx >= 0 && idx < playableShots.length - 1) {
+        loadGlobal((playableShots[idx + 1].startFrame as number) / fps, wantPlayRef.current);
+      }
+      return;
+    }
     if (activeShotIndex < 0 || activeShotIndex >= shots.length - 1) return;
     onSelectShot(shots[activeShotIndex + 1].id);
-  }, [activeShotIndex, shots, onSelectShot]);
+  }, [sequential, playableShots, playingShotId, activeShot?.id, fps, loadGlobal, activeShotIndex, shots, onSelectShot]);
 
   const handleSelectShotFromThumb = useCallback(
     (shotId: string) => {
+      if (sequential) {
+        const shot = shots.find((s) => s.id === shotId);
+        if (shot && typeof shot.startFrame === "number") {
+          loadGlobal(shot.startFrame / fps, wantPlayRef.current);
+          return;
+        }
+      }
       onSelectShot(shotId);
     },
-    [onSelectShot]
+    [sequential, shots, fps, loadGlobal, onSelectShot]
   );
 
   const shotsRef = useRef(shots);
@@ -1955,9 +2212,13 @@ function TimelineView(props: TimelineViewProps) {
       const video = videoRef.current;
       if (!video) return;
       if (!video.paused) video.pause();
+      if (sequential) {
+        seekTo(playbackSeconds + delta / fps);
+        return;
+      }
       seekTo(video.currentTime + delta / fps);
     },
-    [fps, seekTo]
+    [fps, seekTo, sequential, playbackSeconds]
   );
 
   const toggleMute = useCallback(() => {
@@ -2063,24 +2324,43 @@ function TimelineView(props: TimelineViewProps) {
     markOutAtPlayhead
   ]);
 
+  // El reproductor es estrictamente por etapa activa: clips de plano (secuencial),
+  // o el video de escena de ESA etapa, o nada (material offline). No usa videos de
+  // otras etapas, para no mezclar material entre estados.
+  const stageSceneVideo = useMemo(
+    () =>
+      videos
+        .filter((v) => v.scope === "scene" && v.stage === scene.stage && v.url)
+        .sort((a, b) => b.versionNumber - a.versionNumber)[0] ?? null,
+    [videos, scene.stage]
+  );
+  const playerVideo = sequential ? playingClip : stageSceneVideo;
+  const playerDuration = sequential ? totalFrames / fps : stageSceneVideo ? duration : 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <section className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-h-0 flex-1 flex-col bg-background" ref={playerContainerRef}>
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2 text-xs text-muted sm:px-6">
             <div className="min-w-0">
-              {activeVideo ? (
+              {playerVideo ? (
                 <span>
                   <span className="font-semibold text-fg">
-                    {optionLabel("productionStages", activeVideo.stage)} v{activeVideo.versionNumber}
+                    {optionLabel("sceneStages", playerVideo.stage)} v{playerVideo.versionNumber}
                   </span>
-                  <span className="text-muted"> · {activeVideo.resolution}</span>
+                  <span className="text-muted"> · {playerVideo.resolution}</span>
+                  {sequential ? (
+                    <span className="text-muted">
+                      {" "}
+                      · {t("scene.shotShort")} {activeShot?.shotNumber ?? ""} ({playableShots.length})
+                    </span>
+                  ) : null}
                 </span>
               ) : (
                 <span className="text-muted">{t("scene.noVideoSelection")}</span>
               )}
             </div>
-            {availableVideos.length > 1 ? (
+            {!sequential && availableVideos.length > 1 ? (
               <select
                 className="h-8 rounded-md border border-line bg-surface px-2 text-xs text-fg"
                 onChange={(event) => onSelectVideo(event.target.value)}
@@ -2088,7 +2368,7 @@ function TimelineView(props: TimelineViewProps) {
               >
                 {availableVideos.map((video) => (
                   <option key={video.id} value={video.id}>
-                    {optionLabel("productionStages", video.stage)} v{video.versionNumber}{" "}
+                    {optionLabel("sceneStages", video.stage)} v{video.versionNumber}{" "}
                     {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
                   </option>
                 ))}
@@ -2096,36 +2376,68 @@ function TimelineView(props: TimelineViewProps) {
             ) : null}
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-5">
-            {activeVideo?.url ? (
+            {playerVideo?.url ? (
               <video
                 ref={videoRef}
-                key={activeVideo.id}
+                key={sequential ? `seq-${playingShotId}` : playerVideo.id}
                 className="max-h-full max-w-full cursor-pointer rounded-md bg-black shadow-2xl shadow-black/60"
                 onClick={togglePlayback}
-                onDurationChange={(event) => setDuration(event.currentTarget.duration || 0)}
-                onLoadedMetadata={(event) => {
-                  setDuration(event.currentTarget.duration || 0);
-                  setIsMuted(event.currentTarget.muted);
+                onDurationChange={(event) => {
+                  if (!sequential) setDuration(event.currentTarget.duration || 0);
                 }}
-                onPause={() => setIsPlaying(false)}
-                onPlay={() => setIsPlaying(true)}
+                onEnded={() => {
+                  if (sequential) advanceSequential();
+                }}
+                onLoadedMetadata={(event) => {
+                  const v = event.currentTarget;
+                  setIsMuted(v.muted);
+                  if (sequential) {
+                    const local = pendingLocalSeekRef.current;
+                    if (local != null) {
+                      try {
+                        v.currentTime = local;
+                      } catch {
+                        /* ignore */
+                      }
+                      pendingLocalSeekRef.current = null;
+                    }
+                    if (wantPlayRef.current) v.play().catch(() => {});
+                    return;
+                  }
+                  setDuration(v.duration || 0);
+                }}
+                onPause={() => {
+                  wantPlayRef.current = false;
+                  setIsPlaying(false);
+                }}
+                onPlay={() => {
+                  wantPlayRef.current = true;
+                  setIsPlaying(true);
+                }}
                 onTimeUpdate={(event) => {
-                  const next = event.currentTarget.currentTime;
+                  const v = event.currentTarget;
+                  if (sequential) {
+                    if (!playingShot || typeof playingShot.startFrame !== "number") return;
+                    const global = playingShot.startFrame / fps + v.currentTime;
+                    setPlaybackSeconds((prev) => (Math.abs(global - prev) >= 0.033 ? global : prev));
+                    return;
+                  }
+                  const next = v.currentTime;
                   setPlaybackSeconds((prev) => (Math.abs(next - prev) >= 0.066 ? next : prev));
                 }}
                 onVolumeChange={(event) => setIsMuted(event.currentTarget.muted)}
                 playsInline
-                src={activeVideo.url}
+                src={playerVideo.url}
               />
             ) : (
-              <NoVideoPlaceholder t={t} />
+              <NoVideoPlaceholder stageLabel={optionLabel("sceneStages", scene.stage)} t={t} />
             )}
           </div>
-          {activeVideo?.url ? (
+          {playerVideo?.url ? (
             <VideoTransport
               activeShot={activeShot}
               canInsertSelection={canInsertSelection}
-              duration={duration}
+              duration={playerDuration}
               fps={fps}
               isFullscreen={isFullscreen}
               isMuted={isMuted}
@@ -3008,7 +3320,13 @@ function MergeGap({
   );
 }
 
-function NoVideoPlaceholder({ t }: { t: (path: string) => string }) {
+function NoVideoPlaceholder({
+  t,
+  stageLabel
+}: {
+  t: (path: string, replacements?: Record<string, string | number>) => string;
+  stageLabel?: string;
+}) {
   return (
     <div className="flex max-w-md flex-col items-center justify-center rounded-md border border-dashed border-line bg-background/60 px-8 py-12 text-center">
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface text-muted">
@@ -3017,8 +3335,12 @@ function NoVideoPlaceholder({ t }: { t: (path: string) => string }) {
           <path d="M10 11l5 3-5 3z" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
       </div>
-      <p className="text-sm font-semibold text-fg">{t("scene.noPreviewTitle")}</p>
-      <p className="mt-1 text-xs text-muted">{t("scene.noPreviewBody")}</p>
+      <p className="text-sm font-semibold text-fg">
+        {stageLabel ? t("scene.stageOfflineTitle") : t("scene.noPreviewTitle")}
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        {stageLabel ? t("scene.stageOfflineBody", { stage: stageLabel }) : t("scene.noPreviewBody")}
+      </p>
     </div>
   );
 }
@@ -3241,17 +3563,19 @@ function ShotTab(props: TimelineViewProps) {
     optionLabel,
     projectMembers,
     scene,
+    setStageStates,
+    setVideos,
     shotStageStates,
     t,
     videos
   } = props;
 
-  // Estado local por (plano × etapa activa). La etapa activa = scene.stage,
-  // que es la que "manda": estado de revisión, responsables y videos se editan
-  // siempre en el contexto de esa etapa.
-  const [stageStates, setStageStates] = useState<ShotStageStateData[]>(shotStageStates);
-  const [stageVideos, setStageVideos] = useState<VideoData[]>(videos);
+  // El estado por (plano × etapa) y los videos viven en el workspace para que el
+  // panel del plano, el Tablero y el reproductor compartan los mismos datos en
+  // vivo. La etapa activa = scene.stage, que es la que "manda".
+  const stageStates = shotStageStates;
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingVideoId, setDeletingVideoId] = useState("");
   const [stageError, setStageError] = useState("");
   const stageFileRef = useRef<HTMLInputElement>(null);
 
@@ -3265,9 +3589,30 @@ function ShotTab(props: TimelineViewProps) {
   const currentState = stageStates.find((s) => s.shotId === shotId && s.stage === activeStage) ?? null;
   const reviewStatus = currentState?.reviewStatus ?? "draft";
   const assignees = currentState?.assignees ?? [];
-  const stageClips = stageVideos
+  const stageClips = videos
     .filter((v) => v.shotId === shotId && v.stage === activeStage && v.scope === "shot" && v.url)
     .sort((a, b) => b.versionNumber - a.versionNumber);
+
+  async function deleteStageClip(videoId: string) {
+    if (!canEditScript || deletingVideoId) return;
+    if (!window.confirm(t("scene.deleteVideoConfirm"))) return;
+    setStageError("");
+    setDeletingVideoId(videoId);
+    try {
+      // Los clips recién subidos (id local-) aún no necesitan llamada al backend.
+      if (!videoId.startsWith("local-")) {
+        const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
+        if (!res.ok) {
+          throw new Error(((await res.json()) as { error?: string }).error ?? t("scene.deleteVideoError"));
+        }
+      }
+      setVideos((current) => current.filter((v) => v.id !== videoId));
+    } catch (error) {
+      setStageError(error instanceof Error ? error.message : t("scene.deleteVideoError"));
+    } finally {
+      setDeletingVideoId("");
+    }
+  }
 
   async function persistStage(patch: { reviewStatus?: string; assignees?: string[] }) {
     if (!canEditScript || !shotId) return;
@@ -3315,9 +3660,9 @@ function ShotTab(props: TimelineViewProps) {
         fps: scene.fpsDefault,
         file
       });
-      setStageVideos((current) => [
+      setVideos((current) => [
         {
-          id: `local-${Date.now()}`,
+          id: result.videoVersionId,
           shotId,
           scope: "shot",
           versionNumber: result.versionNumber,
@@ -3511,16 +3856,34 @@ function ShotTab(props: TimelineViewProps) {
             <p className="text-[11px] text-muted">{t("scene.noStageVideos")}</p>
           ) : (
             stageClips.map((clip) => (
-              <a
-                className="flex items-center justify-between gap-2 rounded-md border border-line bg-background px-2.5 py-1.5 text-[11px] text-fg hover:bg-elevated"
-                href={clip.url ?? "#"}
+              <div
+                className="flex items-center gap-2 rounded-md border border-line bg-background px-2.5 py-1.5 text-[11px] text-fg"
                 key={clip.id}
-                rel="noreferrer"
-                target="_blank"
               >
-                <span className="shrink-0 font-medium">▶ v{clip.versionNumber}</span>
-                <span className="truncate text-[10px] text-muted">{clip.fileName}</span>
-              </a>
+                <a
+                  className="flex min-w-0 flex-1 items-center gap-2 hover:underline"
+                  href={clip.url ?? "#"}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className="shrink-0 font-medium">▶ v{clip.versionNumber}</span>
+                  <span className="truncate text-[10px] text-muted">{clip.fileName}</span>
+                </a>
+                {canEditScript ? (
+                  <button
+                    aria-label={t("scene.deleteVideo")}
+                    className="shrink-0 rounded p-0.5 text-muted hover:bg-danger-soft hover:text-danger-fg disabled:opacity-50"
+                    disabled={deletingVideoId === clip.id}
+                    onClick={() => void deleteStageClip(clip.id)}
+                    title={t("scene.deleteVideo")}
+                    type="button"
+                  >
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth={2} viewBox="0 0 24 24">
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
             ))
           )}
           {canEditScript ? (
@@ -3644,7 +4007,6 @@ function ElementsTab(props: TimelineViewProps) {
     activeShot,
     assetTags,
     canEditScript,
-    isSavingTag,
     onAddAssetTag,
     onRemoveAssetTag,
     onTagInputChange,
@@ -3686,13 +4048,6 @@ function ElementsTab(props: TimelineViewProps) {
                     <option key={tag.id} value={tag.name} />
                   ))}
                 </datalist>
-                <button
-                  className="h-9 rounded-md bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-60"
-                  disabled={isSavingTag === category || !tagInputs[category].trim()}
-                  type="submit"
-                >
-                  {t("scene.add")}
-                </button>
               </form>
             ) : null}
             <div className="flex flex-wrap gap-1.5">

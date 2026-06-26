@@ -52,6 +52,8 @@
     "noVideoSelection": "Sin video para esta seleccion",
     "noPreviewTitle": "Sin previsualizacion disponible",
     "noPreviewBody": "Sube o selecciona una version lista para revision en esta escena.",
+    "stageOfflineTitle": "Material offline en esta etapa",
+    "stageOfflineBody": "La etapa «{stage}» todavia no tiene video. Puedes subirlo por plano desde el panel del plano.",
     "literaryScript": "Guion literario",
     "literaryHeading": "Encabezado literario",
     "missingLiteraryScript": "Esta escena todavia no tiene guion literario cargado.",
@@ -126,6 +128,11 @@
     "noAttachments": "Sin adjuntos en esta escena.",
     "viewTimeline": "Linea de tiempo",
     "viewTable": "Tabla",
+    "viewBoard": "Tablero",
+    "boardEmpty": "Sin asignaciones de responsables todavia.",
+    "boardUnassigned": "Sin responsables",
+    "boardStage": "Etapa",
+    "boardShotsCount": "{count} planos",
     "phase": {
       "storyboard": "Storyboard",
       "animatic": "Animatic",
@@ -410,7 +417,8 @@
     "playlistQueue": "Cola ({count})",
     "timelineTitle": "Linea de tiempo",
     "timelineCount": "{count} escenas",
-    "openScene": "Ir a la escena"
+    "openScene": "Ir a la escena",
+    "playAll": "Reproducir todo"
   },
   "review": {
     "backToScene": "Volver a escena",

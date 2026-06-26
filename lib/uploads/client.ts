@@ -77,7 +77,11 @@ async function putToS3(file: File, uploadUrl: string, uploadHeaders: Record<stri
   return response.headers.get("etag") ?? undefined;
 }
 
-export type ShotVideoUploadResult = { versionNumber: number; objectUrl: string };
+export type ShotVideoUploadResult = {
+  versionNumber: number;
+  videoVersionId: string;
+  objectUrl: string;
+};
 
 export async function uploadShotVideo(input: {
   projectId: string;
@@ -107,7 +111,11 @@ export async function uploadShotVideo(input: {
     etag,
     thumbnailUploaded: false
   });
-  return { versionNumber: init.versionNumber, objectUrl: URL.createObjectURL(input.file) };
+  return {
+    versionNumber: init.versionNumber,
+    videoVersionId: init.videoVersionId,
+    objectUrl: URL.createObjectURL(input.file)
+  };
 }
 
 export type StoryboardUploadResult = { versionNumber: number; objectUrl: string };
