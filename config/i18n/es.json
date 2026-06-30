@@ -89,6 +89,7 @@
     "seconds": "Segundos",
     "frames": "Frames",
     "description": "Descripcion",
+    "comments": "Comentarios",
     "action": "Accion",
     "camera": "Camara",
     "soundTransition": "Sonido / transicion",

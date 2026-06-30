@@ -133,6 +133,7 @@ export async function getSceneDetailData(sceneId: string) {
       shotType: shot.shotType,
       status: shot.status ?? "animatic",
       description: shot.description,
+      comments: shot.comments ?? "",
       action: shot.action,
       camera: shot.camera,
       sound: shot.sound,

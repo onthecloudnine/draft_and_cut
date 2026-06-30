@@ -12,6 +12,7 @@ const shotSchema = new Schema(
     shotType: { type: String, default: "" },
     status: { type: String, enum: shotStatuses, default: "animatic", index: true },
     description: { type: String, default: "" },
+    comments: { type: String, default: "" },
     action: { type: String, default: "" },
     camera: { type: String, default: "" },
     sound: { type: String, default: "" },

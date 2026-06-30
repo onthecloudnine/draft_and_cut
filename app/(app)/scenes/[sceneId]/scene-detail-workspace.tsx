@@ -74,6 +74,7 @@ type ShotData = {
   shotType: string;
   status: ShotStatus;
   description: string;
+  comments: string;
   action: string;
   camera: string;
   sound: string;
@@ -490,6 +491,7 @@ export function SceneDetailWorkspace({
         ty: shot.shotType,
         st: shot.status,
         de: shot.description,
+        cm: shot.comments,
         ac: shot.action,
         ca: shot.camera,
         so: shot.sound,
@@ -735,6 +737,7 @@ export function SceneDetailWorkspace({
       shotType: data.shotType,
       status: "animatic",
       description: data.description,
+      comments: "",
       action: "",
       camera: "",
       sound: "",
@@ -822,6 +825,7 @@ export function SceneDetailWorkspace({
       shotType: "",
       status: "animatic",
       description: "",
+      comments: "",
       action: "",
       camera: "",
       sound: "",
@@ -3916,6 +3920,14 @@ function ShotTab(props: TimelineViewProps) {
           disabled={!canEditScript}
           onChange={(value) => onUpdateShot(activeShot.id, { description: value })}
           value={activeShot.description}
+        />
+      </div>
+      <div className="grid gap-2">
+        <FieldLabel>{t("scene.comments")}</FieldLabel>
+        <TextArea
+          disabled={!canEditScript}
+          onChange={(value) => onUpdateShot(activeShot.id, { comments: value })}
+          value={activeShot.comments}
         />
       </div>
       <div className="grid gap-2">

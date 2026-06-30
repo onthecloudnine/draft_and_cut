@@ -16,6 +16,7 @@ const shotInputSchema = z.object({
   shotType: z.string().optional().default(""),
   status: z.enum(shotStatuses).optional().default("animatic"),
   description: z.string().optional().default(""),
+  comments: z.string().optional().default(""),
   action: z.string().optional().default(""),
   camera: z.string().optional().default(""),
   sound: z.string().optional().default(""),
@@ -50,6 +51,7 @@ function serializeShot(shot: {
   shotType: string;
   status?: string;
   description: string;
+  comments?: string;
   action: string;
   camera: string;
   sound: string;
@@ -66,6 +68,7 @@ function serializeShot(shot: {
     shotType: shot.shotType,
     status: shot.status ?? "animatic",
     description: shot.description,
+    comments: shot.comments ?? "",
     action: shot.action,
     camera: shot.camera,
     sound: shot.sound,
@@ -108,6 +111,7 @@ function buildShotUpdate(shot: ScriptShotInput) {
     shotType: shot.shotType,
     status: shot.status,
     description: shot.description,
+    comments: shot.comments,
     action: shot.action,
     camera: shot.camera,
     sound: shot.sound,
