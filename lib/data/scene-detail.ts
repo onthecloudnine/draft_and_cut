@@ -1,5 +1,6 @@
 import { connectDb } from "@/lib/db/mongoose";
 import { maybeGetSignedObjectUrl } from "@/lib/s3/signed-url";
+import { ArtReference } from "@/models/ArtReference";
 import { AssetTag } from "@/models/AssetTag";
 import { Project } from "@/models/Project";
 import { Scene } from "@/models/Scene";
@@ -40,7 +41,8 @@ export async function getSceneDetailData(sceneId: string) {
     activeUsers,
     storyboardFrames,
     audioVersions,
-    shotStageStates
+    shotStageStates,
+    artReferences
   ] = await Promise.all([
     Scene.find({ projectId: scene.projectId }).select("sceneNumber title").lean(),
     Project.findById(scene.projectId).select("fpsDefault").lean(),
@@ -53,7 +55,8 @@ export async function getSceneDetailData(sceneId: string) {
     User.find({ isActive: true }).select("name email accountRole isActive").sort({ name: 1, email: 1 }).lean(),
     StoryboardFrame.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean(),
     AudioVersion.find({ sceneId, status: "ready" }).sort({ versionNumber: -1 }).lean(),
-    ShotStageState.find({ sceneId }).lean()
+    ShotStageState.find({ sceneId }).lean(),
+    ArtReference.find({ sceneId }).sort({ versionNumber: 1 }).lean()
   ]);
 
   projectScenes.sort((left, right) => compareNumericText(left.sceneNumber, right.sceneNumber));
@@ -193,6 +196,24 @@ export async function getSceneDetailData(sceneId: string) {
       reviewStatus: state.reviewStatus ?? "draft",
       assignees: (state.assignees ?? []).map((id) => String(id))
     })),
+    artReferences: await Promise.all(
+      artReferences.map(async (gallery) => ({
+        id: String(gallery._id),
+        shotId: String(gallery.shotId),
+        versionNumber: gallery.versionNumber,
+        title: gallery.title ?? "",
+        images: await Promise.all(
+          (gallery.images ?? [])
+            .filter((image) => image.status === "ready")
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .map(async (image) => ({
+              id: String(image._id),
+              fileName: image.fileName,
+              url: await maybeGetSignedObjectUrl(image.s3Key)
+            }))
+        )
+      }))
+    ),
     attachments: await Promise.all(
       attachments.map(async (attachment) => {
         const uploader = userById.get(String(attachment.uploadedBy));

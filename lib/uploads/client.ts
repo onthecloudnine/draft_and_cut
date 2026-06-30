@@ -161,3 +161,39 @@ export async function uploadSceneAudio(input: {
   });
   return { versionNumber: init.versionNumber, objectUrl: URL.createObjectURL(input.file) };
 }
+
+export type ArtReferenceUploadResult = {
+  galleryId: string;
+  versionNumber: number;
+  imageId: string;
+  url: string | null;
+  objectUrl: string;
+};
+
+export async function uploadArtReferenceImage(input: {
+  sceneId: string;
+  shotId: string;
+  galleryId?: string;
+  file: File;
+}): Promise<ArtReferenceUploadResult> {
+  const init = await postJson(`/api/scenes/${input.sceneId}/art-references/init`, {
+    shotId: input.shotId,
+    galleryId: input.galleryId,
+    fileName: input.file.name,
+    mimeType: input.file.type,
+    fileSizeMb: fileSizeMb(input.file)
+  });
+  await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  const done = await postJson(`/api/scenes/${input.sceneId}/art-references/complete`, {
+    galleryId: init.galleryId,
+    imageId: init.imageId,
+    uploaded: true
+  });
+  return {
+    galleryId: init.galleryId,
+    versionNumber: init.versionNumber,
+    imageId: init.imageId,
+    url: done.image?.url ?? null,
+    objectUrl: URL.createObjectURL(input.file)
+  };
+}

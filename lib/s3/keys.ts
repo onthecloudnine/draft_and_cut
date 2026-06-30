@@ -77,6 +77,20 @@ export function buildStoryboardFrameS3Key(input: {
   return `projects/${input.projectSlug}/scenes/${padNumber(input.sceneNumber)}/shots/${padNumber(input.shotNumber)}/storyboard/${version}`;
 }
 
+export function buildArtReferenceS3Key(input: {
+  projectSlug: string;
+  sceneNumber: string;
+  shotNumber: string;
+  versionNumber: number;
+  uploadId: string;
+  fileName: string;
+}) {
+  const ext = fileExtension(input.fileName, "jpg");
+  const version = `v${String(input.versionNumber).padStart(3, "0")}`;
+
+  return `projects/${input.projectSlug}/scenes/${padNumber(input.sceneNumber)}/shots/${padNumber(input.shotNumber)}/art-refs/${version}/${input.uploadId}.${ext}`;
+}
+
 export function buildSceneAudioS3Key(input: {
   projectSlug: string;
   sceneNumber: string;

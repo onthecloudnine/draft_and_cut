@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { plainTextToHtml } from "@/components/rich-text-editor";
 import { AudioTracksPanel } from "./audio-tracks-panel";
 import { uploadShotVideo } from "@/lib/uploads/client";
+import { ArtReferencesPanel, type ArtReferenceData } from "./art-references-panel";
 import type { AudioVersionData, StoryboardFrameData } from "./phase-types";
 
 export type ShotStageStateData = {
@@ -158,6 +159,7 @@ type SceneDetailWorkspaceProps = {
   storyboardFrames: StoryboardFrameData[];
   audioVersions: AudioVersionData[];
   shotStageStates: ShotStageStateData[];
+  artReferences: ArtReferenceData[];
   attachments: AttachmentData[];
   projectMembers: ProjectMemberData[];
   humanResources: HumanResourceData[];
@@ -319,6 +321,7 @@ export function SceneDetailWorkspace({
   videos: initialVideos,
   audioVersions,
   shotStageStates,
+  artReferences: initialArtReferences,
   attachments: initialAttachments,
   projectMembers,
   humanResources: initialHumanResources,
@@ -350,6 +353,7 @@ export function SceneDetailWorkspace({
   const [shots, setShots] = useState<ShotData[]>(sortedInitialShots);
   const [videos, setVideos] = useState(initialVideos);
   const [stageStates, setStageStates] = useState<ShotStageStateData[]>(shotStageStates);
+  const [artReferences, setArtReferences] = useState<ArtReferenceData[]>(initialArtReferences);
   const [attachments, setAttachments] = useState(initialAttachments);
   const [humanResources, setHumanResources] = useState(initialHumanResources);
   const [assetTags, setAssetTags] = useState(initialAssetTags);
@@ -1125,6 +1129,8 @@ export function SceneDetailWorkspace({
     projectMembers,
     shotStageStates: stageStates,
     setStageStates,
+    artReferences,
+    setArtReferences,
     assetTags,
     attachments,
     attachmentDate,
@@ -1649,6 +1655,8 @@ type TimelineViewProps = {
   projectMembers: ProjectMemberData[];
   shotStageStates: ShotStageStateData[];
   setStageStates: React.Dispatch<React.SetStateAction<ShotStageStateData[]>>;
+  artReferences: ArtReferenceData[];
+  setArtReferences: React.Dispatch<React.SetStateAction<ArtReferenceData[]>>;
   assetTags: AssetTagData[];
   attachments: AttachmentData[];
   attachmentDate: string;
@@ -1741,6 +1749,7 @@ function TimelineView(props: TimelineViewProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showArtRefs, setShowArtRefs] = useState(false);
   const fps = Math.max(1, scene.fpsDefault);
 
   // --- Reproducción secuencial (playlist) por clips de plano ---
@@ -2364,20 +2373,40 @@ function TimelineView(props: TimelineViewProps) {
                 <span className="text-muted">{t("scene.noVideoSelection")}</span>
               )}
             </div>
-            {!sequential && availableVideos.length > 1 ? (
-              <select
-                className="h-8 rounded-md border border-line bg-surface px-2 text-xs text-fg"
-                onChange={(event) => onSelectVideo(event.target.value)}
-                value={activeVideo?.id ?? ""}
+            <div className="flex shrink-0 items-center gap-2">
+              {!sequential && availableVideos.length > 1 ? (
+                <select
+                  className="h-8 rounded-md border border-line bg-surface px-2 text-xs text-fg"
+                  onChange={(event) => onSelectVideo(event.target.value)}
+                  value={activeVideo?.id ?? ""}
+                >
+                  {availableVideos.map((video) => (
+                    <option key={video.id} value={video.id}>
+                      {optionLabel("sceneStages", video.stage)} v{video.versionNumber}{" "}
+                      {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <button
+                className={[
+                  "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium",
+                  showArtRefs
+                    ? "border-red-500 bg-red-600/10 text-fg-strong"
+                    : "border-line bg-surface text-muted hover:bg-elevated hover:text-fg"
+                ].join(" ")}
+                onClick={() => setShowArtRefs((v) => !v)}
+                title={showArtRefs ? t("scene.artHide") : t("scene.artReferences")}
+                type="button"
               >
-                {availableVideos.map((video) => (
-                  <option key={video.id} value={video.id}>
-                    {optionLabel("sceneStages", video.stage)} v{video.versionNumber}{" "}
-                    {video.shotId ? "(shot)" : `(${t("scene.scene").toLowerCase()})`}
-                  </option>
-                ))}
-              </select>
-            ) : null}
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                  <rect height="18" rx="2" width="18" x="3" y="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+                {t("scene.artShow")}
+              </button>
+            </div>
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-5">
             {playerVideo?.url ? (
@@ -2465,6 +2494,18 @@ function TimelineView(props: TimelineViewProps) {
             />
           ) : null}
         </div>
+
+        {showArtRefs ? (
+          <ArtReferencesPanel
+            activeShot={activeShot}
+            canEdit={canEditScript}
+            galleries={props.artReferences}
+            setGalleries={props.setArtReferences}
+            onClose={() => setShowArtRefs(false)}
+            scene={{ id: scene.id }}
+            t={t}
+          />
+        ) : null}
 
         <aside className="flex w-full shrink-0 flex-col border-line bg-surface lg:w-[380px] lg:border-l xl:w-[420px]">
           <div className="min-h-0 flex-1 overflow-y-auto">

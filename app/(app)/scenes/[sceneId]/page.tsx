@@ -45,6 +45,7 @@ export default async function SceneDetailPage({
       storyboardFrames={data.storyboardFrames}
       audioVersions={data.audioVersions}
       shotStageStates={data.shotStageStates}
+      artReferences={data.artReferences}
     />
   );
 }

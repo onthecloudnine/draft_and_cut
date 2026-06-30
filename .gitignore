@@ -18,3 +18,7 @@ backups/
 # Local media (large source files — not committed)
 media/
 *.mov
+*.mp4
+*.edl
+*.EDL
+backups/
