@@ -43,11 +43,34 @@
       "Bash(git restore *)",
       "Bash(/usr/bin/grep -nE \"\\\\\"\\(status|number|type\\)\\\\\":\")",
       "Bash(node -e \"['config/options.json','config/i18n/es.json','config/i18n/en.json'].forEach\\(f=>JSON.parse\\(require\\('fs'\\).readFileSync\\(f,'utf8'\\)\\)\\);console.log\\('JSON ok'\\)\")",
-      "Bash(rm -f \"app/\\(app\\)/scenes/[sceneId]/shot-stages-panel.tsx\" && npx tsc --noEmit 2>&1 | head -30)"
+      "Bash(rm -f \"app/\\(app\\)/scenes/[sceneId]/shot-stages-panel.tsx\" && npx tsc --noEmit 2>&1 | head -30)",
+      "Bash(kill 61528 61529)",
+      "Bash(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,nb_frames,duration -of default=noprint_wrappers=1 \"264b0597-53260124.mp4\")",
+      "Bash(node \"/private/tmp/claude-501/-Users-antonio-workspace-TMKL/862794ad-2962-4673-9eb5-36b3ed5a3a83/scratchpad/inspect.mjs\")",
+      "Bash(cp \"/private/tmp/claude-501/-Users-antonio-workspace-TMKL/862794ad-2962-4673-9eb5-36b3ed5a3a83/scratchpad/inspect.mjs\" /Users/antonio/workspace/TMKL/_tmp_inspect.mjs)",
+      "Bash(node /Users/antonio/workspace/TMKL/_tmp_inspect.mjs)",
+      "Bash(node _tmp_cut_upload.mjs)",
+      "Bash(node _tmp_cut_upload.mjs --run)",
+      "Bash(node _tmp_fix2122.mjs)",
+      "Bash(ffmpeg -y -i /Users/antonio/workspace/TMKL/264b0597-53260124.mp4 -ss 81 -t 3.2083 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k /private/tmp/claude-501/-Users-antonio-workspace-TMKL/862794ad-2962-4673-9eb5-36b3ed5a3a83/scratchpad/t21.mp4)",
+      "Bash(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 /Users/antonio/workspace/TMKL/264b0597-53260124.mp4)",
+      "Bash(ffprobe -v error -select_streams v:0 -show_entries frame=pts_time -of csv=p=0 /Users/antonio/workspace/TMKL/264b0597-53260124.mp4)",
+      "Bash(ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,nb_frames,duration -of default=noprint_wrappers=1 /Users/antonio/workspace/TMKL/teaser.mov)",
+      "Bash(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 /Users/antonio/workspace/TMKL/teaser.mov)",
+      "Bash(ffmpeg -v error -i /Users/antonio/workspace/TMKL/teaser.mov -map 0:v -f null -)",
+      "Bash(ffmpeg -y -i /Users/antonio/workspace/TMKL/teaser.mov -vf 'select=eq\\(n\\\\,1035\\)' -frames:v 1 /private/tmp/claude-501/-Users-antonio-workspace-TMKL/862794ad-2962-4673-9eb5-36b3ed5a3a83/scratchpad/tm_1035.png -loglevel error)",
+      "Bash(ffmpeg -y -i /Users/antonio/workspace/TMKL/teaser.mov -vf 'select=eq\\(n\\\\,1723\\)' -frames:v 1 /private/tmp/claude-501/-Users-antonio-workspace-TMKL/862794ad-2962-4673-9eb5-36b3ed5a3a83/scratchpad/tm_1723.png -loglevel error)",
+      "Bash(kill 15581 15583)",
+      "Bash(grep -n \"import { uploadShotVideo }\\\\|shotStageStates: ShotStageStateData\\\\[\\\\];\\\\|shotStageStates,$\\\\|shotStageStates: stageStates,\" \"app/\\(app\\)/scenes/[sceneId]/scene-detail-workspace.tsx\")",
+      "Bash(node _tmp_md2pdf.mjs)",
+      "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=/Users/antonio/workspace/TMKL/postulacion-corfo-crea-valida.pdf file://__TRACKED_VAR__/corfo.html)",
+      "Bash(grep -c \"/Page$\")",
+      "Bash(awk '{print $5/1024/1024\" MB\", $NF}')"
     ],
     "additionalDirectories": [
       "/Users/antonio/workspace/TMKL/node_modules",
-      "/Users/antonio/workspace/TMKL/app/(app)/scenes/[sceneId]"
+      "/Users/antonio/workspace/TMKL/app/(app)/scenes/[sceneId]",
+      "/Users/antonio/workspace/TMKL"
     ]
   }
 }
