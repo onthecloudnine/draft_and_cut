@@ -21,7 +21,13 @@
     "email": "Email",
     "password": "Contrasena",
     "submit": "Ingresar",
-    "submitting": "Ingresando..."
+    "submitting": "Ingresando...",
+    "or": "o",
+    "discord": "Continuar con Discord",
+    "errorAccessRequested": "Registramos tu solicitud de acceso y avisamos al administrador. Te daremos acceso pronto.",
+    "errorNotAuthorized": "Tu cuenta de Discord no esta autorizada. Pide acceso al administrador.",
+    "errorDiscordEmail": "Discord no entrego un email verificado. Verifica tu email en Discord e intenta de nuevo.",
+    "errorGeneric": "No se pudo iniciar sesion. Intenta de nuevo."
   },
   "join": {
     "title": "Unirse al proyecto",
@@ -363,6 +369,13 @@
     "reviewJoinRequestError": "No se pudo revisar la solicitud.",
     "joinRequestApproved": "Solicitud aprobada.",
     "joinRequestRejected": "Solicitud rechazada.",
+    "accessRequests": "Solicitudes de cuenta (Discord)",
+    "pendingAccessRequests": "{count} pendientes",
+    "noAccessRequests": "No hay solicitudes de cuenta.",
+    "accessRequestAttempts": "{count} intentos",
+    "reviewAccessRequestError": "No se pudo procesar la solicitud.",
+    "accessRequestApproved": "Solicitud aprobada; la persona ya puede entrar con Discord.",
+    "accessRequestRejected": "Solicitud rechazada.",
     "noMemberships": "Sin proyectos asignados.",
     "assign": "Asignar",
     "assigning": "Asignando...",

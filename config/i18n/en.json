@@ -21,7 +21,13 @@
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
-    "submitting": "Signing in..."
+    "submitting": "Signing in...",
+    "or": "or",
+    "discord": "Continue with Discord",
+    "errorAccessRequested": "We logged your access request and notified the administrator. You'll get access soon.",
+    "errorNotAuthorized": "Your Discord account is not authorized. Ask an administrator for access.",
+    "errorDiscordEmail": "Discord did not provide a verified email. Verify your email on Discord and try again.",
+    "errorGeneric": "Could not sign in. Please try again."
   },
   "join": {
     "title": "Join project",
@@ -363,6 +369,13 @@
     "reviewJoinRequestError": "Could not review the request.",
     "joinRequestApproved": "Request approved.",
     "joinRequestRejected": "Request rejected.",
+    "accessRequests": "Account requests (Discord)",
+    "pendingAccessRequests": "{count} pending",
+    "noAccessRequests": "No account requests.",
+    "accessRequestAttempts": "{count} attempts",
+    "reviewAccessRequestError": "Could not process the request.",
+    "accessRequestApproved": "Request approved; they can now sign in with Discord.",
+    "accessRequestRejected": "Request rejected.",
     "noMemberships": "No projects assigned.",
     "assign": "Assign",
     "assigning": "Assigning...",

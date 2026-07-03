@@ -6,11 +6,12 @@ import { UsersAdmin } from "./users-admin";
 export default async function UsersPage() {
   const user = await requireUser();
   await assertCanManageUsers(user.id);
-  const { users, joinRequests, projects } = await getUsersForAdmin();
+  const { users, joinRequests, accessRequests, projects } = await getUsersForAdmin();
 
   return (
     <UsersAdmin
       currentUserId={user.id}
+      initialAccessRequests={accessRequests}
       initialJoinRequests={joinRequests}
       initialUsers={users}
       projects={projects}

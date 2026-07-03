@@ -32,7 +32,9 @@ export async function POST(request: Request) {
     let user = await User.findOne({ email: body.email.toLowerCase() });
 
     if (user) {
-      const isValidPassword = await bcrypt.compare(body.password, user.passwordHash);
+      const isValidPassword = user.passwordHash
+        ? await bcrypt.compare(body.password, user.passwordHash)
+        : false;
 
       if (!isValidPassword) {
         return jsonError("No se pudo crear la solicitud con esos datos.", 400);

@@ -1,4 +1,5 @@
 import { connectDb } from "@/lib/db/mongoose";
+import { AccessRequest } from "@/models/AccessRequest";
 import { Project } from "@/models/Project";
 import { ProjectJoinRequest } from "@/models/ProjectJoinRequest";
 import { ProjectMembership } from "@/models/ProjectMembership";
@@ -42,17 +43,28 @@ export type ProjectAccessAdminItem = {
   title: string;
 };
 
+export type AccessRequestAdminItem = {
+  id: string;
+  email: string;
+  name: string;
+  provider: string;
+  attempts: number;
+  createdAt?: string;
+};
+
 export async function getUsersForAdmin(): Promise<{
   users: UserAdminListItem[];
   joinRequests: ProjectJoinRequestAdminItem[];
+  accessRequests: AccessRequestAdminItem[];
   projects: ProjectAccessAdminItem[];
 }> {
   await connectDb();
 
-  const [users, memberships, joinRequests, projects] = await Promise.all([
+  const [users, memberships, joinRequests, accessRequests, projects] = await Promise.all([
     User.find({}).sort({ name: 1, email: 1 }).lean(),
     ProjectMembership.find({}).lean(),
     ProjectJoinRequest.find({ status: "pending" }).sort({ createdAt: 1 }).lean(),
+    AccessRequest.find({ status: "pending" }).sort({ createdAt: 1 }).lean(),
     Project.find({}).select("slug title").sort({ title: 1 }).lean()
   ]);
   const projectInfoById = new Map(projects.map((project) => [String(project._id), project]));
@@ -119,6 +131,14 @@ export async function getUsersForAdmin(): Promise<{
         };
       })
       .filter((request): request is ProjectJoinRequestAdminItem => Boolean(request)),
+    accessRequests: accessRequests.map((request) => ({
+      id: String(request._id),
+      email: request.email,
+      name: request.name ?? "",
+      provider: request.provider ?? "discord",
+      attempts: request.attempts ?? 1,
+      createdAt: request.createdAt?.toISOString()
+    })),
     projects: projects.map((project) => ({
       id: String(project._id),
       slug: project.slug,

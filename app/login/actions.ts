@@ -19,6 +19,10 @@ export async function loginAction(_previousState: string | undefined, formData: 
   }
 }
 
+export async function signInWithDiscord() {
+  await signIn("discord", { redirectTo: "/projects" });
+}
+
 export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }

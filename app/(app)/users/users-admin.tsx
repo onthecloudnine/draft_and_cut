@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { accountRoles, userRoles, type AccountRole, type UserRole } from "@/types/domain";
 import type {
+  AccessRequestAdminItem,
   ProjectAccessAdminItem,
   ProjectJoinRequestAdminItem,
   UserAdminListItem,
@@ -13,6 +14,7 @@ import type {
 
 type UsersAdminProps = {
   currentUserId: string;
+  initialAccessRequests: AccessRequestAdminItem[];
   initialJoinRequests: ProjectJoinRequestAdminItem[];
   initialUsers: UserAdminListItem[];
   projects: ProjectAccessAdminItem[];
@@ -35,10 +37,17 @@ const emptyForm: FormState = {
   isActive: true
 };
 
-export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers, projects }: UsersAdminProps) {
+export function UsersAdmin({
+  currentUserId,
+  initialAccessRequests,
+  initialJoinRequests,
+  initialUsers,
+  projects
+}: UsersAdminProps) {
   const { optionLabel, t } = useI18n();
   const [users, setUsers] = useState(initialUsers);
   const [joinRequests, setJoinRequests] = useState(initialJoinRequests);
+  const [accessRequests, setAccessRequests] = useState(initialAccessRequests);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -261,6 +270,42 @@ export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers, p
     setStatus(action === "approve" ? t("users.joinRequestApproved") : t("users.joinRequestRejected"));
   }
 
+  async function reviewAccessRequest(request: AccessRequestAdminItem, action: "approve" | "reject") {
+    setError("");
+    setStatus("");
+    const response = await fetch(`/api/access-requests/${request.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    if (!response.ok) {
+      const payload = await response.json();
+      setError(payload.error ?? t("users.reviewAccessRequestError"));
+      return;
+    }
+    setAccessRequests((current) => current.filter((item) => item.id !== request.id));
+    if (action === "approve") {
+      setUsers((current) => {
+        if (current.some((user) => user.email === request.email)) {
+          return current.map((user) => (user.email === request.email ? { ...user, isActive: true } : user));
+        }
+        return [
+          {
+            id: `new-${request.id}`,
+            name: request.name || request.email,
+            email: request.email,
+            accountRole: "user",
+            isActive: true,
+            projectCount: 0,
+            memberships: []
+          },
+          ...current
+        ];
+      });
+    }
+    setStatus(action === "approve" ? t("users.accessRequestApproved") : t("users.accessRequestRejected"));
+  }
+
   return (
     <div className="h-full overflow-y-auto p-5 sm:p-7">
       <section className="border-b border-line pb-5">
@@ -466,6 +511,51 @@ export function UsersAdmin({ currentUserId, initialJoinRequests, initialUsers, p
               <li className="px-5 py-4 text-sm text-muted">{t("users.accessPagesEmpty")}</li>
             ) : null}
           </ul>
+        </div>
+      </section>
+
+      <section className="pb-5">
+        <div className="rounded-lg border border-line bg-surface shadow-lg shadow-black/30">
+          <div className="border-b border-line px-5 py-4">
+            <h2 className="font-semibold text-fg-strong">{t("users.accessRequests")}</h2>
+            <p className="mt-1 text-sm text-muted">
+              {t("users.pendingAccessRequests", { count: accessRequests.length })}
+            </p>
+          </div>
+          <div className="grid gap-3 p-5">
+            {accessRequests.map((request) => (
+              <article className="rounded-md border border-line bg-elevated p-4" key={request.id}>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <div>
+                    <h3 className="font-semibold text-fg-strong">{request.name || request.email}</h3>
+                    <p className="mt-1 text-sm text-muted">{request.email}</p>
+                    <p className="mt-2 text-xs uppercase tracking-wide text-muted">
+                      {request.provider} · {t("users.accessRequestAttempts", { count: request.attempts })}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="h-10 rounded-md bg-red-900 px-3 text-sm font-medium text-white hover:bg-red-800"
+                      onClick={() => void reviewAccessRequest(request, "approve")}
+                      type="button"
+                    >
+                      {t("users.approve")}
+                    </button>
+                    <button
+                      className="h-10 rounded-md border border-line-strong px-3 text-sm font-medium text-muted-strong hover:bg-elevated"
+                      onClick={() => void reviewAccessRequest(request, "reject")}
+                      type="button"
+                    >
+                      {t("users.reject")}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+            {accessRequests.length === 0 ? (
+              <p className="text-sm text-muted">{t("users.noAccessRequests")}</p>
+            ) : null}
+          </div>
         </div>
       </section>
 
