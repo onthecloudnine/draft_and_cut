@@ -65,7 +65,11 @@
       "Bash(node _tmp_md2pdf.mjs)",
       "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=/Users/antonio/workspace/TMKL/postulacion-corfo-crea-valida.pdf file://__TRACKED_VAR__/corfo.html)",
       "Bash(grep -c \"/Page$\")",
-      "Bash(awk '{print $5/1024/1024\" MB\", $NF}')"
+      "Bash(awk '{print $5/1024/1024\" MB\", $NF}')",
+      "Bash(node _tmp_chk.mjs)",
+      "Bash(node _tmp_create_5259.mjs)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs -I{} ps -o pid=,command= -p {})"
     ],
     "additionalDirectories": [
       "/Users/antonio/workspace/TMKL/node_modules",

@@ -34,6 +34,21 @@ export async function readVideoMetadata(file: File): Promise<VideoFileMetadata> 
   }
 }
 
+export async function readImageResolution(file: File): Promise<string> {
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+  image.src = objectUrl;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    });
+    return `${image.naturalWidth}x${image.naturalHeight}`;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export async function readAudioDuration(file: File): Promise<number> {
   const objectUrl = URL.createObjectURL(file);
   const audio = document.createElement("audio");
@@ -115,6 +130,64 @@ export async function uploadShotVideo(input: {
     versionNumber: init.versionNumber,
     videoVersionId: init.videoVersionId,
     objectUrl: URL.createObjectURL(input.file)
+  };
+}
+
+export type ShotMediaUploadResult = ShotVideoUploadResult & {
+  mimeType: string;
+  isImage: boolean;
+  duration: number;
+  resolution: string;
+};
+
+// Sube el media de un plano, indistintamente video (mp4) o imagen. Para imágenes
+// no hay duración/fps de video; la duración en el reproductor se toma del rango
+// de frames del plano.
+export async function uploadShotMedia(input: {
+  projectId: string;
+  sceneId: string;
+  shotId: string;
+  stage: string;
+  fps: number;
+  file: File;
+}): Promise<ShotMediaUploadResult> {
+  const isImage = input.file.type.startsWith("image/");
+  let duration = 0;
+  let resolution = "";
+  if (isImage) {
+    resolution = await readImageResolution(input.file).catch(() => "");
+  } else {
+    const meta = await readVideoMetadata(input.file);
+    duration = meta.duration;
+    resolution = meta.resolution;
+  }
+  const init = await postJson("/api/uploads/init", {
+    projectId: input.projectId,
+    sceneId: input.sceneId,
+    scope: "shot",
+    shotId: input.shotId,
+    stage: input.stage,
+    fileName: input.file.name,
+    mimeType: input.file.type,
+    fileSizeMb: fileSizeMb(input.file),
+    duration,
+    fps: input.fps,
+    resolution
+  });
+  const etag = await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  await postJson(`/api/uploads/${init.uploadId}/complete`, {
+    uploaded: true,
+    etag,
+    thumbnailUploaded: false
+  });
+  return {
+    versionNumber: init.versionNumber,
+    videoVersionId: init.videoVersionId,
+    objectUrl: URL.createObjectURL(input.file),
+    mimeType: input.file.type,
+    isImage,
+    duration,
+    resolution
   };
 }
 

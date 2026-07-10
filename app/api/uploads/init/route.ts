@@ -24,16 +24,26 @@ const initUploadSchema = z
     shotId: z.string().optional(),
     stage: z.enum(sceneStages),
     fileName: z.string().min(1),
-    mimeType: z.literal("video/mp4"),
+    // El media de un plano puede ser un video mp4 o una imagen (intercambiables).
+    mimeType: z
+      .string()
+      .refine((v) => v === "video/mp4" || v.startsWith("image/"), {
+        message: "mimeType must be video/mp4 or image/*"
+      }),
     fileSizeMb: z.number().positive(),
-    duration: z.number().positive(),
-    fps: z.number().positive(),
-    resolution: z.string().min(3),
+    // Para imágenes no hay duración/fps/resolución de video: son opcionales.
+    duration: z.number().nonnegative().optional().default(0),
+    fps: z.number().positive().optional().default(24),
+    resolution: z.string().optional().default(""),
     notes: z.string().optional().default("")
   })
   .refine((data) => data.scope !== "shot" || Boolean(data.shotId), {
     message: "shotId is required for shot scoped uploads",
     path: ["shotId"]
+  })
+  .refine((data) => data.mimeType.startsWith("image/") || data.duration > 0, {
+    message: "duration is required for video uploads",
+    path: ["duration"]
   });
 
 export async function POST(request: Request) {
@@ -92,7 +102,9 @@ export async function POST(request: Request) {
       shotNumber,
       scope: body.scope,
       stage: body.stage,
-      versionNumber
+      versionNumber,
+      fileName: body.fileName,
+      mimeType: body.mimeType
     });
     const thumbnailKey = buildVideoThumbnailS3Key({
       projectSlug: project.slug,

@@ -45,7 +45,7 @@ export async function getSceneDetailData(sceneId: string) {
     artReferences
   ] = await Promise.all([
     Scene.find({ projectId: scene.projectId }).select("sceneNumber title").lean(),
-    Project.findById(scene.projectId).select("fpsDefault").lean(),
+    Project.findById(scene.projectId).select("fpsDefault slug").lean(),
     Shot.find({ sceneId }).sort({ shotNumber: 1 }).lean(),
     VideoVersion.find({ sceneId }).sort({ isFavorite: -1, createdAt: -1 }).lean(),
     SceneAttachment.find({ sceneId, status: "ready" }).sort({ attachmentDate: -1, createdAt: -1 }).lean(),
@@ -98,6 +98,7 @@ export async function getSceneDetailData(sceneId: string) {
     scene: {
       id: String(scene._id),
       projectId: String(scene.projectId),
+      projectSlug: project?.slug ?? "",
       sceneNumber: scene.sceneNumber,
       title: scene.title,
       description: scene.description,
@@ -155,6 +156,7 @@ export async function getSceneDetailData(sceneId: string) {
         stage: video.stage,
         status: video.status,
         fileName: video.fileName,
+        mimeType: video.mimeType,
         duration: video.duration,
         fps: video.fps,
         frameCount: video.frameCount,

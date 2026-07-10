@@ -7,6 +7,10 @@ type BuildVideoKeyInput = {
   scope: VideoScope;
   stage: ProductionStage;
   versionNumber: number;
+  // Cuando el media del plano es una imagen (no un video) se conserva su
+  // extensión original en la clave. Por defecto se asume mp4.
+  fileName?: string | null;
+  mimeType?: string | null;
 };
 
 function padNumber(value: string) {
@@ -27,7 +31,9 @@ function cleanFileName(value: string) {
 }
 
 export function buildVideoS3Key(input: BuildVideoKeyInput) {
-  const version = `v${String(input.versionNumber).padStart(3, "0")}.mp4`;
+  const isImage = (input.mimeType ?? "").startsWith("image/");
+  const ext = isImage ? fileExtension(input.fileName ?? "", "jpg") : "mp4";
+  const version = `v${String(input.versionNumber).padStart(3, "0")}.${ext}`;
   const sceneNumber = padNumber(input.sceneNumber);
 
   if (input.scope === "shot") {

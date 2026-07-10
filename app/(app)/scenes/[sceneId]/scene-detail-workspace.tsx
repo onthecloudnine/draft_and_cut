@@ -16,7 +16,7 @@ import {
 import { useI18n } from "@/lib/i18n/client";
 import { plainTextToHtml } from "@/components/rich-text-editor";
 import { AudioTracksPanel } from "./audio-tracks-panel";
-import { readVideoMetadata, uploadShotVideo } from "@/lib/uploads/client";
+import { readVideoMetadata, uploadShotMedia } from "@/lib/uploads/client";
 import { ArtReferencesPanel, type ArtReferenceData } from "./art-references-panel";
 import type { AudioVersionData, StoryboardFrameData } from "./phase-types";
 
@@ -55,6 +55,7 @@ import {
 type SceneData = {
   id: string;
   projectId: string;
+  projectSlug: string;
   sceneNumber: string;
   title: string;
   description: string;
@@ -94,12 +95,21 @@ type VideoData = {
   stage: string;
   status: string;
   fileName: string;
+  mimeType?: string;
   duration: number;
   fps: number;
   resolution: string;
   isFavorite: boolean;
   url: string | null;
 };
+
+// Un plano puede tener como media un video o una imagen (subidos de forma
+// intercambiable). Este helper distingue por mimeType para saber cómo mostrarlo.
+function isImageMedia(media: { mimeType?: string; fileName?: string } | null | undefined) {
+  if (!media) return false;
+  if (media.mimeType) return media.mimeType.startsWith("image/");
+  return /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(media.fileName ?? "");
+}
 
 type AttachmentData = {
   id: string;
@@ -176,6 +186,10 @@ type SceneDetailWorkspaceProps = {
 // Sound/audio panel hidden for now (pending product decision). Flip to true to
 // re-enable the per-stem audio tracks below the player.
 const SHOW_AUDIO_PANEL = false;
+
+// Media por plano (video o imagen intercambiables + placeholder "media offline"):
+// por ahora habilitado solo para el proyecto teaser.
+const PER_SHOT_MEDIA_SLUGS = new Set(["ukyylolateaser"]);
 
 type TopView = "timeline" | "table" | "board" | "scene" | "script";
 type TimelineTool = "select" | "blade";
@@ -1345,9 +1359,9 @@ function SceneHeader({
 }) {
   const router = useRouter();
   return (
-    <header className="shrink-0 border-b border-line bg-background/80 px-5 py-3 sm:px-7">
+    <header className="shrink-0 border-b border-line bg-background/80 px-4 py-2 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link
             className="text-xs font-medium text-muted hover:text-fg"
             href={`/projects/${scene.projectId}`}
@@ -1355,11 +1369,11 @@ function SceneHeader({
             ← {t("scene.backToProject")}
           </Link>
           <div className="hidden h-6 w-px bg-elevated sm:block" />
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-danger-fg">
               {t("scene.scene")} {scene.sceneNumber}
-            </p>
-            <h1 className="text-base font-semibold text-fg-strong sm:text-lg">{scene.title}</h1>
+            </span>
+            <h1 className="truncate text-sm font-semibold text-fg-strong">{scene.title}</h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1513,14 +1527,14 @@ function TopTabs({
     { key: "script", label: t("scene.tabScript") }
   ];
   return (
-    <div className="shrink-0 border-b border-line bg-background px-5 sm:px-7">
-      <div className="flex gap-1">
+    <div className="shrink-0 border-b border-line bg-background px-4 sm:px-5">
+      <div className="flex gap-0.5">
         {tabs.map((tab) => {
           const active = tab.key === value;
           return (
             <button
               className={[
-                "relative px-3 py-2.5 text-sm font-medium transition",
+                "relative px-2.5 py-2 text-[13px] font-medium transition",
                 active ? "text-fg-strong" : "text-muted hover:text-fg"
               ].join(" ")}
               key={tab.key}
@@ -1529,7 +1543,7 @@ function TopTabs({
             >
               {tab.label}
               {active ? (
-                <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-t bg-red-500" aria-hidden />
+                <span className="absolute -bottom-px left-2 right-2 h-0.5 rounded-t bg-red-500" aria-hidden />
               ) : null}
             </button>
           );
@@ -1750,13 +1764,18 @@ function TimelineView(props: TimelineViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showArtRefs, setShowArtRefs] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferedPct, setBufferedPct] = useState(0);
   const fps = Math.max(1, scene.fpsDefault);
+  // Media por plano (video o imagen intercambiables + "media offline"): sólo teaser.
+  const perShotMedia = PER_SHOT_MEDIA_SLUGS.has(scene.projectSlug);
 
   // --- Reproducción secuencial (playlist) por clips de plano ---
   // Cuando los planos tienen su propio clip en la etapa activa (scene.stage),
   // la línea de tiempo se reproduce encadenando esos clips en orden, en vez de
   // un único video continuo. El playhead (`playbackSeconds`) representa el tiempo
   // GLOBAL de la escena; cada clip es local y se mapea contra su rango de frames.
+  // El media puede ser video o imagen (isImageMedia distingue al mostrarlo).
   const clipByShot = useMemo(() => {
     const map = new Map<string, VideoData>();
     for (const video of videos) {
@@ -1769,12 +1788,21 @@ function TimelineView(props: TimelineViewProps) {
 
   const playableShots = useMemo(
     () =>
-      shots.filter(
-        (s) => clipByShot.has(s.id) && typeof s.startFrame === "number" && typeof s.endFrame === "number"
-      ),
-    [shots, clipByShot]
+      shots.filter((s) => {
+        if (typeof s.startFrame !== "number" || typeof s.endFrame !== "number") return false;
+        if (s.endFrame <= s.startFrame) return false;
+        // En modo media-por-plano, todos los planos con rango participan (imagen,
+        // video o "media offline"). Fuera de ese modo, requieren clip de video.
+        return perShotMedia || clipByShot.has(s.id);
+      }),
+    [shots, clipByShot, perShotMedia]
   );
-  const sequential = playableShots.length > 0;
+  // El modo secuencial (media por plano) sólo aplica cuando hay al menos un clip
+  // de plano en la etapa activa. Si no, el reproductor usa el video de escena de
+  // esa etapa (o el placeholder de etapa) en vez de marcar cada plano como "media
+  // offline". Así, dentro de una etapa con clips, los planos SIN clip muestran
+  // "media offline" y los que sí lo tienen muestran su video/imagen.
+  const sequential = clipByShot.size > 0 && playableShots.length > 0;
   const totalFrames = useMemo(
     () => shots.reduce((max, s) => Math.max(max, typeof s.endFrame === "number" ? s.endFrame : 0), 0),
     [shots]
@@ -1784,18 +1812,23 @@ function TimelineView(props: TimelineViewProps) {
   const pendingLocalSeekRef = useRef<number | null>(null);
   const wantPlayRef = useRef(false);
 
+  const playableIds = useMemo(() => new Set(playableShots.map((s) => s.id)), [playableShots]);
+
   // Keep the playing shot valid as clips/active shot change.
   useEffect(() => {
     if (!sequential) return;
     setPlayingShotId((cur) => {
-      if (cur && clipByShot.has(cur)) return cur;
-      if (activeShot && clipByShot.has(activeShot.id)) return activeShot.id;
+      if (cur && playableIds.has(cur)) return cur;
+      if (activeShot && playableIds.has(activeShot.id)) return activeShot.id;
       return playableShots[0]?.id ?? "";
     });
-  }, [sequential, clipByShot, activeShot?.id, playableShots]);
+  }, [sequential, playableIds, activeShot?.id, playableShots]);
 
   const playingShot = sequential ? shots.find((s) => s.id === playingShotId) ?? null : null;
   const playingClip = playingShot ? clipByShot.get(playingShot.id) ?? null : null;
+  // Tipo de media del plano en reproducción: video, imagen, o ninguno (offline).
+  const playingIsImage = isImageMedia(playingClip);
+  const playingHasVideo = Boolean(playingClip?.url) && !playingIsImage;
 
   // Avanza al siguiente plano con clip. El <video> se remonta por plano
   // (key=playingShotId) y arranca desde 0 en su onLoadedMetadata.
@@ -1961,9 +1994,14 @@ function TimelineView(props: TimelineViewProps) {
       const endSec = (target.endFrame as number) / fps;
       const clampedGlobal = Math.max(startSec, Math.min(globalSeconds, endSec));
       const local = Math.max(0, clampedGlobal - startSec);
+      const targetClip = clipByShot.get(target.id);
+      const targetIsVideo = Boolean(targetClip?.url) && !isImageMedia(targetClip);
       wantPlayRef.current = play;
       setPlaybackSeconds(clampedGlobal);
       if (target.id !== activeShot?.id) onSelectShot(target.id);
+      // Para media sin video (imagen / offline) no hay onPlay/onPause que ajuste
+      // isPlaying: lo fijamos aquí para que el motor por timer arranque o pare.
+      if (!targetIsVideo) setIsPlaying(play);
       if (target.id === playingShotId) {
         const video = videoRef.current;
         if (video) {
@@ -1980,14 +2018,85 @@ function TimelineView(props: TimelineViewProps) {
         setPlayingShotId(target.id);
       }
     },
-    [playableShots, fps, activeShot?.id, onSelectShot, playingShotId]
+    [playableShots, fps, activeShot?.id, onSelectShot, playingShotId, clipByShot]
   );
+
+  const playbackSecondsRef = useRef(0);
+  playbackSecondsRef.current = playbackSeconds;
+  const loadGlobalRef = useRef(loadGlobal);
+  loadGlobalRef.current = loadGlobal;
+
+  // En modo secuencial, seleccionar un plano desde cualquier vista (panel, tablero,
+  // tabla) mueve el playhead al inicio de ese plano y reproduce. Si el playhead ya
+  // está dentro del rango, la selección vino del auto-follow durante la
+  // reproducción: saltar al inicio tironearía al usuario hacia atrás.
+  const lastSelectedShotRef = useRef<string>("");
+  useEffect(() => {
+    if (!sequential) {
+      lastSelectedShotRef.current = "";
+      return;
+    }
+    const shotId = activeShot?.id ?? "";
+    if (!shotId || shotId === lastSelectedShotRef.current) return;
+    lastSelectedShotRef.current = shotId;
+    if (!activeShot || !playableIds.has(shotId)) return;
+    const { startFrame, endFrame } = activeShot;
+    if (typeof startFrame !== "number" || typeof endFrame !== "number") return;
+    if (endFrame <= startFrame) return;
+    const startSeconds = startFrame / fps;
+    const endSeconds = endFrame / fps;
+    const at = playbackSecondsRef.current;
+    if (at >= startSeconds && at < endSeconds) return;
+    loadGlobalRef.current(startSeconds, true);
+  }, [sequential, activeShot, playableIds, fps]);
+
+  const advanceSequentialRef = useRef(advanceSequential);
+  advanceSequentialRef.current = advanceSequential;
+
+  // Motor por timer para planos cuyo media no es un video (imagen o "media
+  // offline"): no hay elemento <video> que dispare timeupdate/ended, así que se
+  // avanza el playhead en tiempo real dentro del rango del plano y, al llegar al
+  // final, se encadena al siguiente plano.
+  useEffect(() => {
+    if (!sequential || playingHasVideo || !isPlaying || !playingShot) return;
+    if (typeof playingShot.startFrame !== "number" || typeof playingShot.endFrame !== "number") return;
+    const startSec = playingShot.startFrame / fps;
+    const endSec = playingShot.endFrame / fps;
+    if (playbackSecondsRef.current < startSec || playbackSecondsRef.current >= endSec) {
+      setPlaybackSeconds(startSec);
+    }
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      const next = playbackSecondsRef.current + dt;
+      if (next >= endSec) {
+        setPlaybackSeconds(endSec);
+        advanceSequentialRef.current();
+        return;
+      }
+      setPlaybackSeconds(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [sequential, playingHasVideo, isPlaying, playingShot?.id, playingShot?.startFrame, playingShot?.endFrame, fps]);
 
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
-    if (!video) return;
     if (playBackwardRafRef.current !== null) {
       stopBackwardPlay();
+      return;
+    }
+    // Plano sin video (imagen / media offline): alterna el estado y deja que el
+    // motor por timer avance el playhead.
+    if (!video) {
+      setIsPlaying((playing) => {
+        const next = !playing;
+        wantPlayRef.current = next;
+        return next;
+      });
       return;
     }
     if (video.paused) {
@@ -2349,6 +2458,10 @@ function TimelineView(props: TimelineViewProps) {
   );
   const playerVideo = sequential ? playingClip : stageSceneVideo;
   const playerDuration = sequential ? totalFrames / fps : stageSceneVideo ? duration : 0;
+  // El área de reproducción muestra: un <video>, una <img>, o "media offline".
+  const videoMedia = sequential ? (playingHasVideo ? playingClip : null) : stageSceneVideo;
+  const imageMedia = sequential && playingIsImage ? playingClip : null;
+  const showOfflineMedia = sequential && !videoMedia?.url && !imageMedia?.url;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -2360,14 +2473,19 @@ function TimelineView(props: TimelineViewProps) {
                 <span>
                   <span className="font-semibold text-fg">
                     {optionLabel("sceneStages", playerVideo.stage)} v{playerVideo.versionNumber}
+                    {playingIsImage ? ` · ${t("scene.mediaImage")}` : ""}
                   </span>
-                  <span className="text-muted"> · {playerVideo.resolution}</span>
+                  {playerVideo.resolution ? <span className="text-muted"> · {playerVideo.resolution}</span> : null}
                   {sequential ? (
                     <span className="text-muted">
                       {" "}
                       · {t("scene.shotShort")} {activeShot?.shotNumber ?? ""} ({playableShots.length})
                     </span>
                   ) : null}
+                </span>
+              ) : sequential ? (
+                <span className="text-muted">
+                  {t("scene.mediaOffline")} · {t("scene.shotShort")} {activeShot?.shotNumber ?? ""} ({playableShots.length})
                 </span>
               ) : (
                 <span className="text-muted">{t("scene.noVideoSelection")}</span>
@@ -2408,16 +2526,32 @@ function TimelineView(props: TimelineViewProps) {
               </button>
             </div>
           </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-5">
-            {playerVideo?.url ? (
+          <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-5">
+            {videoMedia?.url ? (
+              <>
               <video
                 ref={videoRef}
-                key={sequential ? `seq-${playingShotId}` : playerVideo.id}
+                key={sequential ? `seq-${playingShotId}` : videoMedia.id}
                 className="max-h-full max-w-full cursor-pointer rounded-md bg-black shadow-2xl shadow-black/60"
+                onCanPlay={() => setIsBuffering(false)}
                 onClick={togglePlayback}
                 onDurationChange={(event) => {
                   if (!sequential) setDuration(event.currentTarget.duration || 0);
                 }}
+                onError={() => setIsBuffering(false)}
+                onLoadStart={() => {
+                  setBufferedPct(0);
+                  setIsBuffering(true);
+                }}
+                onProgress={(event) => {
+                  const v = event.currentTarget;
+                  const total = v.duration;
+                  if (!total || !Number.isFinite(total) || v.buffered.length === 0) return;
+                  const end = v.buffered.end(v.buffered.length - 1);
+                  setBufferedPct(Math.min(100, (end / total) * 100));
+                }}
+                onStalled={() => setIsBuffering(true)}
+                onWaiting={() => setIsBuffering(true)}
                 onEnded={() => {
                   if (sequential) advanceSequential();
                 }}
@@ -2447,6 +2581,7 @@ function TimelineView(props: TimelineViewProps) {
                   wantPlayRef.current = true;
                   setIsPlaying(true);
                 }}
+                onPlaying={() => setIsBuffering(false)}
                 onTimeUpdate={(event) => {
                   const v = event.currentTarget;
                   if (sequential) {
@@ -2460,13 +2595,43 @@ function TimelineView(props: TimelineViewProps) {
                 }}
                 onVolumeChange={(event) => setIsMuted(event.currentTarget.muted)}
                 playsInline
-                src={playerVideo.url}
+                src={videoMedia.url}
               />
+              {isBuffering ? (
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <span className="h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-white/90" />
+                  <span className="rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium tabular-nums text-white/80">
+                    {bufferedPct > 0 ? `${t("scene.loading")} ${Math.round(bufferedPct)}%` : t("scene.loading")}
+                  </span>
+                </div>
+              ) : null}
+              </>
+            ) : imageMedia?.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`img-${playingShotId}`}
+                alt={imageMedia.fileName}
+                className="max-h-full max-w-full cursor-pointer rounded-md bg-black object-contain shadow-2xl shadow-black/60"
+                onClick={togglePlayback}
+                src={imageMedia.url}
+              />
+            ) : showOfflineMedia ? (
+              <button
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md px-6 py-10 text-center"
+                onClick={togglePlayback}
+                type="button"
+              >
+                <span className="text-4xl opacity-40">🎞️</span>
+                <span className="text-sm font-medium text-white/70">{t("scene.mediaOffline")}</span>
+                <span className="text-xs text-white/40">
+                  {t("scene.shotShort")} {playingShot?.shotNumber ?? ""}
+                </span>
+              </button>
             ) : (
               <NoVideoPlaceholder stageLabel={optionLabel("sceneStages", scene.stage)} t={t} />
             )}
           </div>
-          {playerVideo?.url ? (
+          {sequential || playerVideo?.url ? (
             <VideoTransport
               activeShot={activeShot}
               canInsertSelection={canInsertSelection}
@@ -3391,7 +3556,7 @@ function NoVideoPlaceholder({
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</span>;
+  return <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{children}</span>;
 }
 
 function TextInput({
@@ -3409,7 +3574,7 @@ function TextInput({
 }) {
   return (
     <input
-      className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-2.5 text-sm text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-8 w-full min-w-0 rounded border border-line bg-background px-2 text-[13px] text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
@@ -3444,7 +3609,7 @@ function TextArea({
   return (
     <textarea
       ref={ref}
-      className="w-full min-w-0 resize-none overflow-hidden rounded-md border border-line bg-background px-2.5 py-2 text-sm leading-5 text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full min-w-0 resize-none overflow-hidden rounded border border-line bg-background px-2 py-1.5 text-[13px] leading-5 text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onBlur={onBlur}
       onChange={(event) => onChange(event.target.value)}
@@ -3495,12 +3660,12 @@ function MultilineListField({
 function SceneTab(props: TimelineViewProps) {
   const { canEditScript, optionLabel, onUpdateScene, scene, t, toggleSceneSoundOption } = props;
   return (
-    <div className="grid gap-4 p-4 sm:p-5">
-      <div className="grid min-w-0 gap-2">
+    <div className="grid gap-3 px-4 py-3.5">
+      <div className="grid min-w-0 gap-1">
         <FieldLabel>{t("scene.number")}</FieldLabel>
         <TextInput disabled value={scene.sceneNumber} onChange={() => {}} />
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.title")}</FieldLabel>
         <TextInput
           disabled={!canEditScript}
@@ -3508,23 +3673,25 @@ function SceneTab(props: TimelineViewProps) {
           value={scene.title}
         />
       </div>
-      <div className="grid gap-2">
-        <FieldLabel>{t("scene.location")}</FieldLabel>
-        <TextInput
-          disabled={!canEditScript}
-          onChange={(value) => onUpdateScene({ location: value })}
-          value={scene.location}
-        />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid gap-1">
+          <FieldLabel>{t("scene.location")}</FieldLabel>
+          <TextInput
+            disabled={!canEditScript}
+            onChange={(value) => onUpdateScene({ location: value })}
+            value={scene.location}
+          />
+        </div>
+        <div className="grid gap-1">
+          <FieldLabel>{t("scene.timeOfDay")}</FieldLabel>
+          <TextInput
+            disabled={!canEditScript}
+            onChange={(value) => onUpdateScene({ timeOfDay: value })}
+            value={scene.timeOfDay}
+          />
+        </div>
       </div>
-      <div className="grid gap-2">
-        <FieldLabel>{t("scene.timeOfDay")}</FieldLabel>
-        <TextInput
-          disabled={!canEditScript}
-          onChange={(value) => onUpdateScene({ timeOfDay: value })}
-          value={scene.timeOfDay}
-        />
-      </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.dramaticIntent")}</FieldLabel>
         <TextArea
           disabled={!canEditScript}
@@ -3560,8 +3727,8 @@ function SceneTab(props: TimelineViewProps) {
 function ScriptTab(props: TimelineViewProps) {
   const { canEditScript, onOpenScriptOverlay, onUpdateScene, scene, t } = props;
   return (
-    <div className="grid gap-4 p-4 sm:p-5">
-      <div className="grid gap-2">
+    <div className="grid gap-3 px-4 py-3.5">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.literaryHeading")}</FieldLabel>
         <TextInput
           disabled={!canEditScript}
@@ -3569,7 +3736,7 @@ function ScriptTab(props: TimelineViewProps) {
           value={scene.literaryHeading}
         />
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <div className="flex items-center justify-between gap-2">
           <FieldLabel>{t("scene.literaryScript")}</FieldLabel>
           <button
@@ -3619,6 +3786,7 @@ function ShotTab(props: TimelineViewProps) {
   // panel del plano, el Tablero y el reproductor compartan los mismos datos en
   // vivo. La etapa activa = scene.stage, que es la que "manda".
   const stageStates = shotStageStates;
+  const perShotMedia = PER_SHOT_MEDIA_SLUGS.has(scene.projectSlug);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingVideoId, setDeletingVideoId] = useState("");
   const [stageError, setStageError] = useState("");
@@ -3707,6 +3875,12 @@ function ShotTab(props: TimelineViewProps) {
   async function handleStageFile(file: File) {
     if (!shotId || !activeShot) return;
     setStageError("");
+    // Las imágenes no tienen duración: se suben directo (su duración en el
+    // reproductor es el rango del plano).
+    if (file.type.startsWith("image/")) {
+      await doStageUpload(file, 0);
+      return;
+    }
     const expectedFrames =
       typeof activeShot.startFrame === "number" && typeof activeShot.endFrame === "number"
         ? activeShot.endFrame - activeShot.startFrame
@@ -3731,7 +3905,7 @@ function ShotTab(props: TimelineViewProps) {
     setIsUploading(true);
     setStageError("");
     try {
-      const result = await uploadShotVideo({
+      const result = await uploadShotMedia({
         projectId: scene.projectId,
         sceneId: scene.id,
         shotId,
@@ -3748,9 +3922,10 @@ function ShotTab(props: TimelineViewProps) {
           stage: activeStage,
           status: "ready_for_review",
           fileName: file.name,
+          mimeType: result.mimeType,
           duration,
           fps,
-          resolution: "",
+          resolution: result.resolution,
           isFavorite: false,
           url: result.objectUrl
         },
@@ -3792,20 +3967,20 @@ function ShotTab(props: TimelineViewProps) {
   const hasTitle = activeShot.title.trim().length > 0;
 
   return (
-    <div className="grid gap-4 p-4 sm:p-5">
+    <div className="grid gap-3 px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <FieldLabel>{t("scene.tabShot")}</FieldLabel>
-          <p className="mt-1 truncate text-lg font-semibold text-fg-strong">
+          <p className="mt-0.5 truncate text-sm font-semibold text-fg-strong">
             {hasTitle ? activeShot.title : activeShot.shotNumber}
           </p>
         </div>
         <label className="grid shrink-0 gap-1">
-          <span className="text-right text-[10px] font-medium uppercase tracking-wider text-muted">
+          <span className="text-right text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
             {t("scene.stage")}
           </span>
           <select
-            className="h-8 rounded-md border border-line-strong bg-background px-2 text-[12px] font-medium text-fg disabled:opacity-60"
+            className="h-8 rounded border border-line-strong bg-background px-2 text-[12px] font-medium text-fg disabled:opacity-60"
             disabled={!canEditScript}
             onChange={(event) => onUpdateScene({ stage: event.target.value })}
             value={scene.stage}
@@ -3846,7 +4021,7 @@ function ShotTab(props: TimelineViewProps) {
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-2">
+      <div className="grid min-w-0 gap-1">
         <FieldLabel>{t("scene.title")}</FieldLabel>
         <TextInput
           disabled={!canEditScript}
@@ -3856,7 +4031,7 @@ function ShotTab(props: TimelineViewProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid min-w-0 gap-2">
+        <div className="grid min-w-0 gap-1">
           <FieldLabel>{t("scene.number")}</FieldLabel>
           <TextInput
             disabled={!canEditScript}
@@ -3864,7 +4039,7 @@ function ShotTab(props: TimelineViewProps) {
             value={activeShot.shotNumber}
           />
         </div>
-        <div className="grid min-w-0 gap-2">
+        <div className="grid min-w-0 gap-1">
           <FieldLabel>{t("scene.type")}</FieldLabel>
           <TextInput
             disabled={!canEditScript}
@@ -3874,8 +4049,8 @@ function ShotTab(props: TimelineViewProps) {
         </div>
       </div>
 
-      <fieldset className="grid min-w-0 gap-2 rounded-md border border-line bg-background p-3">
-        <legend className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <fieldset className="grid min-w-0 gap-2 rounded border border-line bg-background px-3 py-2.5">
+        <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
           {t("scene.time")} · {scene.fpsDefault} fps
         </legend>
         <div className="grid min-w-0 grid-cols-3 gap-2">
@@ -3964,10 +4139,11 @@ function ShotTab(props: TimelineViewProps) {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  <span className="shrink-0 font-medium">▶ v{clip.versionNumber}</span>
+                  <span className="shrink-0 font-medium">{isImageMedia(clip) ? "🖼" : "▶"} v{clip.versionNumber}</span>
                   <span className="truncate text-[10px] text-muted">{clip.fileName}</span>
                 </a>
                 {(() => {
+                  if (isImageMedia(clip)) return null;
                   const shotSpan =
                     typeof activeShot.startFrame === "number" && typeof activeShot.endFrame === "number"
                       ? activeShot.endFrame - activeShot.startFrame
@@ -4011,13 +4187,15 @@ function ShotTab(props: TimelineViewProps) {
               onClick={() => stageFileRef.current?.click()}
               type="button"
             >
-              {isUploading ? t("scene.phaseUploadBusy") : `+ ${t("scene.uploadVersion")}`}
+              {isUploading
+                ? t("scene.phaseUploadBusy")
+                : `+ ${perShotMedia ? t("scene.uploadMedia") : t("scene.uploadVersion")}`}
             </button>
           ) : null}
           {stageError ? <p className="text-[10px] text-danger-fg">{stageError}</p> : null}
         </div>
         <input
-          accept="video/mp4"
+          accept={perShotMedia ? "video/mp4,image/*" : "video/mp4"}
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -4081,7 +4259,7 @@ function ShotTab(props: TimelineViewProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.description")}</FieldLabel>
         <TextArea
           disabled={!canEditScript}
@@ -4089,7 +4267,7 @@ function ShotTab(props: TimelineViewProps) {
           value={activeShot.description}
         />
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.comments")}</FieldLabel>
         <TextArea
           disabled={!canEditScript}
@@ -4097,7 +4275,7 @@ function ShotTab(props: TimelineViewProps) {
           value={activeShot.comments}
         />
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.action")}</FieldLabel>
         <TextArea
           disabled={!canEditScript}
@@ -4105,23 +4283,25 @@ function ShotTab(props: TimelineViewProps) {
           value={activeShot.action}
         />
       </div>
-      <div className="grid gap-2">
-        <FieldLabel>{t("scene.camera")}</FieldLabel>
-        <TextArea
-          disabled={!canEditScript}
-          onChange={(value) => onUpdateShot(activeShot.id, { camera: value })}
-          value={activeShot.camera}
-        />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid gap-1">
+          <FieldLabel>{t("scene.camera")}</FieldLabel>
+          <TextArea
+            disabled={!canEditScript}
+            onChange={(value) => onUpdateShot(activeShot.id, { camera: value })}
+            value={activeShot.camera}
+          />
+        </div>
+        <div className="grid gap-1">
+          <FieldLabel>{t("scene.soundTransition")}</FieldLabel>
+          <TextArea
+            disabled={!canEditScript}
+            onChange={(value) => onUpdateShot(activeShot.id, { sound: value })}
+            value={activeShot.sound}
+          />
+        </div>
       </div>
-      <div className="grid gap-2">
-        <FieldLabel>{t("scene.soundTransition")}</FieldLabel>
-        <TextArea
-          disabled={!canEditScript}
-          onChange={(value) => onUpdateShot(activeShot.id, { sound: value })}
-          value={activeShot.sound}
-        />
-      </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.requiredElements")}</FieldLabel>
         <MultilineListField
           disabled={!canEditScript}
@@ -4129,7 +4309,7 @@ function ShotTab(props: TimelineViewProps) {
           value={activeShot.requiredElements}
         />
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-1">
         <FieldLabel>{t("scene.productionNotes")}</FieldLabel>
         <TextArea
           disabled={!canEditScript}
@@ -4160,9 +4340,9 @@ function TimecodeField({
   }, [value, fps]);
   return (
     <label className="grid min-w-0 gap-1">
-      <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted">{label}</span>
+      <span className="truncate text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{label}</span>
       <input
-        className="h-9 w-full min-w-0 rounded-md border border-line bg-background px-1.5 text-center text-[11px] tabular-nums text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:opacity-60"
+        className="h-8 w-full min-w-0 rounded border border-line bg-background px-1.5 text-center text-[12px] tabular-nums text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:opacity-60"
         disabled={disabled}
         onBlur={() => {
           const parsed = parseTimecode(draft, fps);
