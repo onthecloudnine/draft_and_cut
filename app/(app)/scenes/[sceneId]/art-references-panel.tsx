@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { uploadArtReferenceImage } from "@/lib/uploads/client";
 
 export type ArtReferenceImageData = { id: string; url: string | null; fileName: string };
@@ -37,6 +37,7 @@ export function ArtReferencesPanel({
   const [selectedId, setSelectedId] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const newFileRef = useRef<HTMLInputElement>(null);
   const addFileRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +48,16 @@ export function ArtReferencesPanel({
   );
   const selected =
     shotGalleries.find((g) => g.id === selectedId) ?? shotGalleries[shotGalleries.length - 1] ?? null;
+
+  // Imágenes navegables en el lightbox (las que tienen url); su orden define la
+  // secuencia con la que se avanza/retrocede.
+  const viewable = useMemo(() => (selected ? selected.images.filter((im) => im.url) : []), [selected]);
+  const selectedGalleryId = selected?.id ?? null;
+
+  // Al cambiar de galería/plano se cierra el lightbox para no dejar un índice inválido.
+  useEffect(() => {
+    setLightboxIndex(null);
+  }, [selectedGalleryId]);
 
   function patchGallery(id: string, patch: Partial<ArtReferenceData>) {
     setGalleries((cur) => cur.map((g) => (g.id === id ? { ...g, ...patch } : g)));
@@ -222,8 +233,18 @@ export function ArtReferencesPanel({
                 {selected.images.map((image) => (
                   <div className="group relative overflow-hidden rounded-md border border-line bg-background" key={image.id}>
                     {image.url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img alt={image.fileName} className="w-full object-contain" src={image.url} />
+                      <button
+                        aria-label={t("scene.artOpenImage")}
+                        className="block w-full cursor-zoom-in"
+                        onClick={() => {
+                          const idx = viewable.findIndex((im) => im.id === image.id);
+                          if (idx >= 0) setLightboxIndex(idx);
+                        }}
+                        type="button"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img alt={image.fileName} className="w-full object-contain" src={image.url} />
+                      </button>
                     ) : (
                       <div className="flex h-24 items-center justify-center text-[10px] text-muted">{image.fileName}</div>
                     )}
@@ -276,6 +297,17 @@ export function ArtReferencesPanel({
         </div>
       )}
 
+      {lightboxIndex !== null && viewable.length > 0 ? (
+        <ArtReferenceLightbox
+          images={viewable}
+          index={Math.min(lightboxIndex, viewable.length - 1)}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          title={selected?.title ?? ""}
+          t={t}
+        />
+      ) : null}
+
       <input
         accept="image/*"
         className="hidden"
@@ -297,5 +329,157 @@ export function ArtReferencesPanel({
         type="file"
       />
     </aside>
+  );
+}
+
+// Lightbox a pantalla completa para las referencias de arte. Avanza/retrocede
+// por toda la galería con click en el costado correspondiente o con las flechas
+// del teclado; Escape cierra.
+function ArtReferenceLightbox({
+  images,
+  index,
+  onIndexChange,
+  onClose,
+  title,
+  t
+}: {
+  images: ArtReferenceImageData[];
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+  title: string;
+  t: (path: string, replacements?: Record<string, string | number>) => string;
+}) {
+  const count = images.length;
+  const current = images[index];
+
+  const go = useCallback(
+    (delta: number) => {
+      onIndexChange((((index + delta) % count) + count) % count);
+    },
+    [index, count, onIndexChange]
+  );
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        go(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        go(-1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [go, onClose]);
+
+  const hasSiblings = count > 1;
+
+  return (
+    <div
+      aria-label={t("scene.artLightbox")}
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm"
+      role="dialog"
+    >
+      <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2.5 text-white/80">
+        <span className="min-w-0 truncate text-[12px]">
+          {title ? <span className="font-medium text-white">{title} · </span> : null}
+          <span className="truncate">{current?.fileName}</span>
+        </span>
+        <div className="flex items-center gap-3">
+          {hasSiblings ? (
+            <span className="shrink-0 text-[12px] tabular-nums text-white/60">
+              {index + 1} / {count}
+            </span>
+          ) : null}
+          <button
+            aria-label={t("scene.artLightboxClose")}
+            className="rounded p-1 text-white/70 hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+        {/* La imagen no intercepta el click: los costados navegan y el fondo cierra. */}
+        <button
+          aria-label={t("scene.artLightboxClose")}
+          className="absolute inset-0 cursor-default"
+          onClick={onClose}
+          tabIndex={-1}
+          type="button"
+        />
+        {current?.url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt={current.fileName}
+            className="pointer-events-none relative z-10 max-h-full max-w-full object-contain p-2 sm:p-4"
+            src={current.url}
+          />
+        ) : null}
+
+        {hasSiblings ? (
+          <>
+            <button
+              aria-label={t("scene.artPrev")}
+              className="group absolute inset-y-0 left-0 z-20 flex w-1/2 max-w-[45%] cursor-w-resize items-center justify-start pl-3 sm:pl-5"
+              onClick={() => go(-1)}
+              type="button"
+            >
+              <span className="rounded-full bg-black/40 p-2 text-white/70 opacity-0 transition group-hover:bg-black/60 group-hover:text-white group-hover:opacity-100">
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </span>
+            </button>
+            <button
+              aria-label={t("scene.artNext")}
+              className="group absolute inset-y-0 right-0 z-20 flex w-1/2 max-w-[45%] cursor-e-resize items-center justify-end pr-3 sm:pr-5"
+              onClick={() => go(1)}
+              type="button"
+            >
+              <span className="rounded-full bg-black/40 p-2 text-white/70 opacity-0 transition group-hover:bg-black/60 group-hover:text-white group-hover:opacity-100">
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </span>
+            </button>
+          </>
+        ) : null}
+      </div>
+
+      {hasSiblings ? (
+        <div className="flex shrink-0 items-center justify-center gap-1.5 overflow-x-auto px-4 py-2">
+          {images.map((im, i) => (
+            <button
+              aria-current={i === index}
+              aria-label={t("scene.artGoToImage", { n: i + 1 })}
+              className={[
+                "h-11 w-16 shrink-0 overflow-hidden rounded border transition",
+                i === index ? "border-red-500 opacity-100" : "border-white/20 opacity-50 hover:opacity-90"
+              ].join(" ")}
+              key={im.id}
+              onClick={() => onIndexChange(i)}
+              type="button"
+            >
+              {im.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt={im.fileName} className="h-full w-full object-cover" src={im.url} />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
