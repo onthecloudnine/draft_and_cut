@@ -12,6 +12,21 @@ function compareNumericText(left: string, right: string) {
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
 }
 
+type LatestVideoAgg = {
+  _id: unknown;
+  videoId: unknown;
+  versionNumber: number;
+  stage: string;
+  status: string;
+  createdAt?: Date;
+  s3Key?: string;
+  mimeType?: string | null;
+  duration?: number | null;
+  thumbnailKey?: string | null;
+};
+
+type SceneCountAgg = { _id: unknown; count: number };
+
 export async function getAllProjectsForAdmin() {
   await connectDb();
   const projects = await Project.find({}).sort({ title: 1 }).lean();
@@ -103,17 +118,48 @@ export async function getProjectSceneSummaries(projectId: string) {
     }
   }
 
+  // Agregados por escena en 3 queries (antes eran 3 por escena → N+1): último
+  // video, comentarios abiertos y total de videos.
+  const [latestVideoRows, openCommentRows, videoCountRows] = await Promise.all([
+    VideoVersion.aggregate<LatestVideoAgg>([
+      { $match: { sceneId: { $in: sceneIds } } },
+      // _id como desempate: ante createdAt iguales gana el insertado más reciente.
+      { $sort: { sceneId: 1, createdAt: -1, _id: -1 } },
+      {
+        $group: {
+          _id: "$sceneId",
+          videoId: { $first: "$_id" },
+          versionNumber: { $first: "$versionNumber" },
+          stage: { $first: "$stage" },
+          status: { $first: "$status" },
+          createdAt: { $first: "$createdAt" },
+          s3Key: { $first: "$s3Key" },
+          mimeType: { $first: "$mimeType" },
+          duration: { $first: "$duration" },
+          thumbnailKey: { $first: "$thumbnailKey" }
+        }
+      }
+    ]),
+    Comment.aggregate<SceneCountAgg>([
+      { $match: { sceneId: { $in: sceneIds }, status: { $in: ["open", "in_progress"] } } },
+      { $group: { _id: "$sceneId", count: { $sum: 1 } } }
+    ]),
+    VideoVersion.aggregate<SceneCountAgg>([
+      { $match: { sceneId: { $in: sceneIds } } },
+      { $group: { _id: "$sceneId", count: { $sum: 1 } } }
+    ])
+  ]);
+  const latestVideoByScene = new Map(latestVideoRows.map((row) => [String(row._id), row]));
+  const openCommentsByScene = new Map(openCommentRows.map((row) => [String(row._id), row.count]));
+  const videoCountByScene = new Map(videoCountRows.map((row) => [String(row._id), row.count]));
+
   return Promise.all(
     scenes.map(async (scene) => {
-      const [latestVideo, openComments, videoCount] = await Promise.all([
-        VideoVersion.findOne({ sceneId: scene._id })
-          .sort({ createdAt: -1 })
-          .select("versionNumber stage status createdAt s3Key mimeType duration thumbnailKey")
-          .lean(),
-        Comment.countDocuments({ sceneId: scene._id, status: { $in: ["open", "in_progress"] } }),
-        VideoVersion.countDocuments({ sceneId: scene._id })
-      ]);
-      const sceneShots = shotsByScene.get(String(scene._id)) ?? [];
+      const sceneKey = String(scene._id);
+      const latestVideo = latestVideoByScene.get(sceneKey) ?? null;
+      const openComments = openCommentsByScene.get(sceneKey) ?? 0;
+      const videoCount = videoCountByScene.get(sceneKey) ?? 0;
+      const sceneShots = shotsByScene.get(sceneKey) ?? [];
       const sceneStage = scene.stage ?? "storyboard";
       const orderedShots = [...sceneShots].sort(
         (left, right) =>
@@ -150,7 +196,7 @@ export async function getProjectSceneSummaries(projectId: string) {
         status: scene.status,
         latestVideo: latestVideo
           ? {
-              id: String(latestVideo._id),
+              id: String(latestVideo.videoId),
               versionNumber: latestVideo.versionNumber,
               stage: latestVideo.stage,
               status: latestVideo.status,
@@ -220,7 +266,32 @@ export async function getProjectPlaylist(projectId: string): Promise<ProjectPlay
     }
   }
 
-  const items: ProjectPlaylistItem[] = [];
+  // Último video por escena para el fallback, en un solo agregado (antes era un
+  // findOne por escena dentro del loop → N+1 secuencial).
+  const fallbackRows = await VideoVersion.aggregate<{
+    _id: unknown;
+    s3Key?: string;
+    mimeType?: string | null;
+  }>([
+    { $match: { sceneId: { $in: sceneIds } } },
+    { $sort: { sceneId: 1, createdAt: -1, _id: -1 } },
+    {
+      $group: {
+        _id: "$sceneId",
+        s3Key: { $first: "$s3Key" },
+        mimeType: { $first: "$mimeType" }
+      }
+    }
+  ]);
+  const fallbackByScene = new Map<string, { s3Key: string; mimeType: string | null }>();
+  for (const row of fallbackRows) {
+    if (row.s3Key) fallbackByScene.set(String(row._id), { s3Key: row.s3Key, mimeType: row.mimeType ?? null });
+  }
+
+  // Se arman las entradas (con su s3Key) en orden y luego se firman todas las
+  // URLs en paralelo, en vez de secuencialmente por escena.
+  type PendingItem = Omit<ProjectPlaylistItem, "url"> & { s3Key: string };
+  const pending: PendingItem[] = [];
   for (const scene of scenes) {
     const sceneStage = scene.stage ?? "storyboard";
     const sceneShots = [...(shotsByScene.get(String(scene._id)) ?? [])].sort(
@@ -237,41 +308,44 @@ export async function getProjectPlaylist(projectId: string): Promise<ProjectPlay
       .filter((entry) => entry.clip);
 
     if (clippedShots.length > 0) {
-      const urls = await Promise.all(
-        clippedShots.map((entry) => maybeGetSignedObjectUrl(entry.clip!.s3Key))
-      );
-      clippedShots.forEach((entry, index) => {
-        const url = urls[index];
-        if (url) {
-          items.push({
-            sceneId: String(scene._id),
-            sceneNumber: scene.sceneNumber,
-            label: entry.shot.shotNumber,
-            url,
-            mimeType: entry.clip!.mimeType
-          });
-        }
-      });
+      for (const entry of clippedShots) {
+        pending.push({
+          sceneId: String(scene._id),
+          sceneNumber: scene.sceneNumber,
+          label: entry.shot.shotNumber,
+          s3Key: entry.clip!.s3Key,
+          mimeType: entry.clip!.mimeType
+        });
+      }
       continue;
     }
 
-    const latestVideo = await VideoVersion.findOne({ sceneId: scene._id })
-      .sort({ createdAt: -1 })
-      .select("s3Key mimeType")
-      .lean();
-    if (latestVideo?.s3Key) {
-      const url = await maybeGetSignedObjectUrl(latestVideo.s3Key);
-      if (url) {
-        items.push({
-          sceneId: String(scene._id),
-          sceneNumber: scene.sceneNumber,
-          label: "",
-          url,
-          mimeType: latestVideo.mimeType ?? null
-        });
-      }
+    const fallback = fallbackByScene.get(String(scene._id));
+    if (fallback) {
+      pending.push({
+        sceneId: String(scene._id),
+        sceneNumber: scene.sceneNumber,
+        label: "",
+        s3Key: fallback.s3Key,
+        mimeType: fallback.mimeType
+      });
     }
   }
+
+  const urls = await Promise.all(pending.map((entry) => maybeGetSignedObjectUrl(entry.s3Key)));
+  const items: ProjectPlaylistItem[] = [];
+  pending.forEach((entry, index) => {
+    const url = urls[index];
+    if (url) {
+      items.push({
+        sceneId: entry.sceneId,
+        sceneNumber: entry.sceneNumber,
+        label: entry.label,
+        url,
+        mimeType: entry.mimeType
+      });
+    }
+  });
 
   return items;
 }

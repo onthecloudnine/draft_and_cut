@@ -94,6 +94,94 @@ export async function getSceneDetailData(sceneId: string) {
   const userById = new Map([...users, ...activeUsers].map((user) => [String(user._id), user]));
   const membershipRoleByUserId = new Map(memberships.map((membership) => [String(membership.userId), membership.role]));
 
+  // Las URLs firmadas de cada colección se resuelven en un único Promise.all para
+  // que los grupos se solapen (antes se evaluaban en serie como propiedades del
+  // objeto de retorno).
+  const [videosOut, storyboardFramesOut, audioVersionsOut, artReferencesOut, attachmentsOut] =
+    await Promise.all([
+      Promise.all(
+        videos.map(async (video) => ({
+          id: String(video._id),
+          shotId: video.shotId ? String(video.shotId) : null,
+          scope: video.scope,
+          versionNumber: video.versionNumber,
+          stage: video.stage,
+          status: video.status,
+          fileName: video.fileName,
+          mimeType: video.mimeType,
+          duration: video.duration,
+          fps: video.fps,
+          frameCount: video.frameCount,
+          resolution: video.resolution,
+          isFavorite: video.isFavorite,
+          createdAt: video.createdAt?.toISOString(),
+          url: video.status === "ready_for_review" ? await maybeGetSignedObjectUrl(video.s3Key) : null
+        }))
+      ),
+      Promise.all(
+        storyboardFrames.map(async (frame) => ({
+          id: String(frame._id),
+          shotId: String(frame.shotId),
+          versionNumber: frame.versionNumber,
+          fileName: frame.fileName,
+          mimeType: frame.mimeType,
+          width: frame.width ?? null,
+          height: frame.height ?? null,
+          createdAt: frame.createdAt?.toISOString(),
+          url: await maybeGetSignedObjectUrl(frame.s3Key)
+        }))
+      ),
+      Promise.all(
+        audioVersions.map(async (audio) => ({
+          id: String(audio._id),
+          stem: audio.stem,
+          versionNumber: audio.versionNumber,
+          fileName: audio.fileName,
+          mimeType: audio.mimeType,
+          duration: audio.duration,
+          createdAt: audio.createdAt?.toISOString(),
+          url: await maybeGetSignedObjectUrl(audio.s3Key)
+        }))
+      ),
+      Promise.all(
+        artReferences.map(async (gallery) => ({
+          id: String(gallery._id),
+          shotId: String(gallery.shotId),
+          versionNumber: gallery.versionNumber,
+          title: gallery.title ?? "",
+          images: await Promise.all(
+            (gallery.images ?? [])
+              .filter((image) => image.status === "ready")
+              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+              .map(async (image) => ({
+                id: String(image._id),
+                fileName: image.fileName,
+                url: await maybeGetSignedObjectUrl(image.s3Key)
+              }))
+          )
+        }))
+      ),
+      Promise.all(
+        attachments.map(async (attachment) => {
+          const uploader = userById.get(String(attachment.uploadedBy));
+
+          return {
+            id: String(attachment._id),
+            shotId: attachment.shotId ? String(attachment.shotId) : null,
+            title: attachment.title,
+            description: attachment.description,
+            attachmentDate: attachment.attachmentDate.toISOString(),
+            fileName: attachment.fileName,
+            fileSizeMb: attachment.fileSizeMb,
+            mimeType: attachment.mimeType,
+            uploadedByName: uploader?.name ?? uploader?.email ?? "Usuario",
+            createdAt: attachment.createdAt?.toISOString(),
+            url: await maybeGetSignedObjectUrl(attachment.s3Key)
+          };
+        })
+      )
+    ]);
+
   return {
     scene: {
       id: String(scene._id),
@@ -147,50 +235,9 @@ export async function getSceneDetailData(sceneId: string) {
       startFrame: shot.startFrame ?? null,
       endFrame: shot.endFrame ?? null
     })),
-    videos: await Promise.all(
-      videos.map(async (video) => ({
-        id: String(video._id),
-        shotId: video.shotId ? String(video.shotId) : null,
-        scope: video.scope,
-        versionNumber: video.versionNumber,
-        stage: video.stage,
-        status: video.status,
-        fileName: video.fileName,
-        mimeType: video.mimeType,
-        duration: video.duration,
-        fps: video.fps,
-        frameCount: video.frameCount,
-        resolution: video.resolution,
-        isFavorite: video.isFavorite,
-        createdAt: video.createdAt?.toISOString(),
-        url: video.status === "ready_for_review" ? await maybeGetSignedObjectUrl(video.s3Key) : null
-      }))
-    ),
-    storyboardFrames: await Promise.all(
-      storyboardFrames.map(async (frame) => ({
-        id: String(frame._id),
-        shotId: String(frame.shotId),
-        versionNumber: frame.versionNumber,
-        fileName: frame.fileName,
-        mimeType: frame.mimeType,
-        width: frame.width ?? null,
-        height: frame.height ?? null,
-        createdAt: frame.createdAt?.toISOString(),
-        url: await maybeGetSignedObjectUrl(frame.s3Key)
-      }))
-    ),
-    audioVersions: await Promise.all(
-      audioVersions.map(async (audio) => ({
-        id: String(audio._id),
-        stem: audio.stem,
-        versionNumber: audio.versionNumber,
-        fileName: audio.fileName,
-        mimeType: audio.mimeType,
-        duration: audio.duration,
-        createdAt: audio.createdAt?.toISOString(),
-        url: await maybeGetSignedObjectUrl(audio.s3Key)
-      }))
-    ),
+    videos: videosOut,
+    storyboardFrames: storyboardFramesOut,
+    audioVersions: audioVersionsOut,
     shotStageStates: shotStageStates.map((state) => ({
       id: String(state._id),
       shotId: String(state.shotId),
@@ -198,43 +245,8 @@ export async function getSceneDetailData(sceneId: string) {
       reviewStatus: state.reviewStatus ?? "draft",
       assignees: (state.assignees ?? []).map((id) => String(id))
     })),
-    artReferences: await Promise.all(
-      artReferences.map(async (gallery) => ({
-        id: String(gallery._id),
-        shotId: String(gallery.shotId),
-        versionNumber: gallery.versionNumber,
-        title: gallery.title ?? "",
-        images: await Promise.all(
-          (gallery.images ?? [])
-            .filter((image) => image.status === "ready")
-            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-            .map(async (image) => ({
-              id: String(image._id),
-              fileName: image.fileName,
-              url: await maybeGetSignedObjectUrl(image.s3Key)
-            }))
-        )
-      }))
-    ),
-    attachments: await Promise.all(
-      attachments.map(async (attachment) => {
-        const uploader = userById.get(String(attachment.uploadedBy));
-
-        return {
-          id: String(attachment._id),
-          shotId: attachment.shotId ? String(attachment.shotId) : null,
-          title: attachment.title,
-          description: attachment.description,
-          attachmentDate: attachment.attachmentDate.toISOString(),
-          fileName: attachment.fileName,
-          fileSizeMb: attachment.fileSizeMb,
-          mimeType: attachment.mimeType,
-          uploadedByName: uploader?.name ?? uploader?.email ?? "Usuario",
-          createdAt: attachment.createdAt?.toISOString(),
-          url: await maybeGetSignedObjectUrl(attachment.s3Key)
-        };
-      })
-    ),
+    artReferences: artReferencesOut,
+    attachments: attachmentsOut,
     projectMembers: activeUsers
       .map((member) => ({
         id: String(member._id),

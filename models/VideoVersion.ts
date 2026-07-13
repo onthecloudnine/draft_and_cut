@@ -35,6 +35,10 @@ videoVersionSchema.index(
   { unique: true }
 );
 
+// Cubre la consulta recurrente "último video de la escena"
+// (find/aggregate por sceneId ordenado por createdAt desc).
+videoVersionSchema.index({ sceneId: 1, createdAt: -1 });
+
 export type VideoVersionDocument = InferSchemaType<typeof videoVersionSchema>;
 
 export const VideoVersion =
