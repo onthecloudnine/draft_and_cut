@@ -74,7 +74,12 @@
       "Bash(echo \"tsc=$?\")",
       "Bash(grep -v '^$' /tmp/tsc.log)",
       "Bash(npx eslint *)",
-      "Bash(echo \"eslint=$?\")"
+      "Bash(echo \"eslint=$?\")",
+      "Bash(curl -s -o /dev/null -w \"project_detail=%{http_code}\\\\n\" http://localhost:3000/projects/69fb956f5ed39d59170c5f6e)",
+      "Bash(curl -s -o /dev/null -w \"projects_list=%{http_code}\\\\n\" http://localhost:3000/projects)",
+      "Bash(node _tmp_pl2.mjs)",
+      "Bash(curl -s -o /dev/null -w \"list=%{http_code} detail=%{http_code}\\\\n\" http://localhost:3000/projects)",
+      "Bash(curl -s -o /dev/null -w \"scene_detail=%{http_code}\\\\n\" http://localhost:3000/scenes/6a15bd93a83a263eac41137a)"
     ],
     "additionalDirectories": [
       "/Users/antonio/workspace/TMKL/node_modules",
