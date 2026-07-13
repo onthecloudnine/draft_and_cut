@@ -169,3 +169,109 @@ export async function getProjectSceneSummaries(projectId: string) {
     })
   );
 }
+
+export type ProjectPlaylistItem = {
+  sceneId: string;
+  sceneNumber: string;
+  label: string;
+  url: string;
+  mimeType: string | null;
+};
+
+// Playlist secuencial del proyecto: en orden de escena, los clips de cada plano
+// en la etapa activa de la escena; si una escena no tiene clips por plano, cae a
+// su último video de escena. Misma regla que el playthrough del detalle, pero
+// devolviendo sólo lo reproducible (para el mini-player del listado /projects).
+export async function getProjectPlaylist(projectId: string): Promise<ProjectPlaylistItem[]> {
+  await connectDb();
+
+  const scenes = await Scene.find({ projectId }).lean();
+  scenes.sort((left, right) => compareNumericText(left.sceneNumber, right.sceneNumber));
+  const sceneIds = scenes.map((scene) => scene._id);
+  const shots = await Shot.find({ projectId, sceneId: { $in: sceneIds } }).lean();
+  const shotsByScene = new Map<string, typeof shots>();
+  for (const shot of shots) {
+    const key = String(shot.sceneId);
+    shotsByScene.set(key, [...(shotsByScene.get(key) ?? []), shot]);
+  }
+
+  const shotClips = await VideoVersion.find({
+    projectId,
+    scope: "shot",
+    status: "ready_for_review",
+    shotId: { $in: shots.map((shot) => shot._id) }
+  })
+    .select("shotId stage versionNumber s3Key mimeType")
+    .lean();
+  const latestClipByShotStage = new Map<
+    string,
+    { versionNumber: number; s3Key: string; mimeType: string | null }
+  >();
+  for (const clip of shotClips) {
+    if (!clip.s3Key) continue;
+    const key = `${String(clip.shotId)}:${clip.stage}`;
+    const current = latestClipByShotStage.get(key);
+    if (!current || clip.versionNumber > current.versionNumber) {
+      latestClipByShotStage.set(key, {
+        versionNumber: clip.versionNumber,
+        s3Key: clip.s3Key,
+        mimeType: clip.mimeType ?? null
+      });
+    }
+  }
+
+  const items: ProjectPlaylistItem[] = [];
+  for (const scene of scenes) {
+    const sceneStage = scene.stage ?? "storyboard";
+    const sceneShots = [...(shotsByScene.get(String(scene._id)) ?? [])].sort(
+      (left, right) =>
+        (typeof left.startFrame === "number" ? left.startFrame : 0) -
+          (typeof right.startFrame === "number" ? right.startFrame : 0) ||
+        compareNumericText(left.shotNumber, right.shotNumber)
+    );
+    const clippedShots = sceneShots
+      .map((shot) => ({
+        shot,
+        clip: latestClipByShotStage.get(`${String(shot._id)}:${sceneStage}`) ?? null
+      }))
+      .filter((entry) => entry.clip);
+
+    if (clippedShots.length > 0) {
+      const urls = await Promise.all(
+        clippedShots.map((entry) => maybeGetSignedObjectUrl(entry.clip!.s3Key))
+      );
+      clippedShots.forEach((entry, index) => {
+        const url = urls[index];
+        if (url) {
+          items.push({
+            sceneId: String(scene._id),
+            sceneNumber: scene.sceneNumber,
+            label: entry.shot.shotNumber,
+            url,
+            mimeType: entry.clip!.mimeType
+          });
+        }
+      });
+      continue;
+    }
+
+    const latestVideo = await VideoVersion.findOne({ sceneId: scene._id })
+      .sort({ createdAt: -1 })
+      .select("s3Key mimeType")
+      .lean();
+    if (latestVideo?.s3Key) {
+      const url = await maybeGetSignedObjectUrl(latestVideo.s3Key);
+      if (url) {
+        items.push({
+          sceneId: String(scene._id),
+          sceneNumber: scene.sceneNumber,
+          label: "",
+          url,
+          mimeType: latestVideo.mimeType ?? null
+        });
+      }
+    }
+  }
+
+  return items;
+}

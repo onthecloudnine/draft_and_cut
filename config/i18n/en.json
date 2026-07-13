@@ -461,7 +461,17 @@
     "timelineTitle": "Timeline",
     "timelineCount": "{count} scenes",
     "openScene": "Open scene",
-    "playAll": "Play all"
+    "playAll": "Play all",
+    "playProject": "Play project",
+    "playAgain": "Play again",
+    "play": "Play",
+    "pause": "Pause",
+    "enterProject": "View project",
+    "playlistLoading": "Loading videos",
+    "playlistEmpty": "No videos",
+    "playlistError": "Couldn't load",
+    "prevClip": "Previous clip",
+    "nextClip": "Next clip"
   },
   "review": {
     "backToScene": "Back to scene",

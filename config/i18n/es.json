@@ -461,7 +461,17 @@
     "timelineTitle": "Linea de tiempo",
     "timelineCount": "{count} escenas",
     "openScene": "Ir a la escena",
-    "playAll": "Reproducir todo"
+    "playAll": "Reproducir todo",
+    "playProject": "Reproducir proyecto",
+    "playAgain": "Reproducir de nuevo",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "enterProject": "Ver proyecto",
+    "playlistLoading": "Cargando videos",
+    "playlistEmpty": "Sin videos",
+    "playlistError": "No se pudo cargar",
+    "prevClip": "Clip anterior",
+    "nextClip": "Clip siguiente"
   },
   "review": {
     "backToScene": "Volver a escena",

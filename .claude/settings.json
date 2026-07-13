@@ -69,7 +69,12 @@
       "Bash(node _tmp_chk.mjs)",
       "Bash(node _tmp_create_5259.mjs)",
       "Bash(lsof -ti:3000)",
-      "Bash(xargs -I{} ps -o pid=,command= -p {})"
+      "Bash(xargs -I{} ps -o pid=,command= -p {})",
+      "Bash(node _tmp_playlist_check.mjs)",
+      "Bash(echo \"tsc=$?\")",
+      "Bash(grep -v '^$' /tmp/tsc.log)",
+      "Bash(npx eslint *)",
+      "Bash(echo \"eslint=$?\")"
     ],
     "additionalDirectories": [
       "/Users/antonio/workspace/TMKL/node_modules",
