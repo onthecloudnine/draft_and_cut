@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { plainTextToHtml } from "@/components/rich-text-editor";
 import { AudioTracksPanel } from "./audio-tracks-panel";
 import { readVideoMetadata, uploadShotMedia } from "@/lib/uploads/client";
+import { backfillVideoThumbnail } from "@/lib/uploads/thumbnails";
 import { ArtReferencesPanel, type ArtReferenceData } from "./art-references-panel";
 import type { AudioVersionData, StoryboardFrameData } from "./phase-types";
 
@@ -101,6 +102,7 @@ type VideoData = {
   resolution: string;
   isFavorite: boolean;
   url: string | null;
+  thumbnailUrl?: string | null;
 };
 
 // Un plano puede tener como media un video o una imagen (subidos de forma
@@ -109,6 +111,14 @@ function isImageMedia(media: { mimeType?: string; fileName?: string } | null | u
   if (!media) return false;
   if (media.mimeType) return media.mimeType.startsWith("image/");
   return /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(media.fileName ?? "");
+}
+
+// Miniatura del plano: si el media ya es una imagen, la miniatura es la imagen
+// misma; si es video, el JPEG capturado del frame.
+function shotThumbnailUrl(clip: VideoData | undefined | null) {
+  if (!clip) return null;
+  if (isImageMedia(clip)) return clip.url;
+  return clip.thumbnailUrl ?? null;
 }
 
 type AttachmentData = {
@@ -1748,6 +1758,7 @@ function TimelineView(props: TimelineViewProps) {
     onUpdateShot,
     optionLabel,
     scene,
+    setVideos,
     shots,
     t,
     timelineTool,
@@ -1785,6 +1796,41 @@ function TimelineView(props: TimelineViewProps) {
     }
     return map;
   }, [videos, scene.stage]);
+
+  // Backfill de miniaturas: los clips subidos antes de que se generara el JPEG
+  // quedaron sin thumbnailKey. Se captura el frame en el navegador desde la URL
+  // firmada y se sube sólo el JPEG (no re-sube el video ni usa ffmpeg). Best-effort,
+  // de a uno para no saturar la red, y una sola vez por clip.
+  const backfilledThumbsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const pending = Array.from(clipByShot.values()).filter(
+      (clip) =>
+        clip.url &&
+        !clip.thumbnailUrl &&
+        !isImageMedia(clip) &&
+        !backfilledThumbsRef.current.has(clip.id)
+    );
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      for (const clip of pending) {
+        if (cancelled) return;
+        backfilledThumbsRef.current.add(clip.id);
+        const previewUrl = await backfillVideoThumbnail(clip.id, clip.url as string);
+        if (cancelled || !previewUrl) continue;
+        setVideos((current) =>
+          current.map((video) =>
+            video.id === clip.id ? { ...video, thumbnailUrl: previewUrl } : video
+          )
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clipByShot, setVideos]);
 
   const playableShots = useMemo(
     () =>
@@ -2830,6 +2876,7 @@ function TimelineView(props: TimelineViewProps) {
                     scrubbingRef={isScrubbingRef}
                     scene={scene}
                     shot={shot}
+                    thumbnailUrl={shotThumbnailUrl(clipByShot.get(shot.id))}
                     tool={timelineTool}
                     widthPx={widthPx}
                   />
@@ -3239,6 +3286,7 @@ type ShotThumbnailProps = {
   scrubbingRef: React.MutableRefObject<boolean>;
   scene: SceneData;
   shot: ShotData;
+  thumbnailUrl: string | null;
   tool: TimelineTool;
   widthPx: number;
 };
@@ -3258,6 +3306,7 @@ const ShotThumbnail = memo(function ShotThumbnail({
   scrubbingRef,
   scene,
   shot,
+  thumbnailUrl,
   tool,
   widthPx
 }: ShotThumbnailProps) {
@@ -3401,14 +3450,44 @@ const ShotThumbnail = memo(function ShotThumbnail({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
+        {thumbnailUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt=""
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+              loading="lazy"
+              src={thumbnailUrl}
+            />
+            {/* Degradado para que el número de plano y el timecode sigan legibles
+                sobre cualquier frame. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/40"
+            />
+          </>
+        ) : null}
         <span className="pointer-events-none absolute right-1.5 top-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           {framesToTimecode(shot.startFrame, scene.fpsDefault)}
         </span>
         <div className="pointer-events-none relative z-10 min-w-0">
           {shot.title ? (
-            <p className="truncate text-[11px] font-semibold text-fg-strong">{shot.title}</p>
+            <p
+              className={[
+                "truncate text-[11px] font-semibold",
+                thumbnailUrl ? "text-white" : "text-fg-strong"
+              ].join(" ")}
+            >
+              {shot.title}
+            </p>
           ) : null}
-          <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-strong">
+          <p
+            className={[
+              "truncate text-[10px] font-semibold uppercase tracking-wider",
+              thumbnailUrl ? "text-white/80" : "text-muted-strong"
+            ].join(" ")}
+          >
             {shot.shotNumber}
           </p>
         </div>
@@ -3481,6 +3560,7 @@ function areShotThumbnailPropsEqual(prev: ShotThumbnailProps, next: ShotThumbnai
   if (prev.optionLabel !== next.optionLabel) return false;
   if (prev.scrubbingRef !== next.scrubbingRef) return false;
   if (prev.scene.fpsDefault !== next.scene.fpsDefault) return false;
+  if (prev.thumbnailUrl !== next.thumbnailUrl) return false;
   const a = prev.shot;
   const b = next.shot;
   if (a === b) return true;
@@ -3574,7 +3654,7 @@ function TextInput({
 }) {
   return (
     <input
-      className="h-8 w-full min-w-0 rounded border border-line bg-background px-2 text-[13px] text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-8 w-full min-w-0 rounded border border-line bg-background px-2 text-[12px] text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
@@ -3609,7 +3689,7 @@ function TextArea({
   return (
     <textarea
       ref={ref}
-      className="w-full min-w-0 resize-none overflow-hidden rounded border border-line bg-background px-2 py-1.5 text-[13px] leading-5 text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+      className="w-full min-w-0 resize-none overflow-hidden rounded border border-line bg-background px-2 py-1.5 text-[12px] leading-[1.45] text-fg focus:border-red-600/60 focus:outline-none focus:ring-1 focus:ring-red-600/30 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onBlur={onBlur}
       onChange={(event) => onChange(event.target.value)}

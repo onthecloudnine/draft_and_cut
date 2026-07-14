@@ -354,7 +354,7 @@ const ShotInfoPanel = memo(function ShotInfoPanel({
           <FieldLabel>{t("scene.title")}</FieldLabel>
           {canEdit ? (
             <input
-              className="h-8 rounded-md border border-line-strong bg-background px-2 text-sm text-fg"
+              className="h-8 rounded-md border border-line-strong bg-background px-2 text-[12px] text-fg"
               onChange={(event) => onUpdateShot(shot.id, { title: event.target.value })}
               value={shot.title}
             />
@@ -371,7 +371,7 @@ const ShotInfoPanel = memo(function ShotInfoPanel({
             <FieldLabel>{field.label}</FieldLabel>
             {canEdit ? (
               <input
-                className="h-8 rounded-md border border-line-strong bg-background px-2 text-sm text-fg"
+                className="h-8 rounded-md border border-line-strong bg-background px-2 text-[12px] text-fg"
                 onChange={(event) => onUpdateShot(shot.id, { [field.key]: event.target.value })}
                 value={shot[field.key]}
               />
@@ -386,7 +386,7 @@ const ShotInfoPanel = memo(function ShotInfoPanel({
             <FieldLabel>{field.label}</FieldLabel>
             {canEdit ? (
               <textarea
-                className="min-h-16 rounded-md border border-line-strong bg-background px-2 py-1 text-sm leading-6 text-fg"
+                className="min-h-16 rounded-md border border-line-strong bg-background px-2 py-1 text-[12px] leading-[1.45] text-fg"
                 onChange={(event) => onUpdateShot(shot.id, { [field.key]: event.target.value })}
                 value={shot[field.key]}
               />
@@ -432,5 +432,5 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function ReadValue({ value }: { value: string }) {
-  return <p className="whitespace-pre-wrap text-sm leading-6 text-fg">{value?.trim() ? value : "—"}</p>;
+  return <p className="whitespace-pre-wrap text-[12px] leading-[1.45] text-fg">{value?.trim() ? value : "—"}</p>;
 }

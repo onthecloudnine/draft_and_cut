@@ -3,11 +3,27 @@
 // Mirrors the flow in app/(app)/upload/upload-form.tsx, generalized for the
 // per-shot video, storyboard image and scene audio endpoints.
 
+import { captureThumbnailFromFile, putThumbnail } from "@/lib/uploads/thumbnails";
+
 export type VideoFileMetadata = {
   duration: number;
   resolution: string;
   fileSizeMb: number;
 };
+
+// /api/uploads/init ya reserva un thumbnailKey y devuelve una URL firmada para
+// subirlo. Extraemos el frame del File local (sin red, sin ffmpeg) y lo subimos;
+// si falla, se completa con thumbnailUploaded:false y el servidor limpia la clave.
+async function uploadThumbnailForFile(
+  file: File,
+  uploadUrl: string | undefined,
+  uploadHeaders: Record<string, string> | undefined
+): Promise<boolean> {
+  if (!uploadUrl) return false;
+  const blob = await captureThumbnailFromFile(file);
+  if (!blob) return false;
+  return putThumbnail(blob, uploadUrl, uploadHeaders);
+}
 
 function fileSizeMb(file: File) {
   return Number((file.size / 1024 / 1024).toFixed(2));
@@ -121,10 +137,15 @@ export async function uploadShotVideo(input: {
     resolution: metadata.resolution
   });
   const etag = await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  const thumbnailUploaded = await uploadThumbnailForFile(
+    input.file,
+    init.thumbnailUploadUrl,
+    init.thumbnailUploadHeaders
+  );
   await postJson(`/api/uploads/${init.uploadId}/complete`, {
     uploaded: true,
     etag,
-    thumbnailUploaded: false
+    thumbnailUploaded
   });
   return {
     versionNumber: init.versionNumber,
@@ -175,10 +196,15 @@ export async function uploadShotMedia(input: {
     resolution
   });
   const etag = await putToS3(input.file, init.uploadUrl, init.uploadHeaders);
+  const thumbnailUploaded = await uploadThumbnailForFile(
+    input.file,
+    init.thumbnailUploadUrl,
+    init.thumbnailUploadHeaders
+  );
   await postJson(`/api/uploads/${init.uploadId}/complete`, {
     uploaded: true,
     etag,
-    thumbnailUploaded: false
+    thumbnailUploaded
   });
   return {
     versionNumber: init.versionNumber,

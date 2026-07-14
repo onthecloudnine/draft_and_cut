@@ -100,23 +100,33 @@ export async function getSceneDetailData(sceneId: string) {
   const [videosOut, storyboardFramesOut, audioVersionsOut, artReferencesOut, attachmentsOut] =
     await Promise.all([
       Promise.all(
-        videos.map(async (video) => ({
-          id: String(video._id),
-          shotId: video.shotId ? String(video.shotId) : null,
-          scope: video.scope,
-          versionNumber: video.versionNumber,
-          stage: video.stage,
-          status: video.status,
-          fileName: video.fileName,
-          mimeType: video.mimeType,
-          duration: video.duration,
-          fps: video.fps,
-          frameCount: video.frameCount,
-          resolution: video.resolution,
-          isFavorite: video.isFavorite,
-          createdAt: video.createdAt?.toISOString(),
-          url: video.status === "ready_for_review" ? await maybeGetSignedObjectUrl(video.s3Key) : null
-        }))
+        videos.map(async (video) => {
+          const [url, thumbnailUrl] = await Promise.all([
+            video.status === "ready_for_review"
+              ? maybeGetSignedObjectUrl(video.s3Key)
+              : Promise.resolve(null),
+            video.thumbnailKey ? maybeGetSignedObjectUrl(video.thumbnailKey) : Promise.resolve(null)
+          ]);
+
+          return {
+            id: String(video._id),
+            shotId: video.shotId ? String(video.shotId) : null,
+            scope: video.scope,
+            versionNumber: video.versionNumber,
+            stage: video.stage,
+            status: video.status,
+            fileName: video.fileName,
+            mimeType: video.mimeType,
+            duration: video.duration,
+            fps: video.fps,
+            frameCount: video.frameCount,
+            resolution: video.resolution,
+            isFavorite: video.isFavorite,
+            createdAt: video.createdAt?.toISOString(),
+            url,
+            thumbnailUrl
+          };
+        })
       ),
       Promise.all(
         storyboardFrames.map(async (frame) => ({

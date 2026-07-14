@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/client";
+import { backfillVideoThumbnail } from "@/lib/uploads/thumbnails";
 
 type SceneCard = {
   id: string;
@@ -139,37 +140,9 @@ export function ProjectScenesMosaic({ project, scenes, userRole }: ProjectScenes
     const videoUrl = currentVideo.url;
     let cancelled = false;
     void (async () => {
-      try {
-        const blob = await captureFrameFromUrl(videoUrl);
-        if (cancelled || !blob) return;
-
-        const initResponse = await fetch(`/api/videos/${videoId}/thumbnail`, { method: "POST" });
-        if (!initResponse.ok) return;
-        const init = (await initResponse.json()) as {
-          thumbnailKey: string;
-          uploadUrl: string;
-          uploadHeaders?: Record<string, string>;
-        };
-
-        const putResponse = await fetch(init.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "image/jpeg", ...(init.uploadHeaders ?? {}) },
-          body: blob
-        });
-        if (!putResponse.ok || cancelled) return;
-
-        await fetch(`/api/videos/${videoId}/thumbnail`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ thumbnailKey: init.thumbnailKey })
-        });
-        if (cancelled) return;
-
-        const previewUrl = URL.createObjectURL(blob);
-        setThumbnailOverrides((current) => ({ ...current, [videoId]: previewUrl }));
-      } catch {
-        /* best-effort */
-      }
+      const previewUrl = await backfillVideoThumbnail(videoId, videoUrl);
+      if (cancelled || !previewUrl) return;
+      setThumbnailOverrides((current) => ({ ...current, [videoId]: previewUrl }));
     })();
 
     return () => {
@@ -505,45 +478,4 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="mt-0.5 text-muted">{label}</p>
     </div>
   );
-}
-
-async function captureFrameFromUrl(url: string): Promise<Blob | null> {
-  const video = document.createElement("video");
-  video.crossOrigin = "anonymous";
-  video.preload = "auto";
-  video.muted = true;
-  video.playsInline = true;
-  video.src = url;
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("metadata"));
-    });
-    const seekTo = Math.min(
-      Math.max(video.duration - 0.2, 0.1),
-      Math.max(3.0, video.duration * 0.33)
-    );
-    await new Promise<void>((resolve, reject) => {
-      video.onseeked = () => resolve();
-      video.onerror = () => reject(new Error("seek"));
-      video.currentTime = seekTo;
-    });
-    const maxWidth = 640;
-    const ratio = video.videoWidth > 0 ? Math.min(1, maxWidth / video.videoWidth) : 1;
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(video.videoWidth * ratio));
-    canvas.height = Math.max(1, Math.round(video.videoHeight * ratio));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.8)
-    );
-  } catch {
-    return null;
-  } finally {
-    video.removeAttribute("src");
-    video.load();
-  }
 }

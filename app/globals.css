@@ -101,6 +101,29 @@
   box-sizing: border-box;
 }
 
+/* Preflight de Tailwind fija font-size:100% en los controles de formulario, así
+   que cualquier input/textarea/select sin clase de tamaño hereda 1rem (15px) y
+   se ve desproporcionado. Esto les da un piso de 12px, consistente con el resto
+   del sistema de campos. Va en @layer base para que las utilidades text-* de un
+   componente sigan ganando cuando se declaran explícitamente. */
+@layer base {
+  input,
+  textarea,
+  select {
+    font-size: 12px;
+  }
+}
+
+/* Escala tipográfica global. Tailwind dimensiona texto y espaciado en rem, así
+   que bajar el root encoge ambos de forma proporcional y gana espacio útil en
+   toda la app. Se usa % (y no px) para respetar el tamaño de fuente que el
+   usuario haya configurado en su navegador. 93.75% = 15px sobre el default de 16px.
+   Los breakpoints no se mueven: las media queries resuelven rem contra el
+   tamaño inicial del navegador, no contra este valor. */
+html {
+  font-size: 93.75%;
+}
+
 html,
 body {
   min-height: 100%;
